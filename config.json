@@ -1,0 +1,8 @@
+{
+  "streamNodes": [
+    "https://rpc.buildteam.io",
+    "https://rpc.steemviz.com",
+    "https://steemd.minnowsupportproject.org"
+  ],
+  "startSteemBlock":   23605817
+}

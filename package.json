@@ -1,0 +1,31 @@
+{
+  "name": "smartcontractschain",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "crypto-js": "^3.1.9-1",
+    "express": "^4.16.3",
+    "jayson": "^2.0.6",
+    "js-base64": "^2.4.5",
+    "lokijs": "^1.5.5",
+    "nedb-promise": "^2.0.1",
+    "node-cleanup": "^2.1.2",
+    "steem": "^0.7.1",
+    "vm2": "^3.6.0"
+  },
+  "devDependencies": {
+    "eslint": "^5.0.0",
+    "eslint-config-airbnb": "^17.0.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-jsx-a11y": "^6.0.3",
+    "eslint-plugin-react": "^7.10.0"
+  }
+}
