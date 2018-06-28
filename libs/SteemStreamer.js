@@ -7,13 +7,14 @@ module.exports.SteemStreamer = class SteemStreamer {
   }
 
   stream(callback) {
-    steem.api.setOptions({ url: streamNodes[0] });
+    const node = streamNodes[0];
+    steem.api.setOptions({ url: node });
 
     return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
-      console.log('Starting Steem streaming, node ', streamNodes[0]); // eslint-disable-line no-console
+      console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
       this.GetBlock(callback);
     }).catch((err) => {
-      console.error('Stream error:', err.message, 'with', streamNodes[0]); // eslint-disable-line no-console
+      console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
       streamNodes.push(streamNodes.shift());
       this.stream(callback);
     });
@@ -28,7 +29,7 @@ module.exports.SteemStreamer = class SteemStreamer {
         // console.log('last_irreversible_block_num: ', last_irreversible_block_num);
 
         if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
-          console.log('getting steem block ', this.currentBlock);
+          console.log('getting Steem block ', this.currentBlock); // eslint-disable-line no-console
           steem.api.getBlock(this.currentBlock, (error, block) => { // eslint-disable-line camelcase
             if (err) return reject(error);
 
@@ -55,12 +56,13 @@ module.exports.SteemStreamer = class SteemStreamer {
   static ParseTransactions(refBlockNumber, block) {
     const newTransactions = [];
     const transactionsLength = block.transactions.length;
+
     for (let i = 0; i < transactionsLength; i += 1) {
-      // console.log(transaction)
+      // console.log(block.transactionIds)
       block.transactions[i].operations.forEach((operation) => {
         // ##STEEMCONTRACTSBEGIN##CONTRACTNAME##CONTRACTACTION##PAYLOAD##STEEMCONTRACTSEND##
         if (operation[0] === 'comment') {
-          console.log(block.transactionIds)
+          // console.log(operation)
           let { author, body } = operation[1]; // eslint-disable-line prefer-const
           body = body.trim();
 
@@ -73,13 +75,14 @@ module.exports.SteemStreamer = class SteemStreamer {
               const contractAction = steemContractParams[1];
               const contractPayload = steemContractParams[2];
 
-              /* console.log(
-                "contractName: ",
+              console.log( // eslint-disable-line no-console
+                'contractName: ',
                 contractName,
-                "contractAction: ", contractAction, "contractPayload: ", contractPayload); */
+                'contractAction: ', contractAction, 'contractPayload: ', contractPayload,
+              );
               newTransactions.push({
                 refBlockNumber,
-                transactionId: block.transactionIds[i],
+                transactionId: block.transaction_ids[i],
                 author,
                 contractName,
                 contractAction,

@@ -109,5 +109,5 @@ app.listen(5000);
 
 // execute actions before the app closes
 nodeCleanup((exitCode, signal) => {
-  console.log('App specific cleanup code... ', exitCode, signal);
+  console.log('App specific cleanup code... ', exitCode, signal); // eslint-disable-line no-console
 });
