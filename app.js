@@ -3,8 +3,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
 const { startSteemBlock } = require('./config');
-const { SteemStreamer } = require('./SteemStreamer');
-const { Blockchain, Transaction } = require('./Blockchain');
+const { SteemStreamer } = require('./libs/SteemStreamer');
+const { Blockchain, Transaction } = require('./libs/Blockchain');
 
 // instantiate the blockchain
 const steemContracts = new Blockchain();

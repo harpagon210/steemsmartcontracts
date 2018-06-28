@@ -2,9 +2,11 @@ const SHA256 = require('crypto-js/sha256');
 const { VM, VMScript } = require('vm2');
 const Loki = require('lokijs');
 
+const { DBUtils } = require('./DBUtils');
+
 const JSVMTIMEOUT = 10000;
 
-module.exports.Transaction = class Transaction {
+class Transaction {
   constructor(refBlockNumber, transactionId, sender, contract, action, payload) {
     this.refBlockNumber = refBlockNumber;
     this.transactionId = transactionId;
@@ -31,7 +33,7 @@ module.exports.Transaction = class Transaction {
     )
       .toString();
   }
-};
+}
 
 class Block {
   constructor(timestamp, transactions, previousBlockNumber, previousHash = '') {
@@ -71,7 +73,7 @@ class Block {
 
   produceBlock(state) {
     this.transactions.forEach((transaction) => {
-      console.log('transaction: ', transaction);
+      // console.log('transaction: ', transaction);
       const {
         sender,
         contract,
@@ -84,9 +86,11 @@ class Block {
       if (sender && contract && action) {
         if (contract === 'contract' && action === 'deploy' && payload) {
           logs = Block.deploySmartContract(state, transaction);
-        } else if (contract && action) {
+        } else {
           logs = Block.executeSmartContract(state, transaction);
         }
+      } else {
+        logs = { error: 'the parameters sender, contract and action are required' };
       }
 
       transaction.addLogs(logs);
@@ -95,12 +99,14 @@ class Block {
     this.hash = this.calculateHash();
     this.merkleRoot = this.calculateMerkleRoot(this.transactions);
 
-    console.log(`BLOCK PRODUCED: Block #: ${this.blockNumber} #Txs: ${this.transactions.length} hash: ${this.hash} merkle root: ${this.merkleRoot}`);
+    // console.log(`
+    // BLOCK PRODUCED: Block #: ${this.blockNumber} #Txs: ${this.transactions.length}
+    // hash: ${this.hash} merkle root: ${this.merkleRoot}`); // eslint-disable-line max-len
   }
 
   static deploySmartContract(state, transaction) {
     try {
-      console.log(transaction);
+      // console.log(transaction);
       const { sender } = transaction;
       const payload = JSON.parse(transaction.payload);
       const { name, params, code } = payload;
@@ -112,81 +118,88 @@ class Block {
 
         if (contract) {
           // contract.code = code;
-          throw new Error('contract already exists');
-        } else {
-          let codeTemplate = `
-            let actions = {};
-
-            ###ACTIONS###
-
-            if (typeof actions[action] === 'function')
-              actions[action](payload);
-          `;
-
-          codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code)); // eslint-disable-line no-undef
-
-          const script = new VMScript(codeTemplate).compile();
-
-          const tables = [];
-          const db = {
-            createTable: (tableName) => {
-              const finalTableName = `${name}_${tableName}`;
-              const table = state.database.getCollection(finalTableName);
-              if (table) return table;
-
-              tables.push(finalTableName);
-              return state.database.addCollection(finalTableName);
-            },
-            findInTable: (contractName, table, query) => this.findInTable(
-              contractName,
-              table,
-              query,
-            ),
-          };
-
-          const logs = {
-            events: [],
-          };
-
-          const vmState = {
-            action: 'create',
-            payload: params ? JSON.parse(JSON.stringify(params)) : null,
-            db,
-            debug: log => console.log(log), // eslint-disable-line no-console
-            executeSmartContract: (contractName, actionName, parameters) => {
-              const res = Block.executeSmartContract(
-                state,
-                {
-                  sender,
-                  contract: contractName,
-                  action: actionName,
-                  payload: parameters,
-                },
-              );
-              res.events.forEach(event => logs.events.push(event));
-            },
-            emit: (event, data) => logs.events.push({ event, data }),
-          };
-
-          Block.runContractCode(vmState, script);
-
-          const newContract = {
-            name,
-            owner: sender,
-            code: script,
-            tables,
-          };
-
-          contracts.insert(newContract);
-
-          return logs;
+          return { error: 'contract already exists' };
         }
+
+        let codeTemplate = `
+          let actions = {};
+
+          ###ACTIONS###
+
+          if (typeof actions[action] === 'function')
+            actions[action](payload);
+        `;
+
+        codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code)); // eslint-disable-line no-undef
+
+        const script = new VMScript(codeTemplate).compile();
+
+        const tables = [];
+        const db = {
+          createTable: (tableName) => {
+            const finalTableName = `${name}_${tableName}`;
+            const table = state.database.getCollection(finalTableName);
+            if (table) return table;
+
+            tables.push(finalTableName);
+            return state.database.addCollection(finalTableName);
+          },
+          findInTable: (contractName, table, query) => DBUtils.findInTable(
+            state,
+            contractName,
+            table,
+            query,
+          ),
+          findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
+            state,
+            contractName,
+            table,
+            query,
+          ),
+        };
+
+        const logs = {
+          events: [],
+        };
+
+        const vmState = {
+          action: 'create',
+          payload: params ? JSON.parse(JSON.stringify(params)) : null,
+          db,
+          debug: log => console.log(log), // eslint-disable-line no-console
+          executeSmartContract: (contractName, actionName, parameters) => {
+            const res = Block.executeSmartContract(
+              state,
+              {
+                sender,
+                contract: contractName,
+                action: actionName,
+                payload: parameters,
+              },
+            );
+            res.events.forEach(event => logs.events.push(event));
+          },
+          emit: (event, data) => logs.events.push({ event, data }),
+        };
+
+        Block.runContractCode(vmState, script);
+
+        const newContract = {
+          name,
+          owner: sender,
+          code: script,
+          tables,
+        };
+
+        contracts.insert(newContract);
+
+        return logs;
       }
 
       return { error: 'parameters name and code are mandatory and they must be strings' };
     } catch (e) {
-      console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
-      return { error: e };
+      // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
+      return { error: { name: e.name, message: e.message } };
     }
   }
 
@@ -206,7 +219,7 @@ class Block {
       const contracts = state.database.getCollection('contracts');
       const contractInDb = contracts.findOne({ name: contract });
       if (contractInDb === null) {
-        throw new Error('contract doesn\'t exist');
+        return { error: 'contract doesn\'t exist' };
       }
 
       const contractCode = contractInDb.code;
@@ -221,7 +234,18 @@ class Block {
 
           return null;
         },
-        findInTable: (contractName, table, query) => this.findInTable(contractName, table, query),
+        findInTable: (contractName, table, query) => DBUtils.findInTable(
+          state,
+          contractName,
+          table,
+          query,
+        ),
+        findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
+          state,
+          contractName,
+          table,
+          query,
+        ),
       };
 
       const logs = {
@@ -257,8 +281,8 @@ class Block {
 
       return logs;
     } catch (e) {
-      console.error('ERROR DURING CONTRACT EXECUTION: ', e);
-      return { error: e };
+      // console.error('ERROR DURING CONTRACT EXECUTION: ', e);
+      return { error: { name: e.name, message: e.message } };
     }
   }
 
@@ -273,7 +297,7 @@ class Block {
   }
 }
 
-module.exports.Blockchain = class Blockchain {
+class Blockchain {
   constructor() {
     this.chain = [Blockchain.createGenesisBlock()];
     this.pendingTransactions = [];
@@ -286,7 +310,8 @@ module.exports.Blockchain = class Blockchain {
 
   static createGenesisBlock() {
     const genesisBlock = new Block('2018-06-01T00:00:00', [], -1, '0');
-    console.log('BLOCK GENESIS CREATED: #', genesisBlock.blockNumber); // eslint-disable-line no-console
+    // console.log('BLOCK GENESIS CREATED: #',
+    // genesisBlock.blockNumber); // eslint-disable-line no-console
     return genesisBlock;
   }
 
@@ -363,47 +388,17 @@ module.exports.Blockchain = class Blockchain {
   }
 
   findInTable(contract, table, query) {
-    if (contract && typeof contract === 'string'
-        && table && typeof table === 'string'
-        && query && typeof query === 'object') {
-      const contracts = this.state.database.getCollection('contracts');
-      const contractInDb = contracts.findOne({ name: contract });
-
-      if (contractInDb) {
-        const finalTableName = `${contract}_${table}`;
-        if (contractInDb.tables.includes(finalTableName)) {
-          const tableData = this.state.database.getCollection(finalTableName);
-          return tableData.find(query);
-        }
-      }
-    }
-
-    return null;
+    return DBUtils.findInTable(this.state, contract, table, query);
   }
 
-  getCode(contract) {
-    if (contract && typeof contract === 'string') {
-      const contracts = this.state.database.getCollection('contracts');
-      const contractInDb = contracts.findOne({ name: contract });
-
-      if (contractInDb) {
-        return contractInDb.code.code;
-      }
-    }
-
-    return null;
+  findOneInTable(contract, table, query) {
+    return DBUtils.findOneInTable(this.state, contract, table, query);
   }
 
-  getOwner(contract) {
-    if (contract && typeof contract === 'string') {
-      const contracts = this.state.database.getCollection('contracts');
-      const contractInDb = contracts.findOne({ name: contract });
-
-      if (contractInDb) {
-        return contractInDb.owner;
-      }
-    }
-
-    return null;
+  getContract(contract) {
+    return DBUtils.getContract(this.state, contract);
   }
-};
+}
+
+module.exports.Transaction = Transaction;
+module.exports.Blockchain = Blockchain;

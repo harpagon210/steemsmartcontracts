@@ -1,5 +1,5 @@
 const steem = require('steem');
-const { streamNodes } = require('./config');
+const { streamNodes } = require('../config');
 
 module.exports.SteemStreamer = class SteemStreamer {
   constructor(currentBlock) {
@@ -60,7 +60,7 @@ module.exports.SteemStreamer = class SteemStreamer {
       block.transactions[i].operations.forEach((operation) => {
         // ##STEEMCONTRACTSBEGIN##CONTRACTNAME##CONTRACTACTION##PAYLOAD##STEEMCONTRACTSEND##
         if (operation[0] === 'comment') {
-          // console.log(operation)
+          console.log(block.transactionIds)
           let { author, body } = operation[1]; // eslint-disable-line prefer-const
           body = body.trim();
 
