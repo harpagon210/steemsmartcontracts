@@ -76,9 +76,11 @@ module.exports.SteemStreamer = class SteemStreamer {
               const contractPayload = steemContractParams[2];
 
               console.log( // eslint-disable-line no-console
-                'contractName: ',
+                'author:',
+                author,
+                'contractName:',
                 contractName,
-                'contractAction: ', contractAction, 'contractPayload: ', contractPayload,
+                'contractAction:', contractAction, 'contractPayload:', contractPayload,
               );
               newTransactions.push({
                 refBlockNumber,

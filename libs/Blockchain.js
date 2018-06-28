@@ -1,6 +1,7 @@
 const SHA256 = require('crypto-js/sha256');
 const { VM, VMScript } = require('vm2');
 const Loki = require('lokijs');
+const { Base64 } = require('js-base64');
 
 const { DBUtils } = require('./DBUtils');
 
@@ -130,7 +131,7 @@ class Block {
             actions[action](payload);
         `;
 
-        codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code)); // eslint-disable-line no-undef
+        codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code));
 
         const script = new VMScript(codeTemplate).compile();
 
@@ -192,6 +193,8 @@ class Block {
         };
 
         contracts.insert(newContract);
+
+        if (logs.events.length === 0) return {};
 
         return logs;
       }

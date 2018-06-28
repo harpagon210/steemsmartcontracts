@@ -57,11 +57,11 @@ const blockchainRPC = {
 
 const contractsRPC = {
 
-  getCode: (args, callback) => {
+  getContract: (args, callback) => {
     const { contract } = args;
 
     if (contract) {
-      const res = steemContracts.getCode(contract);
+      const res = steemContracts.getContract(contract);
       callback(null, res);
     } else {
       callback({
@@ -71,16 +71,16 @@ const contractsRPC = {
     }
   },
 
-  getOwner: (args, callback) => {
-    const { contract } = args;
+  findOneInTable: (args, callback) => {
+    const { contract, table, query } = args;
 
-    if (contract) {
-      const res = steemContracts.getOwner(contract);
+    if (contract && table && query) {
+      const res = steemContracts.findOneInTable(contract, table, query);
       callback(null, res);
     } else {
       callback({
         code: 400,
-        message: 'missing or wrong parameters: contract is required',
+        message: 'missing or wrong parameters: contract and tableName are required',
       }, null);
     }
   },
