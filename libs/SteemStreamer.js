@@ -12,7 +12,8 @@ module.exports.SteemStreamer = class SteemStreamer {
 
     return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
       console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
-      this.GetBlock(callback);
+
+      this.GetBlock(callback, reject);
     }).catch((err) => {
       console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
       streamNodes.push(streamNodes.shift());
@@ -20,36 +21,34 @@ module.exports.SteemStreamer = class SteemStreamer {
     });
   }
 
-  GetBlock(callback) {
-    return new Promise((resolve, reject) => {
-      steem.api.getDynamicGlobalProperties((err, blockchainProps) => { // eslint-disable-line
-        if (err) return reject(err);
+  GetBlock(callback, reject) {
+    steem.api.getDynamicGlobalProperties((err, blockchainProps) => { // eslint-disable-line
+      if (err) return reject(err);
 
-        const { last_irreversible_block_num } = blockchainProps; // eslint-disable-line camelcase
-        // console.log('last_irreversible_block_num: ', last_irreversible_block_num);
+      const { last_irreversible_block_num } = blockchainProps; // eslint-disable-line camelcase
+      // console.log('last_irreversible_block_num: ', last_irreversible_block_num);
 
-        if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
-          console.log('getting Steem block ', this.currentBlock); // eslint-disable-line no-console
-          steem.api.getBlock(this.currentBlock, (error, block) => { // eslint-disable-line camelcase
-            if (err) return reject(error);
+      if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
+        console.log('getting Steem block ', this.currentBlock); // eslint-disable-line no-console
+        steem.api.getBlock(this.currentBlock, (error, block) => { // eslint-disable-line camelcase
+          if (err) return reject(error);
 
-            callback(
-              {
-                timestamp: block.timestamp,
-                transactions: SteemStreamer.ParseTransactions(
-                  this.currentBlock,
-                  block,
-                ),
-              },
-            );
+          callback(
+            {
+              timestamp: block.timestamp,
+              transactions: SteemStreamer.ParseTransactions(
+                this.currentBlock,
+                block,
+              ),
+            },
+          );
 
-            this.currentBlock += 1;
-            return this.GetBlock(callback);
-          });
-        } else {
-          return this.GetBlock(callback);
-        }
-      });
+          this.currentBlock += 1;
+          return this.GetBlock(callback, reject);
+        });
+      } else {
+        return this.GetBlock(callback, reject);
+      }
     });
   }
 
