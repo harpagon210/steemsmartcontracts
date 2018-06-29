@@ -1,4 +1,4 @@
-# Steem Smart Contracts
+# Steem Smart Contracts [![Build Status](https://travis-ci.org/harpagon210/steemsmartcontracts.svg?branch=master)](https://travis-ci.org/harpagon210/steemsmartcontracts)
 
  ## 1.  What is it?
 
