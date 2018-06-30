@@ -54,7 +54,7 @@ module.exports.SteemStreamer = class SteemStreamer {
         }
       });
     } catch (e) {
-      reject(e);
+      return reject(e);
     }
   }
 
