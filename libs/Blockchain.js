@@ -19,10 +19,13 @@ class Transaction {
     this.logs = {};
   }
 
+  // add logs to the transaction
+  // useful to get the result of the execution of a smart contract (events and errors)
   addLogs(logs) {
     this.logs = JSON.stringify(logs);
   }
 
+  // calculate the hash of the transaction
   calculateHash() {
     return SHA256(
       this.refBlockNumber
@@ -46,11 +49,13 @@ class Block {
     this.merkleRoot = '';
   }
 
+  // calculate the hash of the block
   calculateHash() {
     return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions))
       .toString();
   }
 
+  // calculate the Merkle root of the block ((#TA + #TB) + (#TC + #TD) )
   calculateMerkleRoot(transactions) {
     if (transactions.length <= 0) return '';
 
@@ -72,6 +77,7 @@ class Block {
     return this.calculateMerkleRoot(newTransactions);
   }
 
+  // produce the block (deploy a smart contract or execute a smart contract)
   produceBlock(state) {
     this.transactions.forEach((transaction) => {
       // console.log('transaction: ', transaction);
@@ -105,6 +111,7 @@ class Block {
     // hash: ${this.hash} merkle root: ${this.merkleRoot}`); // eslint-disable-line max-len
   }
 
+  // deploy the smart contract to the blockchain and initialize the database if needed
   static deploySmartContract(state, transaction) {
     try {
       // console.log(transaction);
@@ -211,6 +218,7 @@ class Block {
     }
   }
 
+  // execute the smart contract and perform actions on the database if needed
   static executeSmartContract(state, transaction) {
     try {
       const {
@@ -294,6 +302,7 @@ class Block {
     }
   }
 
+  // run the contractCode in a VM with the vmState as a state for the VM
   static runContractCode(vmState, contractCode) {
     // run the code in the VM
     const vm = new VM({
@@ -316,6 +325,7 @@ class Blockchain {
     this.state.database.addCollection('contracts');
   }
 
+  // create the genesis block of the blockchain
   static createGenesisBlock() {
     const genesisBlock = new Block('2018-06-01T00:00:00', [], -1, '0');
     // console.log('BLOCK GENESIS CREATED: #',
@@ -323,10 +333,12 @@ class Blockchain {
     return genesisBlock;
   }
 
+  // get the latest block of the blockchain
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
   }
 
+  // produce all the pending transactions, that will result in the creattion of a block
   producePendingTransactions(timestamp) {
     const previousBlock = this.getLatestBlock();
     const block = new Block(
@@ -344,10 +356,12 @@ class Blockchain {
     this.pendingTransactions = [];
   }
 
+  // create a transaction that will be then included in a block
   createTransaction(transaction) {
     this.pendingTransactions.push(transaction);
   }
 
+  // check if the blockchain is valid by checking the block hashes and Merkle roots
   isChainValid() {
     for (let i = 1; i < this.chain.length; i += 1) {
       const currentBlock = this.chain[i];
@@ -369,6 +383,7 @@ class Blockchain {
     return true;
   }
 
+  // replay the entire blockchain (rebuild the database as well)
   replayBlockchain() {
     this.state = {
       database: new Loki(),
@@ -383,6 +398,7 @@ class Blockchain {
 
   // RPC methods
 
+  // get the block that has the block number blockNumber
   getBlockInfo(blockNumber) {
     if (blockNumber && typeof blockNumber === 'number' && blockNumber < this.chain.length) {
       return this.chain[blockNumber];
@@ -391,18 +407,22 @@ class Blockchain {
     return null;
   }
 
+  // get the latest block available on the blockchain
   getLatestBlockInfo() {
     return this.chain[this.chain.length - 1];
   }
 
+  // find records in the contract table by using the query, returns empty array if no records found
   findInTable(contract, table, query) {
     return DBUtils.findInTable(this.state, contract, table, query);
   }
 
+  // find one record in the table of a contract by using the query, returns nullrecord found
   findOneInTable(contract, table, query) {
     return DBUtils.findOneInTable(this.state, contract, table, query);
   }
 
+  // get the contract info (owner, code, tables available, etc...)
   getContract(contract) {
     return DBUtils.getContract(this.state, contract);
   }

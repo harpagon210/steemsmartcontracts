@@ -6,6 +6,7 @@ module.exports.SteemStreamer = class SteemStreamer {
     this.currentBlock = currentBlock;
   }
 
+  // stream the Steem blockchain to find transactions related to the sidechain
   stream(callback) {
     const node = streamNodes[0];
     steem.api.setOptions({ url: node });
@@ -21,6 +22,7 @@ module.exports.SteemStreamer = class SteemStreamer {
     });
   }
 
+  // get a block from the Steem blockchain
   GetBlock(callback, reject) {
     steem.api.getDynamicGlobalProperties((err, blockchainProps) => { // eslint-disable-line
       if (err) return reject(err);
@@ -52,6 +54,7 @@ module.exports.SteemStreamer = class SteemStreamer {
     });
   }
 
+  // parse the transactions found in a Steem block
   static ParseTransactions(refBlockNumber, block) {
     const newTransactions = [];
     const transactionsLength = block.transactions.length;
