@@ -37,7 +37,7 @@ module.exports.SteemStreamer = class SteemStreamer {
 
           callback(
             {
-              timestamp: block.timestamp,
+              timestamp: block.timestamp, // we timestamp the block with the Steem block timestamp
               transactions: SteemStreamer.ParseTransactions(
                 this.currentBlock,
                 block,
@@ -85,7 +85,9 @@ module.exports.SteemStreamer = class SteemStreamer {
                 'contractAction:', contractAction, 'contractPayload:', contractPayload,
               );
               newTransactions.push({
+                // we use the Steem block number as the reference block
                 refBlockNumber,
+                // we give the transaction the Steem transaction id to be able to retrieve it later
                 transactionId: block.transaction_ids[i],
                 author,
                 contractName,

@@ -12,7 +12,9 @@ const steemContracts = new Blockchain();
 // start reading the Steem blockchain to get incoming transactions
 const steemStreamer = new SteemStreamer(startSteemBlock);
 steemStreamer.stream((result) => {
+  // the stream parsed transactions from the Steem blockchain
   const { timestamp, transactions } = result;
+  // we create the transactions that will be processed by the sidechain
   transactions.forEach((transaction) => {
     steemContracts.createTransaction(
       new Transaction(
@@ -26,6 +28,7 @@ steemStreamer.stream((result) => {
     );
   });
 
+  // if there are transactions pending we produce a block
   if (transactions.length > 0) {
     steemContracts.producePendingTransactions(timestamp);
   }

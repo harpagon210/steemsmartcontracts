@@ -124,11 +124,14 @@ class Block {
         const contracts = state.database.getCollection('contracts');
         const contract = contracts.findOne({ name });
 
+        // for now the contracts are immutable
         if (contract) {
           // contract.code = code;
           return { error: 'contract already exists' };
         }
 
+        // this code template is used to manage the code of the smart contract
+        // this way we keep control of what can be executed in a smart contract
         let codeTemplate = `
           let actions = {};
 
@@ -143,12 +146,17 @@ class Block {
           }
         `;
 
+        // the code of the smart contarct comes as a Base64 encoded string
         codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code));
 
+        // compile the code for faster executions later on
         const script = new VMScript(codeTemplate).compile();
 
         const tables = [];
+
+        // prepare the db object that will be available in the VM
         const db = {
+          // createTable is only available during the smart contract deployment
           createTable: (tableName) => {
             const finalTableName = `${name}_${tableName}`;
             const table = state.database.getCollection(finalTableName);
@@ -157,12 +165,14 @@ class Block {
             tables.push(finalTableName);
             return state.database.addCollection(finalTableName);
           },
+          // perform a query on the tables of other smart contracts
           findInTable: (contractName, table, query) => DBUtils.findInTable(
             state,
             contractName,
             table,
             query,
           ),
+          // perform a query on the tables of other smart contracts
           findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
             state,
             contractName,
@@ -171,15 +181,18 @@ class Block {
           ),
         };
 
+        // logs used to store events or errors
         const logs = {
           events: [],
         };
 
+        // initialize the state that will be available in the VM
         const vmState = {
           action: 'create',
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
           db,
           debug: log => console.log(log), // eslint-disable-line no-console
+          // execute a smart contract from the current smart contract
           executeSmartContract: (contractName, actionName, parameters) => {
             const res = Block.executeSmartContract(
               state,
@@ -192,6 +205,7 @@ class Block {
             );
             res.events.forEach(event => logs.events.push(event));
           },
+          // emit an event that will be sotred in the logs
           emit: (event, data) => logs.events.push({ event, data }),
         };
 
@@ -213,7 +227,7 @@ class Block {
 
       return { error: 'parameters name and code are mandatory and they must be strings' };
     } catch (e) {
-      console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
+      // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
       return { error: { name: e.name, message: e.message } };
     }
   }
@@ -241,7 +255,9 @@ class Block {
       const contractCode = contractInDb.code;
       const contractOwner = contractInDb.owner;
 
+      // prepare the db object that will be available in the VM
       const db = {
+        // get a table that is owned by the current smart contract
         getTable: (tableName) => {
           const finalTableName = `${contract}_${tableName}`;
           if (contractInDb.tables.includes(finalTableName)) {
@@ -250,12 +266,14 @@ class Block {
 
           return null;
         },
+        // perform a query on the tables of other smart contracts
         findInTable: (contractName, table, query) => DBUtils.findInTable(
           state,
           contractName,
           table,
           query,
         ),
+        // perform a query on the tables of other smart contracts
         findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
           state,
           contractName,
@@ -264,10 +282,12 @@ class Block {
         ),
       };
 
+      // logs used to store events or errors
       const logs = {
         events: [],
       };
 
+      // initialize the state that will be available in the VM
       const vmState = {
         sender,
         owner: contractOwner,
@@ -275,6 +295,7 @@ class Block {
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
         debug: log => console.log(log), // eslint-disable-line no-console
+        // execute a smart contract from the current smart contract
         executeSmartContract: (contractName, actionName, params) => {
           const res = Block.executeSmartContract(
             state,
@@ -287,6 +308,7 @@ class Block {
           );
           res.events.forEach(event => logs.events.push(event));
         },
+        // emit an event that will be sotred in the logs
         emit: (event, data) => logs.events.push({ event, data }),
       };
 
