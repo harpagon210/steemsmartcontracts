@@ -138,8 +138,8 @@ class Block {
           ###ACTIONS###
 
           if (action && typeof action === 'string' && typeof actions[action] === 'function') {
-            if (action !== 'deploy') {
-              actions.create = function () {};
+            if (action !== 'create') {
+              actions.create = null;
             }
 
             actions[action](payload);
