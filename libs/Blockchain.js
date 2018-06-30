@@ -127,8 +127,13 @@ class Block {
 
           ###ACTIONS###
 
-          if (typeof actions[action] === 'function')
+          if (action && typeof action === 'string' && typeof actions[action] === 'function') {
+            if (action !== 'deploy') {
+              actions.create = function () {};
+            }
+
             actions[action](payload);
+          }
         `;
 
         codeTemplate = codeTemplate.replace('###ACTIONS###', Base64.decode(code));
@@ -201,7 +206,7 @@ class Block {
 
       return { error: 'parameters name and code are mandatory and they must be strings' };
     } catch (e) {
-      // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
+      console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
       return { error: { name: e.name, message: e.message } };
     }
   }
