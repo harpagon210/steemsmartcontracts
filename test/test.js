@@ -2,10 +2,16 @@
 const assert = require('assert');
 const { Base64 } = require('js-base64');
 const { Blockchain, Transaction } = require('../libs/Blockchain');
+const fs = require('fs-extra');
+
+function cleanDataFolder() {
+  fs.emptyDirSync('./test/data');
+}
 
 // Blockchain
 describe('Blockchain', function () {
   it('should be a valid blockchain', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -35,14 +41,17 @@ describe('Blockchain', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    assert.equal(steemSmartContracts.isChainValid(), true);
+      assert.equal(steemSmartContracts.isChainValid(), true);
+    })
   });
 
   it('should be invalid when blocks have been corrupted', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -72,16 +81,19 @@ describe('Blockchain', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
-
-    steemSmartContracts.chain[1].transactions[0].sender = 'azerty';
-
-    assert.equal(steemSmartContracts.isChainValid(), false);
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+  
+      steemSmartContracts.chain[1].transactions[0].sender = 'azerty';
+  
+      assert.equal(steemSmartContracts.isChainValid(), false);
+    });
   });
 
   it('should be valid after a replay', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -111,16 +123,19 @@ describe('Blockchain', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    steemSmartContracts.replayBlockchain();
+      steemSmartContracts.replayBlockchain();
 
-    assert.equal(steemSmartContracts.isChainValid(), true);
+      assert.equal(steemSmartContracts.isChainValid(), true);
+    });
   });
 
   it('should give the same result after a replay', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -150,19 +165,22 @@ describe('Blockchain', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
 
-    let user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    assert.equal(user.id, 'Harpagon');
+      let user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
 
-    steemSmartContracts.replayBlockchain();
+      assert.equal(user.id, 'Harpagon');
 
-    user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
+      steemSmartContracts.replayBlockchain();
 
-    assert.equal(user.id, 'Harpagon');
+      user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
+
+      assert.equal(user.id, 'Harpagon');
+    });
   });
   
 });
@@ -170,6 +188,7 @@ describe('Blockchain', function () {
 // smart contracts
 describe('Smart Contracts', function () {
   it('should deploy a basic smart contract', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -201,16 +220,19 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const contract = steemSmartContracts.getContract('test_contract');
+      const contract = steemSmartContracts.getContract('test_contract');
 
-    assert.equal(contract.name, 'test_contract');
-    assert.equal(contract.owner, 'Harpagon');
+      assert.equal(contract.name, 'test_contract');
+      assert.equal(contract.owner, 'Harpagon');
+    });
   });
 
   it('should create a table during the smart contract deployment', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -230,16 +252,19 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const contract = steemSmartContracts.getContract('test_contract');
+      const contract = steemSmartContracts.getContract('test_contract');
 
-    // the name of a table starts by the name of the contract and is separated by _
-    assert.equal(contract.tables.includes('test_contract_test_table'), true);
+      // the name of a table starts by the name of the contract and is separated by _
+      assert.equal(contract.tables.includes('test_contract_test_table'), true);
+    });
   });
 
   it('should add a record into a smart contract table', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -269,16 +294,19 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
+      const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
 
-    assert.equal(user.id, 'Harpagon');
+      assert.equal(user.id, 'Harpagon');
+    });
   });
 
   it('should update a record from a smart contract table', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -320,19 +348,20 @@ describe('Smart Contracts', function () {
 
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "username": "MyUsername" }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "username": "MyUsername" }'));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+      const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
 
-    const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
-
-    assert.equal(user.username, 'MyUsernameUpdated');
+      assert.equal(user.username, 'MyUsernameUpdated');
+    });
   });
 
   it('should remove a record from a smart contract table', function () {
-
+    cleanDataFolder();
     const smartContractCode = `
       actions.create = function (payload) {
         // Initialize the smart contract via the create action
@@ -370,18 +399,20 @@ describe('Smart Contracts', function () {
 
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'removeUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'removeUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+      const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
 
-    const user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
-
-    assert.equal(user, null);
+      assert.equal(user, null);
+    });
   });
 
   it('should allow only the owner of the smart contract to perform certain actions', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -415,23 +446,26 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Dan', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Dan', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    let user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
+      let user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Harpagon" });
 
-    assert.equal(user, null);
+      assert.equal(user, null);
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-   user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Dan" });
+      user = steemSmartContracts.findOneInTable('users_contract', 'users', { "id": "Dan" });
 
-    assert.equal(user.id, "Dan");
+      assert.equal(user.id, "Dan");
+    });
   });
 
   it('should perform a search in a smart contract table from another smart contract', function () {
+    cleanDataFolder();
 
     const usersSmartContractCode = `
       actions.create = function (payload) {
@@ -493,18 +527,21 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'books_contract', 'addBook', '{ "title": "The Awesome Book" }'));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'books_contract', 'addBook', '{ "title": "The Awesome Book" }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    let book = steemSmartContracts.findInTable('books_contract', 'books', { "userId": "Harpagon" });
+      let book = steemSmartContracts.findInTable('books_contract', 'books', { "userId": "Harpagon" });
 
-    assert.equal(book[0].title, "The Awesome Book");
+      assert.equal(book[0].title, "The Awesome Book");
+    });
   });
 
   it('should execute a smart contract from another smart contract', function () {
+    cleanDataFolder();
 
     const usersSmartContractCode = `
       actions.create = function (payload) {
@@ -568,17 +605,20 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    let book = steemSmartContracts.findInTable('books_contract', 'books', { "userId": "Harpagon" });
+      let book = steemSmartContracts.findInTable('books_contract', 'books', { "userId": "Harpagon" });
 
-    assert.equal(book[0].title, "The Awesome Book");
+      assert.equal(book[0].title, "The Awesome Book");
+    });
   });
 
   it('should emit an event from a smart contract', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -598,20 +638,24 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
 
-    const block = steemSmartContracts.getLatestBlock();
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
+      const block = steemSmartContracts.getLatestBlock();
 
-    const logs = JSON.parse(transactions[0].logs);
+      const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
 
-    assert.equal(logs.events[0].event, 'contract_create');
-    assert.equal(logs.events[0].data.contractName, 'test_contract');
+      const logs = JSON.parse(transactions[0].logs);
+
+      assert.equal(logs.events[0].event, 'contract_create');
+      assert.equal(logs.events[0].data.contractName, 'test_contract');
+    });
   });
 
   it('should log an error when trying to deploy an existing contract', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -643,20 +687,23 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const block = steemSmartContracts.getLatestBlock();
+      const block = steemSmartContracts.getLatestBlock();
 
-    const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
+      const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
-    const logs = JSON.parse(transactions[0].logs);
+      const logs = JSON.parse(transactions[0].logs);
 
-    assert.equal(logs.error, 'contract already exists');
+      assert.equal(logs.error, 'contract already exists');
+    });
   });
 
   it('should log an error during the deployment of a smart contract if an error is thrown', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -690,19 +737,22 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const block = steemSmartContracts.getLatestBlock();
+      const block = steemSmartContracts.getLatestBlock();
 
-    const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
+      const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
 
-    const logs = JSON.parse(transactions[0].logs);
+      const logs = JSON.parse(transactions[0].logs);
 
-    assert.equal(logs.error.name, "SyntaxError");
+      assert.equal(logs.error.name, "SyntaxError");
+    });
   });
 
   it('should log an error during the execution of a smart contract if an error is thrown', function () {
+    cleanDataFolder();
 
     const smartContractCode = `
       actions.create = function (payload) {
@@ -725,17 +775,19 @@ describe('Smart Contracts', function () {
     // all the variables that we needed are now ready, we can deploy the smart contract
     const steemSmartContracts = new Blockchain();
 
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'test_contract', 'addUser', ''));
-    steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+    steemSmartContracts.loadBlockchain('./test/data/', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'test_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
 
-    const block = steemSmartContracts.getLatestBlock();
+      const block = steemSmartContracts.getLatestBlock();
 
-    const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
+      const transactions = block.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
 
-    const logs = JSON.parse(transactions[0].logs);
+      const logs = JSON.parse(transactions[0].logs);
 
-    assert.equal(logs.error.name, "SyntaxError");
+      assert.equal(logs.error.name, "SyntaxError");
+    });
   });
   
 });

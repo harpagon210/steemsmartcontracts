@@ -22,6 +22,10 @@ module.exports.SteemStreamer = class SteemStreamer {
     });
   }
 
+  GetCurrentBlock() {
+    return this.currentBlock;
+  }
+
   // get a block from the Steem blockchain
   GetBlock(callback, reject) {
     try {
@@ -33,26 +37,32 @@ module.exports.SteemStreamer = class SteemStreamer {
 
         if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
           console.log('getting Steem block ', this.currentBlock); // eslint-disable-line no-console
-          steem.api.getBlock(this.currentBlock, (error, block) => { // eslint-disable-line camelcase
+          steem.api.getBlock(this.currentBlock, (error, block) => {
             if (err) return reject(error);
 
-            callback(
-              {
-                timestamp: block.timestamp, // we timestamp the block with the Steem block timestamp
-                transactions: SteemStreamer.ParseTransactions(
-                  this.currentBlock,
-                  block,
-                ),
-              },
-            );
+            if (block) {
+              callback(
+                {
+                  // we timestamp the block with the Steem block timestamp
+                  timestamp: block.timestamp,
+                  transactions: SteemStreamer.ParseTransactions(
+                    this.currentBlock,
+                    block,
+                  ),
+                },
+              );
 
-            this.currentBlock += 1;
+              this.currentBlock += 1;
+            }
+
             return this.GetBlock(callback, reject);
           });
         } else {
           return this.GetBlock(callback, reject);
         }
       });
+
+      return null;
     } catch (e) {
       return reject(e);
     }

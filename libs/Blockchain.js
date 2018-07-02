@@ -2,14 +2,19 @@ const SHA256 = require('crypto-js/sha256');
 const { VM, VMScript } = require('vm2');
 const Loki = require('lokijs');
 const { Base64 } = require('js-base64');
+const fs = require('fs-extra');
+const lfsa = require('./loki-fs-structured-adapter.js');
+
 
 const { DBUtils } = require('./DBUtils');
 
 const JSVMTIMEOUT = 10000;
+const BLOCKCHAINFILENAME = 'blockchain.json';
+const DATABASEFILENAME = 'database.db';
 
 class Transaction {
-  constructor(refBlockNumber, transactionId, sender, contract, action, payload) {
-    this.refBlockNumber = refBlockNumber;
+  constructor(refSteemBlockNumber, transactionId, sender, contract, action, payload) {
+    this.refSteemBlockNumber = refSteemBlockNumber;
     this.transactionId = transactionId;
     this.sender = sender;
     this.contract = typeof contract === 'string' ? contract : null;
@@ -28,7 +33,7 @@ class Transaction {
   // calculate the hash of the transaction
   calculateHash() {
     return SHA256(
-      this.refBlockNumber
+      this.refSteemBlockNumber
       + this.transactionId
       + this.sender
       + this.contract
@@ -42,6 +47,7 @@ class Transaction {
 class Block {
   constructor(timestamp, transactions, previousBlockNumber, previousHash = '') {
     this.blockNumber = previousBlockNumber + 1;
+    this.refSteemBlockNumber = transactions.length > 0 ? transactions[0].refSteemBlockNumber : 0;
     this.previousHash = previousHash;
     this.timestamp = timestamp;
     this.transactions = transactions;
@@ -340,11 +346,14 @@ class Blockchain {
   constructor() {
     this.chain = [Blockchain.createGenesisBlock()];
     this.pendingTransactions = [];
-    this.state = {
-      database: new Loki(),
-    };
+    this.state = {};
 
-    this.state.database.addCollection('contracts');
+    this.blockchainFilePath = '';
+    this.databaseFilePath = '';
+
+    this.producing = false;
+    this.saving = false;
+    this.loading = false;
   }
 
   // create the genesis block of the blockchain
@@ -355,6 +364,88 @@ class Blockchain {
     return genesisBlock;
   }
 
+  // load the blockchain as well as the database from the filesystem
+  loadBlockchain(dataDirectory, callback) {
+    this.loading = true;
+
+    this.blockchainFilePath = dataDirectory + BLOCKCHAINFILENAME;
+    this.databaseFilePath = dataDirectory + DATABASEFILENAME;
+
+    // check if the app has already be run
+    if (fs.pathExistsSync(this.blockchainFilePath)) {
+      // load the file where the blocks are stored to the RAM
+      fs.readJson(this.blockchainFilePath, (error, content) => {
+        if (error) {
+          callback(error);
+        }
+
+        this.lokiJSAdapter = new lfsa(); // eslint-disable-line new-cap
+        this.state = {
+          database: new Loki(this.databaseFilePath, {
+            adapter: this.lokiJSAdapter,
+          }),
+        };
+
+        if (content.length > 0) {
+          this.chain = content;
+        }
+
+        // load the database from the filesystem to the RAM
+        this.state.database.loadDatabase({}, (errorDb) => {
+          if (errorDb) {
+            callback(errorDb);
+          }
+
+          // if the contracts collection doesn't exist we create it
+          if (this.state.database.getCollection('contracts') === null) {
+            this.state.database.addCollection('contracts');
+          }
+
+          this.loading = false;
+          callback(null);
+        });
+      });
+    } else {
+      // create the data directory if necessary and empty it if files exists
+      fs.emptyDirSync(dataDirectory);
+
+      // init the database
+      this.lokiJSAdapter = new lfsa(); // eslint-disable-line new-cap
+      this.state = {
+        database: new Loki(this.databaseFilePath, {
+          adapter: this.lokiJSAdapter,
+        }),
+      };
+
+      this.state.database.addCollection('contracts');
+
+      this.loading = false;
+      callback(null);
+    }
+  }
+
+  // save the blockchain as well as the database on the filesystem
+  saveBlockchain(callback) {
+    // if a block is being produced we wait until it is completed
+    if (this.producing) this.saveBlockchain(callback);
+    this.saving = !this.producing;
+
+    // save the blockchain from the RAM to a json file
+    fs.writeJson(this.blockchainFilePath, this.chain, { flag: 'w' }, (error) => {
+      if (error) {
+        callback(error);
+      }
+
+      // save the database from the RAM to the filesystem
+      this.state.database.saveDatabase((err) => {
+        if (err) {
+          callback(err);
+        }
+        callback(null);
+      });
+    });
+  }
+
   // get the latest block of the blockchain
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
@@ -362,6 +453,13 @@ class Blockchain {
 
   // produce all the pending transactions, that will result in the creattion of a block
   producePendingTransactions(timestamp) {
+    // the block producing is aborted if the blockchain is being saved
+    if (this.saving) return;
+
+    // if the blockchain is loadng we postpone the production
+    if (this.loading) this.producePendingTransactions(timestamp);
+
+    this.producing = true;
     const previousBlock = this.getLatestBlock();
     const block = new Block(
       timestamp,
@@ -376,6 +474,7 @@ class Blockchain {
     // console.log(block);
 
     this.pendingTransactions = [];
+    this.producing = false;
   }
 
   // create a transaction that will be then included in a block
