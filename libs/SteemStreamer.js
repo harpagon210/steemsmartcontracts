@@ -33,10 +33,12 @@ module.exports.SteemStreamer = class SteemStreamer {
         if (err) return reject(err);
 
         const { last_irreversible_block_num } = blockchainProps; // eslint-disable-line camelcase
-        // console.log('last_irreversible_block_num: ', last_irreversible_block_num);
+        console.log('--------------------------------------------------------------------------');
+        console.log('Steem last irreversible block number:', last_irreversible_block_num);
+        console.log('Steem blockchain is ', last_irreversible_block_num - this.currentBlock, 'blocks ahead'); // eslint-disable-line camelcase
 
         if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
-          console.log('getting Steem block ', this.currentBlock); // eslint-disable-line no-console
+          console.log('Getting Steem block ', this.currentBlock); // eslint-disable-line no-console
           steem.api.getBlock(this.currentBlock, (error, block) => {
             if (err) return reject(error);
 
