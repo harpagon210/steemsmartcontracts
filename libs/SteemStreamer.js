@@ -78,38 +78,41 @@ module.exports.SteemStreamer = class SteemStreamer {
     for (let i = 0; i < transactionsLength; i += 1) {
       // console.log(block.transactionIds)
       block.transactions[i].operations.forEach((operation) => {
-        // ##STEEMCONTRACTSBEGIN##CONTRACTNAME##CONTRACTACTION##PAYLOAD##STEEMCONTRACTSEND##
-        if (operation[0] === 'comment') {
+        if (operation[0] === 'custom_json') {
           // console.log(operation)
-          let { author, body } = operation[1]; // eslint-disable-line prefer-const
-          body = body.trim();
+          let { required_posting_auths, id, json } = operation[1]; // eslint-disable-line prefer-const
 
-          if (body.startsWith('##STEEMCONTRACTSBEGIN##') && body.endsWith('##STEEMCONTRACTSEND##')) {
-            body = body.replace('##STEEMCONTRACTSBEGIN##', '');
-            body = body.replace('##STEEMCONTRACTSEND##', '');
-            const steemContractParams = body.split('##');
-            if (steemContractParams.length === 3) {
-              const contractName = steemContractParams[0];
-              const contractAction = steemContractParams[1];
-              const contractPayload = steemContractParams[2];
-
-              console.log( // eslint-disable-line no-console
-                'author:',
-                author,
-                'contractName:',
-                contractName,
-                'contractAction:', contractAction, 'contractPayload:', contractPayload,
-              );
-              newTransactions.push({
-                // we use the Steem block number as the reference block
-                refBlockNumber,
-                // we give the transaction the Steem transaction id to be able to retrieve it later
-                transactionId: block.transaction_ids[i],
-                author,
-                contractName,
-                contractAction,
-                contractPayload,
-              });
+          if (id === 'ssc') {
+            try {
+              const sscTransatcion = JSON.parse(json);
+              const { contractName, contractAction, contractPayload } = sscTransatcion;
+              if (contractName && typeof contractName === 'string'
+                  && contractAction && typeof contractAction === 'string'
+                  && contractPayload && typeof contractPayload === 'string') {
+  
+                console.log( // eslint-disable-line no-console
+                  'author:',
+                  required_posting_auths[0],
+                  'contractName:',
+                  contractName,
+                  'contractAction:', 
+                  contractAction, 
+                  'contractPayload:', 
+                  contractPayload,
+                );
+                newTransactions.push({
+                  // we use the Steem block number as the reference block
+                  refBlockNumber,
+                  // we give the transaction the Steem transaction id to be able to retrieve it later
+                  transactionId: block.transaction_ids[i],
+                  author: required_posting_auths[0],
+                  contractName,
+                  contractAction,
+                  contractPayload,
+                });
+              }
+            } catch(e) {
+              console.error('Invalid transaction', json); // eslint-disable-line no-console
             }
           }
         }
