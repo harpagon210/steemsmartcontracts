@@ -33,9 +33,9 @@ module.exports.SteemStreamer = class SteemStreamer {
         if (err) return reject(err);
 
         const { last_irreversible_block_num } = blockchainProps; // eslint-disable-line camelcase
-        console.log('--------------------------------------------------------------------------');
-        console.log('Steem last irreversible block number:', last_irreversible_block_num);
-        console.log('Steem blockchain is ', last_irreversible_block_num - this.currentBlock, 'blocks ahead'); // eslint-disable-line camelcase
+        console.log('--------------------------------------------------------------------------'); // eslint-disable-line
+        console.log('Steem last irreversible block number:', last_irreversible_block_num); // eslint-disable-line
+        console.log('Steem blockchain is ', last_irreversible_block_num - this.currentBlock, 'blocks ahead'); // eslint-disable-line
 
         if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
           console.log('Getting Steem block ', this.currentBlock); // eslint-disable-line no-console
@@ -77,43 +77,76 @@ module.exports.SteemStreamer = class SteemStreamer {
 
     for (let i = 0; i < transactionsLength; i += 1) {
       // console.log(block.transactionIds)
-      block.transactions[i].operations.forEach((operation) => {
-        if (operation[0] === 'custom_json') {
-          // console.log(operation)
-          let { required_posting_auths, id, json } = operation[1]; // eslint-disable-line prefer-const
+      block.transactions[i].operations.forEach((operation) => { // eslint-disable-line no-loop-func
+        if (operation[0] === 'custom_json' || operation[0] === 'transfer') {
+          try {
+            let id = null;
+            let sender = null;
+            let recipient = null;
+            let amount = null;
+            let sscTransaction = null;
 
-          if (id === 'ssc') {
-            try {
-              const sscTransatcion = JSON.parse(json);
-              const { contractName, contractAction, contractPayload } = sscTransatcion;
+            // console.log(operation)
+
+            if (operation[0] === 'custom_json') {
+              id = operation[1].id; // eslint-disable-line prefer-destructuring
+              sender = operation[1].required_posting_auths[0]; // eslint-disable-line
+              sscTransaction = JSON.parse(operation[1].json); // eslint-disable-line
+            } else if (operation[0] === 'transfer') {
+              sender = operation[1].from;
+              recipient = operation[1].to;
+              amount = operation[1].amount; // eslint-disable-line prefer-destructuring
+              const transferParams = JSON.parse(operation[1].memo);
+              id = transferParams.id; // eslint-disable-line prefer-destructuring
+              sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
+            }
+
+            if (id && id === 'ssc' && sscTransaction) {
+              const { contractName, contractAction, contractPayload } = sscTransaction;
               if (contractName && typeof contractName === 'string'
                   && contractAction && typeof contractAction === 'string'
-                  && contractPayload && typeof contractPayload === 'string') {
-  
+                  && contractPayload && typeof contractPayload === 'object') {
                 console.log( // eslint-disable-line no-console
-                  'author:',
-                  required_posting_auths[0],
+                  'sender:',
+                  sender,
+                  'recipient',
+                  recipient,
+                  'amount',
+                  amount,
                   'contractName:',
                   contractName,
-                  'contractAction:', 
-                  contractAction, 
-                  'contractPayload:', 
+                  'contractAction:',
+                  contractAction,
+                  'contractPayload:',
                   contractPayload,
                 );
+
+                // const contractPayloadObj = JSON.parse(contractPayload);
+                contractPayload.recipient = recipient;
+                contractPayload.amountSTEEMSBD = amount;
+
+                if (recipient === null) {
+                  delete contractPayload.recipient;
+                }
+
+                if (amount === null) {
+                  delete contractPayload.amountSTEEMSBD;
+                }
+
                 newTransactions.push({
                   // we use the Steem block number as the reference block
                   refBlockNumber,
-                  // we give the transaction the Steem transaction id to be able to retrieve it later
+                  // we give the Steem transaction id to be able to retrieve it later
                   transactionId: block.transaction_ids[i],
-                  author: required_posting_auths[0],
+                  sender,
                   contractName,
                   contractAction,
-                  contractPayload,
+                  contractPayload: JSON.stringify(contractPayload),
                 });
               }
-            } catch(e) {
-              console.error('Invalid transaction', json); // eslint-disable-line no-console
             }
+          } catch (e) {
+            // console.error('Invalid transaction', e); // eslint-disable-line no-console
           }
         }
       });

@@ -10,12 +10,12 @@ const { Blockchain, Transaction } = require('./libs/Blockchain');
 // instantiate the blockchain
 const steemContracts = new Blockchain();
 
-console.log('Loading Blockchain...');
+console.log('Loading Blockchain...'); // eslint-disable-line
 steemContracts.loadBlockchain('./data/', (error) => {
   if (error) {
-    console.error(error);
+    console.error(error); // eslint-disable-line
   } else {
-    console.log('Blockchain loaded');
+    console.log('Blockchain loaded'); // eslint-disable-line
 
     // start reading the Steem blockchain to get incoming transactions
     const steemStreamer = new SteemStreamer(startSteemBlock);
@@ -28,7 +28,7 @@ steemContracts.loadBlockchain('./data/', (error) => {
           new Transaction(
             transaction.refBlockNumber,
             transaction.transactionId,
-            transaction.author,
+            transaction.sender,
             transaction.contractName,
             transaction.contractAction,
             transaction.contractPayload,
@@ -121,15 +121,15 @@ steemContracts.loadBlockchain('./data/', (error) => {
     // execute actions before the app closes
     nodeCleanup((exitCode, signal) => {
       if (signal) {
-        console.log('Closing App... ', exitCode, signal);
+        console.log('Closing App... ', exitCode, signal); // eslint-disable-line
 
         let currentSteemBlock = steemStreamer.GetCurrentBlock();
 
         steemContracts.saveBlockchain((err) => {
           if (err) {
-            console.error(err);
+            console.error(err); // eslint-disable-line
           } else {
-            console.log('Blockchain saved');
+            console.log('Blockchain saved'); // eslint-disable-line
           }
 
           // check if the last streamed Steem block is not lower than the latest block processed
