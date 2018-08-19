@@ -76,7 +76,6 @@ module.exports.SteemStreamer = class SteemStreamer {
     const transactionsLength = block.transactions.length;
 
     for (let i = 0; i < transactionsLength; i += 1) {
-      // console.log(block.transactionIds)
       block.transactions[i].operations.forEach((operation) => { // eslint-disable-line no-loop-func
         if (operation[0] === 'custom_json' || operation[0] === 'transfer') {
           try {
@@ -85,8 +84,6 @@ module.exports.SteemStreamer = class SteemStreamer {
             let recipient = null;
             let amount = null;
             let sscTransaction = null;
-
-            // console.log(operation)
 
             if (operation[0] === 'custom_json') {
               id = operation[1].id; // eslint-disable-line prefer-destructuring
@@ -121,7 +118,6 @@ module.exports.SteemStreamer = class SteemStreamer {
                   contractPayload,
                 );
 
-                // const contractPayloadObj = JSON.parse(contractPayload);
                 contractPayload.recipient = recipient;
                 contractPayload.amountSTEEMSBD = amount;
 
