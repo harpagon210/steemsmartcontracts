@@ -2,7 +2,8 @@ const steem = require('steem');
 const { streamNodes } = require('../config');
 
 module.exports.SteemStreamer = class SteemStreamer {
-  constructor(currentBlock) {
+  constructor(chainId, currentBlock) {
+    this.chainId = chainId;
     this.currentBlock = currentBlock;
   }
 
@@ -48,6 +49,7 @@ module.exports.SteemStreamer = class SteemStreamer {
                   // we timestamp the block with the Steem block timestamp
                   timestamp: block.timestamp,
                   transactions: SteemStreamer.ParseTransactions(
+                    this.chainId,
                     this.currentBlock,
                     block,
                   ),
@@ -71,7 +73,7 @@ module.exports.SteemStreamer = class SteemStreamer {
   }
 
   // parse the transactions found in a Steem block
-  static ParseTransactions(refBlockNumber, block) {
+  static ParseTransactions(chainId, refBlockNumber, block) {
     const newTransactions = [];
     const transactionsLength = block.transactions.length;
 
@@ -98,7 +100,7 @@ module.exports.SteemStreamer = class SteemStreamer {
               sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
             }
 
-            if (id && id === 'ssc' && sscTransaction) {
+            if (id && id === `ssc-${chainId}` && sscTransaction) {
               const { contractName, contractAction, contractPayload } = sscTransaction;
               if (contractName && typeof contractName === 'string'
                   && contractAction && typeof contractAction === 'string'

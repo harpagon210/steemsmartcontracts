@@ -3,7 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
-const { startSteemBlock } = require('./config');
+const { chainId, startSteemBlock } = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
 
@@ -18,7 +18,7 @@ steemContracts.loadBlockchain('./data/', (error) => {
     console.log('Blockchain loaded'); // eslint-disable-line
 
     // start reading the Steem blockchain to get incoming transactions
-    const steemStreamer = new SteemStreamer(startSteemBlock);
+    const steemStreamer = new SteemStreamer(chainId, startSteemBlock);
     steemStreamer.stream((result) => {
       // the stream parsed transactions from the Steem blockchain
       const { timestamp, transactions } = result;

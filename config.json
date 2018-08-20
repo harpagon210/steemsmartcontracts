@@ -1,8 +1,9 @@
 {
-  "streamNodes": [
-    "https://rpc.buildteam.io",
-    "https://rpc.steemviz.com",
-    "https://steemd.minnowsupportproject.org"
-  ],
-  "startSteemBlock": 25213305
+    "chainId": "b8923f70-c1f7-497f-961d",
+    "streamNodes": [
+        "https://rpc.buildteam.io",
+        "https://rpc.steemviz.com",
+        "https://steemd.minnowsupportproject.org"
+    ],
+    "startSteemBlock": 25236961
 }
