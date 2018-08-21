@@ -698,7 +698,7 @@ describe('Smart Contracts', function () {
 
       const logs = JSON.parse(transactions[0].logs);
 
-      assert.equal(logs.error, 'contract already exists');
+      assert.equal(logs.errors[0], 'contract already exists');
     });
   });
 
@@ -747,7 +747,7 @@ describe('Smart Contracts', function () {
 
       const logs = JSON.parse(transactions[0].logs);
 
-      assert.equal(logs.error.name, "SyntaxError");
+      assert.equal(JSON.parse(logs.errors[0]).name, "SyntaxError");
     });
   });
 
@@ -786,7 +786,7 @@ describe('Smart Contracts', function () {
 
       const logs = JSON.parse(transactions[0].logs);
 
-      assert.equal(logs.error.name, "SyntaxError");
+      assert.equal(JSON.parse(logs.errors[0]).name, "SyntaxError");
     });
   });
   

@@ -27,7 +27,16 @@ class Transaction {
   // add logs to the transaction
   // useful to get the result of the execution of a smart contract (events and errors)
   addLogs(logs) {
-    this.logs = JSON.stringify(logs);
+    const finalLogs = logs;
+    if (finalLogs && finalLogs.errors && finalLogs.errors.length === 0) {
+      delete finalLogs.errors;
+    }
+
+    if (finalLogs && finalLogs.events && finalLogs.events.length === 0) {
+      delete finalLogs.events;
+    }
+
+    this.logs = JSON.stringify(finalLogs);
   }
 
   // calculate the hash of the transaction
@@ -103,7 +112,7 @@ class Block {
           logs = Block.executeSmartContract(state, transaction);
         }
       } else {
-        logs = { error: 'the parameters sender, contract and action are required' };
+        logs = { errors: ['the parameters sender, contract and action are required'] };
       }
 
       transaction.addLogs(logs);
@@ -133,7 +142,7 @@ class Block {
         // for now the contracts are immutable
         if (contract) {
           // contract.code = code;
-          return { error: 'contract already exists' };
+          return { errors: ['contract already exists'] };
         }
 
         // this code template is used to manage the code of the smart contract
@@ -189,6 +198,7 @@ class Block {
 
         // logs used to store events or errors
         const logs = {
+          errors: [],
           events: [],
         };
 
@@ -209,10 +219,18 @@ class Block {
                 payload: parameters,
               },
             );
+            res.errors.forEach(error => logs.errors.push(error));
             res.events.forEach(event => logs.events.push(event));
           },
-          // emit an event that will be sotred in the logs
+          // emit an event that will be stored in the logs
           emit: (event, data) => logs.events.push({ event, data }),
+          // add an error that will be stored in the logs
+          assert: (condition, error) => {
+            if (!condition && typeof error === 'string') {
+              logs.errors.push(error);
+            }
+            return condition;
+          },
         };
 
         Block.runContractCode(vmState, script);
@@ -226,15 +244,13 @@ class Block {
 
         contracts.insert(newContract);
 
-        if (logs.events.length === 0) return {};
-
         return logs;
       }
 
-      return { error: 'parameters name and code are mandatory and they must be strings' };
+      return { errors: ['parameters name and code are mandatory and they must be strings'] };
     } catch (e) {
       // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
-      return { error: { name: e.name, message: e.message } };
+      return { errors: [JSON.stringify({ name: e.name, message: e.message })] };
     }
   }
 
@@ -248,14 +264,14 @@ class Block {
         payload,
       } = transaction;
 
-      if (action === 'create') return { error: 'you cannot trigger the create action' };
+      if (action === 'create') return { errors: ['you cannot trigger the create action'] };
 
       const payloadObj = payload ? JSON.parse(payload) : {};
 
       const contracts = state.database.getCollection('contracts');
       const contractInDb = contracts.findOne({ name: contract });
       if (contractInDb === null) {
-        return { error: 'contract doesn\'t exist' };
+        return { errors: ['contract doesn\'t exist'] };
       }
 
       const contractCode = contractInDb.code;
@@ -290,6 +306,7 @@ class Block {
 
       // logs used to store events or errors
       const logs = {
+        errors: [],
         events: [],
       };
 
@@ -312,21 +329,26 @@ class Block {
               payload: params,
             },
           );
+          res.errors.forEach(error => logs.errors.push(error));
           res.events.forEach(event => logs.events.push(event));
         },
-        // emit an event that will be sotred in the logs
-        emit: (event, data) => logs.events.push({ event, data }),
+        // emit an event that will be stored in the logs
+        emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
+        // add an error that will be stored in the logs
+        assert: (condition, error) => {
+          if (!condition && typeof error === 'string') {
+            logs.errors.push(error);
+          }
+          return condition;
+        },
       };
 
       Block.runContractCode(vmState, contractCode);
 
-      // const test = state.database.getCollection('test_contract_users_users');
-      // console.log('state after: ', test.find({}));
-
       return logs;
     } catch (e) {
       // console.error('ERROR DURING CONTRACT EXECUTION: ', e);
-      return { error: { name: e.name, message: e.message } };
+      return { errors: [JSON.stringify({ name: e.name, message: e.message })] };
     }
   }
 
