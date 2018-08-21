@@ -747,7 +747,7 @@ describe('Smart Contracts', function () {
 
       const logs = JSON.parse(transactions[0].logs);
 
-      assert.equal(JSON.parse(logs.errors[0]).name, "SyntaxError");
+      assert.equal(logs.errors[0], "SyntaxError: Unexpected identifier");
     });
   });
 
@@ -786,7 +786,7 @@ describe('Smart Contracts', function () {
 
       const logs = JSON.parse(transactions[0].logs);
 
-      assert.equal(JSON.parse(logs.errors[0]).name, "SyntaxError");
+      assert.equal(logs.errors[0], "SyntaxError: Unexpected identifier");
     });
   });
   

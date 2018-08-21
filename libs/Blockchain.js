@@ -250,7 +250,7 @@ class Block {
       return { errors: ['parameters name and code are mandatory and they must be strings'] };
     } catch (e) {
       // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
-      return { errors: [JSON.stringify({ name: e.name, message: e.message })] };
+      return { errors: [`${e.name}: ${e.message}`] };
     }
   }
 
@@ -348,7 +348,7 @@ class Block {
       return logs;
     } catch (e) {
       // console.error('ERROR DURING CONTRACT EXECUTION: ', e);
-      return { errors: [JSON.stringify({ name: e.name, message: e.message })] };
+      return { errors: [`${e.name}: ${e.message}`] };
     }
   }
 
