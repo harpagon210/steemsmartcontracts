@@ -223,7 +223,7 @@ class Block {
             res.events.forEach(event => logs.events.push(event));
           },
           // emit an event that will be stored in the logs
-          emit: (event, data) => logs.events.push({ event, data }),
+          emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
           // add an error that will be stored in the logs
           assert: (condition, error) => {
             if (!condition && typeof error === 'string') {
