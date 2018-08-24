@@ -136,6 +136,13 @@ class Block {
 
       if (name && typeof name === 'string'
           && code && typeof code === 'string') {
+        // the contract name has to be a string made of letters and numbers
+        const RegexPureLetters = /^[a-zA-Z0-9_]+$/;
+
+        if (!RegexPureLetters.test(name)) {
+          return { errors: ['invalid contract name'] };
+        }
+
         const contracts = state.database.getCollection('contracts');
         const contract = contracts.findOne({ name });
 
@@ -153,8 +160,8 @@ class Block {
           ###ACTIONS###
 
           if (action && typeof action === 'string' && typeof actions[action] === 'function') {
-            if (action !== 'create') {
-              actions.create = null;
+            if (action !== 'createSSC') {
+              actions.createSSC = null;
             }
 
             actions[action](payload);
@@ -204,7 +211,7 @@ class Block {
 
         // initialize the state that will be available in the VM
         const vmState = {
-          action: 'create',
+          action: 'createSSC',
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
           db,
           debug: log => console.log(log), // eslint-disable-line no-console
@@ -264,7 +271,7 @@ class Block {
         payload,
       } = transaction;
 
-      if (action === 'create') return { errors: ['you cannot trigger the create action'] };
+      if (action === 'createSSC') return { errors: ['you cannot trigger the createSSC action'] };
 
       const payloadObj = payload ? JSON.parse(payload) : {};
 

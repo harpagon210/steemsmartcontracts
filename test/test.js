@@ -14,7 +14,7 @@ describe('Blockchain', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -54,7 +54,7 @@ describe('Blockchain', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -96,7 +96,7 @@ describe('Blockchain', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -138,7 +138,7 @@ describe('Blockchain', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -191,7 +191,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
       }
     `;
@@ -235,7 +235,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('test_table');
       }
@@ -267,7 +267,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -309,7 +309,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -363,7 +363,7 @@ describe('Smart Contracts', function () {
   it('should remove a record from a smart contract table', function () {
     cleanDataFolder();
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -415,7 +415,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -468,7 +468,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const usersSmartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -485,7 +485,7 @@ describe('Smart Contracts', function () {
     `;
 
     const booksSmartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('books');
       }
@@ -544,7 +544,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const usersSmartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('users');
       }
@@ -563,7 +563,7 @@ describe('Smart Contracts', function () {
     `;
 
     const booksSmartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         db.createTable('books');
       }
@@ -621,7 +621,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
         emit('contract_create', { "contractName": "test_contract" })
       }
@@ -658,7 +658,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
       }
     `;
@@ -706,7 +706,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
 
         THIS CODE CRASHES :)
@@ -755,7 +755,7 @@ describe('Smart Contracts', function () {
     cleanDataFolder();
 
     const smartContractCode = `
-      actions.create = function (payload) {
+      actions.createSSC = function (payload) {
         // Initialize the smart contract via the create action
       }
 
