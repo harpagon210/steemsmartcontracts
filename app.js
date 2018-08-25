@@ -3,15 +3,23 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
-const { chainId, startSteemBlock } = require('./config');
+const {
+  chainId,
+  startSteemBlock,
+  rpcNodePort,
+  javascriptVMTimeout,
+  dataDirectory,
+  blockchainFilePath,
+  databaseFilePath,
+} = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
 
 // instantiate the blockchain
-const steemContracts = new Blockchain();
+const steemContracts = new Blockchain(javascriptVMTimeout);
 
 console.log('Loading Blockchain...'); // eslint-disable-line
-steemContracts.loadBlockchain('./data/', (error) => {
+steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePath, (error) => {
   if (error) {
     console.error(error); // eslint-disable-line
   } else {
@@ -116,7 +124,7 @@ steemContracts.loadBlockchain('./data/', (error) => {
     app.use(bodyParser.json());
     app.post('/blockchain', jayson.server(blockchainRPC).middleware());
     app.post('/contracts', jayson.server(contractsRPC).middleware());
-    app.listen(5000);
+    app.listen(rpcNodePort);
 
     // execute actions before the app closes
     nodeCleanup((exitCode, signal) => {

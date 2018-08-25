@@ -8,10 +8,6 @@ const lfsa = require('./loki-fs-structured-adapter.js');
 
 const { DBUtils } = require('./DBUtils');
 
-const JSVMTIMEOUT = 10000;
-const BLOCKCHAINFILENAME = 'blockchain.json';
-const DATABASEFILENAME = 'database.db';
-
 class Transaction {
   constructor(refSteemBlockNumber, transactionId, sender, contract, action, payload) {
     this.refSteemBlockNumber = refSteemBlockNumber;
@@ -93,7 +89,7 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  produceBlock(state) {
+  produceBlock(state, jsVMTimeout) {
     this.transactions.forEach((transaction) => {
       // console.log('transaction: ', transaction);
       const {
@@ -107,9 +103,9 @@ class Block {
 
       if (sender && contract && action) {
         if (contract === 'contract' && action === 'deploy' && payload) {
-          logs = Block.deploySmartContract(state, transaction);
+          logs = Block.deploySmartContract(state, transaction, jsVMTimeout);
         } else {
-          logs = Block.executeSmartContract(state, transaction);
+          logs = Block.executeSmartContract(state, transaction, jsVMTimeout);
         }
       } else {
         logs = { errors: ['the parameters sender, contract and action are required'] };
@@ -127,7 +123,7 @@ class Block {
   }
 
   // deploy the smart contract to the blockchain and initialize the database if needed
-  static deploySmartContract(state, transaction) {
+  static deploySmartContract(state, transaction, jsVMTimeout) {
     try {
       // console.log(transaction);
       const { sender } = transaction;
@@ -225,6 +221,7 @@ class Block {
                 action: actionName,
                 payload: parameters,
               },
+              jsVMTimeout,
             );
             res.errors.forEach(error => logs.errors.push(error));
             res.events.forEach(event => logs.events.push(event));
@@ -240,7 +237,7 @@ class Block {
           },
         };
 
-        Block.runContractCode(vmState, script);
+        Block.runContractCode(vmState, script, jsVMTimeout);
 
         const newContract = {
           name,
@@ -262,7 +259,7 @@ class Block {
   }
 
   // execute the smart contract and perform actions on the database if needed
-  static executeSmartContract(state, transaction) {
+  static executeSmartContract(state, transaction, jsVMTimeout) {
     try {
       const {
         sender,
@@ -335,6 +332,7 @@ class Block {
               action: actionName,
               payload: params,
             },
+            jsVMTimeout,
           );
           res.errors.forEach(error => logs.errors.push(error));
           res.events.forEach(event => logs.events.push(event));
@@ -350,7 +348,7 @@ class Block {
         },
       };
 
-      Block.runContractCode(vmState, contractCode);
+      Block.runContractCode(vmState, contractCode, jsVMTimeout);
 
       return logs;
     } catch (e) {
@@ -360,10 +358,10 @@ class Block {
   }
 
   // run the contractCode in a VM with the vmState as a state for the VM
-  static runContractCode(vmState, contractCode) {
+  static runContractCode(vmState, contractCode, jsVMTimeout) {
     // run the code in the VM
     const vm = new VM({
-      timeout: JSVMTIMEOUT,
+      timeout: jsVMTimeout,
       sandbox: vmState,
     });
 
@@ -372,13 +370,14 @@ class Block {
 }
 
 class Blockchain {
-  constructor() {
+  constructor(jsVMTimeout) {
     this.chain = [Blockchain.createGenesisBlock()];
     this.pendingTransactions = [];
     this.state = {};
 
     this.blockchainFilePath = '';
     this.databaseFilePath = '';
+    this.jsVMTimeout = jsVMTimeout;
 
     this.producing = false;
     this.saving = false;
@@ -394,11 +393,11 @@ class Blockchain {
   }
 
   // load the blockchain as well as the database from the filesystem
-  loadBlockchain(dataDirectory, callback) {
+  loadBlockchain(dataDirectory, blockchainFile, databaseFile, callback) {
     this.loading = true;
 
-    this.blockchainFilePath = dataDirectory + BLOCKCHAINFILENAME;
-    this.databaseFilePath = dataDirectory + DATABASEFILENAME;
+    this.blockchainFilePath = dataDirectory + blockchainFile;
+    this.databaseFilePath = dataDirectory + databaseFile;
 
     // check if the app has already be run
     if (fs.pathExistsSync(this.blockchainFilePath)) {
@@ -496,7 +495,7 @@ class Blockchain {
       previousBlock.blockNumber,
       previousBlock.hash,
     );
-    block.produceBlock(this.state);
+    block.produceBlock(this.state, this.jsVMTimeout);
 
     this.chain.push(block);
 
@@ -542,7 +541,7 @@ class Blockchain {
     this.state.database.addCollection('contracts');
 
     for (let i = 0; i < this.chain.length; i += 1) {
-      this.chain[i].produceBlock(this.state);
+      this.chain[i].produceBlock(this.state, this.jsVMTimeout);
     }
   }
 
