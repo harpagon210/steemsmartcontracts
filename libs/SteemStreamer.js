@@ -79,7 +79,7 @@ module.exports.SteemStreamer = class SteemStreamer {
 
     for (let i = 0; i < transactionsLength; i += 1) {
       block.transactions[i].operations.forEach((operation) => { // eslint-disable-line no-loop-func
-        if (operation[0] === 'custom_json' || operation[0] === 'transfer') {
+        if (operation[0] === 'custom_json' || operation[0] === 'transfer' || operation[0] === 'comment') {
           try {
             let id = null;
             let sender = null;
@@ -96,6 +96,11 @@ module.exports.SteemStreamer = class SteemStreamer {
               recipient = operation[1].to;
               amount = operation[1].amount; // eslint-disable-line prefer-destructuring
               const transferParams = JSON.parse(operation[1].memo);
+              id = transferParams.id; // eslint-disable-line prefer-destructuring
+              sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
+            } else if (operation[0] === 'comment') {
+              sender = operation[1].author;
+              const transferParams = JSON.parse(operation[1].body);
               id = transferParams.id; // eslint-disable-line prefer-destructuring
               sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
             }
