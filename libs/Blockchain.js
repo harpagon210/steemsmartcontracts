@@ -133,9 +133,10 @@ class Block {
       if (name && typeof name === 'string'
           && code && typeof code === 'string') {
         // the contract name has to be a string made of letters and numbers
-        const RegexPureLetters = /^[a-zA-Z0-9_]+$/;
+        const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
+        const RegexLetters = /^[a-zA-Z_]+$/;
 
-        if (!RegexPureLetters.test(name)) {
+        if (!RegexLettersNumbers.test(name)) {
           return { errors: ['invalid contract name'] };
         }
 
@@ -176,6 +177,7 @@ class Block {
         const db = {
           // createTable is only available during the smart contract deployment
           createTable: (tableName) => {
+            if (!RegexLetters.test(tableName)) return null;
             const finalTableName = `${name}_${tableName}`;
             const table = state.database.getCollection(finalTableName);
             if (table) return table;
@@ -213,18 +215,43 @@ class Block {
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: (contractName, actionName, parameters) => {
+            if (typeof contractName !== 'string' || typeof actionName !== 'string' || (parameters && typeof parameters !== 'string')) return null;
+            const sanitizedParams = parameters ? JSON.parse(parameters) : null;
+            // check if a recipient and or amountSTEEMSBD were passed initially
+            if (params && params.amountSTEEMSBD
+                && sanitizedParams && sanitizedParams.amountSTEEMSBD) {
+              sanitizedParams.amountSTEEMSBD = params.amountSTEEMSBD;
+            }
+
+            if (params && params.recipient
+              && sanitizedParams && sanitizedParams.recipient) {
+              sanitizedParams.recipient = params.recipient;
+            }
+
             const res = Block.executeSmartContract(
               state,
               {
                 sender,
                 contract: contractName,
                 action: actionName,
-                payload: parameters,
+                payload: JSON.stringify(sanitizedParams),
               },
               jsVMTimeout,
             );
             res.errors.forEach(error => logs.errors.push(error));
             res.events.forEach(event => logs.events.push(event));
+
+            const results = {};
+            res.errors.forEach((error) => {
+              logs.errors.push(error);
+              results.errors.push(error);
+            });
+            res.events.forEach((event) => {
+              logs.events.push(event);
+              results.events.push(event);
+            });
+
+            return results;
           },
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
@@ -324,18 +351,40 @@ class Block {
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract
         executeSmartContract: (contractName, actionName, params) => {
+          if (typeof contractName !== 'string' || typeof actionName !== 'string' || (params && typeof params !== 'string')) return null;
+          const sanitizedParams = params ? JSON.parse(params) : null;
+          // check if a recipient and or amountSTEEMSBD were passed initially
+          if (payloadObj && payloadObj.amountSTEEMSBD
+              && sanitizedParams && sanitizedParams.amountSTEEMSBD) {
+            sanitizedParams.amountSTEEMSBD = payloadObj.amountSTEEMSBD;
+          }
+
+          if (payloadObj && payloadObj.recipient
+            && sanitizedParams && sanitizedParams.recipient) {
+            sanitizedParams.recipient = payloadObj.recipient;
+          }
+
           const res = Block.executeSmartContract(
             state,
             {
               sender,
               contract: contractName,
               action: actionName,
-              payload: params,
+              payload: JSON.stringify(sanitizedParams),
             },
             jsVMTimeout,
           );
-          res.errors.forEach(error => logs.errors.push(error));
-          res.events.forEach(event => logs.events.push(event));
+          const results = {};
+          res.errors.forEach((error) => {
+            logs.errors.push(error);
+            results.errors.push(error);
+          });
+          res.events.forEach((event) => {
+            logs.events.push(event);
+            results.events.push(event);
+          });
+
+          return results;
         },
         // emit an event that will be stored in the logs
         emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
