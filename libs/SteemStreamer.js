@@ -92,28 +92,24 @@ module.exports.SteemStreamer = class SteemStreamer {
               sender = operation[1].required_posting_auths[0]; // eslint-disable-line
               sscTransaction = JSON.parse(operation[1].json); // eslint-disable-line
             } else if (operation[0] === 'transfer') {
-              if (operation[1].memo.indexOf(`ssc-${chainId}`) !== -1) {
-                sender = operation[1].from;
-                recipient = operation[1].to;
-                amount = operation[1].amount; // eslint-disable-line prefer-destructuring
-                const transferParams = JSON.parse(operation[1].memo);
-                id = transferParams.id; // eslint-disable-line prefer-destructuring
-                sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
-              }
+              sender = operation[1].from;
+              recipient = operation[1].to;
+              amount = operation[1].amount; // eslint-disable-line prefer-destructuring
+              const transferParams = JSON.parse(operation[1].memo);
+              id = transferParams.id; // eslint-disable-line prefer-destructuring
+              sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
             } else if (operation[0] === 'comment') {
-              if (operation[1].body.indexOf(`ssc-${chainId}`) !== -1) {
-                sender = operation[1].author;
-                const transferParams = JSON.parse(operation[1].body);
-                id = transferParams.id; // eslint-disable-line prefer-destructuring
-                sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
-              }
+              sender = operation[1].author;
+              const transferParams = JSON.parse(operation[1].body);
+              id = transferParams.id; // eslint-disable-line prefer-destructuring
+              sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
             }
 
             if (id && id === `ssc-${chainId}` && sscTransaction) {
               const { contractName, contractAction, contractPayload } = sscTransaction;
               if (contractName && typeof contractName === 'string'
-                  && contractAction && typeof contractAction === 'string'
-                  && contractPayload && typeof contractPayload === 'object') {
+                && contractAction && typeof contractAction === 'string'
+                && contractPayload && typeof contractPayload === 'object') {
                 console.log( // eslint-disable-line no-console
                   'sender:',
                   sender,
