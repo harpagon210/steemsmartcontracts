@@ -6,6 +6,7 @@
     "databaseFilePath": "database.db",
     "javascriptVMTimeout": 10000,
     "streamNodes": [
+        "https://api.steemit.com",
         "https://rpc.buildteam.io",
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
