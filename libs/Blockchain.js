@@ -274,7 +274,7 @@ class Block {
         const newContract = {
           name,
           owner: sender,
-          code: script,
+          code: codeTemplate,
           tables,
         };
 
