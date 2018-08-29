@@ -228,6 +228,11 @@ class Block {
               sanitizedParams.recipient = params.recipient;
             }
 
+            if (params && params.isSignedWithActiveKey
+              && sanitizedParams && sanitizedParams.isSignedWithActiveKey) {
+              sanitizedParams.isSignedWithActiveKey = params.isSignedWithActiveKey;
+            }
+
             const res = Block.executeSmartContract(
               state,
               {
@@ -362,6 +367,11 @@ class Block {
           if (payloadObj && payloadObj.recipient
             && sanitizedParams && sanitizedParams.recipient) {
             sanitizedParams.recipient = payloadObj.recipient;
+          }
+
+          if (payloadObj && payloadObj.isSignedWithActiveKey
+            && sanitizedParams && sanitizedParams.isSignedWithActiveKey) {
+            sanitizedParams.isSignedWithActiveKey = payloadObj.isSignedWithActiveKey;
           }
 
           const res = Block.executeSmartContract(

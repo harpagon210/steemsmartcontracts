@@ -86,10 +86,17 @@ module.exports.SteemStreamer = class SteemStreamer {
             let recipient = null;
             let amount = null;
             let sscTransaction = null;
+            let isSignedWithActiveKey = null;
 
             if (operation[0] === 'custom_json') {
               id = operation[1].id; // eslint-disable-line prefer-destructuring
-              sender = operation[1].required_posting_auths[0]; // eslint-disable-line
+              if (operation[1].required_auths.length > 0) {
+                sender = operation[1].required_auths[0]; // eslint-disable-line
+                isSignedWithActiveKey = true;
+              } else {
+                sender = operation[1].required_posting_auths[0]; // eslint-disable-line
+                isSignedWithActiveKey = false;
+              }
               sscTransaction = JSON.parse(operation[1].json); // eslint-disable-line
             } else if (operation[0] === 'transfer') {
               sender = operation[1].from;
@@ -127,6 +134,7 @@ module.exports.SteemStreamer = class SteemStreamer {
 
                 contractPayload.recipient = recipient;
                 contractPayload.amountSTEEMSBD = amount;
+                contractPayload.isSignedWithActiveKey = isSignedWithActiveKey;
 
                 if (recipient === null) {
                   delete contractPayload.recipient;
@@ -134,6 +142,10 @@ module.exports.SteemStreamer = class SteemStreamer {
 
                 if (amount === null) {
                   delete contractPayload.amountSTEEMSBD;
+                }
+
+                if (isSignedWithActiveKey === null) {
+                  delete contractPayload.isSignedWithActiveKey;
                 }
 
                 newTransactions.push({
