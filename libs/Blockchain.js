@@ -217,19 +217,18 @@ class Block {
           executeSmartContract: (contractName, actionName, parameters) => {
             if (typeof contractName !== 'string' || typeof actionName !== 'string' || (parameters && typeof parameters !== 'string')) return null;
             const sanitizedParams = parameters ? JSON.parse(parameters) : null;
-            // check if a recipient and or amountSTEEMSBD were passed initially
-            if (params && params.amountSTEEMSBD
-                && sanitizedParams && sanitizedParams.amountSTEEMSBD) {
+
+            // check if a recipient or amountSTEEMSBD
+            //  or isSignedWithActiveKey  were passed initially
+            if (params && params.amountSTEEMSBD) {
               sanitizedParams.amountSTEEMSBD = params.amountSTEEMSBD;
             }
 
-            if (params && params.recipient
-              && sanitizedParams && sanitizedParams.recipient) {
+            if (params && params.recipient) {
               sanitizedParams.recipient = params.recipient;
             }
 
-            if (params && params.isSignedWithActiveKey
-              && sanitizedParams && sanitizedParams.isSignedWithActiveKey) {
+            if (params && params.isSignedWithActiveKey) {
               sanitizedParams.isSignedWithActiveKey = params.isSignedWithActiveKey;
             }
 
@@ -358,19 +357,17 @@ class Block {
         executeSmartContract: (contractName, actionName, params) => {
           if (typeof contractName !== 'string' || typeof actionName !== 'string' || (params && typeof params !== 'string')) return null;
           const sanitizedParams = params ? JSON.parse(params) : null;
-          // check if a recipient and or amountSTEEMSBD were passed initially
-          if (payloadObj && payloadObj.amountSTEEMSBD
-              && sanitizedParams && sanitizedParams.amountSTEEMSBD) {
+
+          // check if a recipient or amountSTEEMSBD or isSignedWithActiveKey  were passed initially
+          if (payloadObj && payloadObj.amountSTEEMSBD) {
             sanitizedParams.amountSTEEMSBD = payloadObj.amountSTEEMSBD;
           }
 
-          if (payloadObj && payloadObj.recipient
-            && sanitizedParams && sanitizedParams.recipient) {
+          if (payloadObj && payloadObj.recipient) {
             sanitizedParams.recipient = payloadObj.recipient;
           }
 
-          if (payloadObj && payloadObj.isSignedWithActiveKey
-            && sanitizedParams && sanitizedParams.isSignedWithActiveKey) {
+          if (payloadObj && payloadObj.isSignedWithActiveKey) {
             sanitizedParams.isSignedWithActiveKey = payloadObj.isSignedWithActiveKey;
           }
 
