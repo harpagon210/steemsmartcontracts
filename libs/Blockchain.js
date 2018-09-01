@@ -248,10 +248,16 @@ class Block {
 
             const results = {};
             res.errors.forEach((error) => {
+              if (results.errors === undefined) {
+                results.errors = [];
+              }
               logs.errors.push(error);
               results.errors.push(error);
             });
             res.events.forEach((event) => {
+              if (results.events === undefined) {
+                results.events = [];
+              }
               logs.events.push(event);
               results.events.push(event);
             });
@@ -386,10 +392,16 @@ class Block {
           );
           const results = {};
           res.errors.forEach((error) => {
+            if (results.errors === undefined) {
+              results.errors = [];
+            }
             logs.errors.push(error);
             results.errors.push(error);
           });
           res.events.forEach((event) => {
+            if (results.events === undefined) {
+              results.events = [];
+            }
             logs.events.push(event);
             results.events.push(event);
           });
