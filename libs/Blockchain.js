@@ -126,7 +126,7 @@ class Block {
   static deploySmartContract(state, transaction, jsVMTimeout) {
     try {
       // console.log(transaction);
-      const { sender } = transaction;
+      const { refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
       const { name, params, code } = payload;
 
@@ -211,6 +211,7 @@ class Block {
         const vmState = {
           action: 'createSSC',
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
+          refSteemBlockNumber,
           db,
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
@@ -297,6 +298,7 @@ class Block {
         contract,
         action,
         payload,
+        refSteemBlockNumber,
       } = transaction;
 
       if (action === 'createSSC') return { errors: ['you cannot trigger the createSSC action'] };
@@ -349,6 +351,7 @@ class Block {
       const vmState = {
         sender,
         owner: contractOwner,
+        refSteemBlockNumber,
         action,
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
