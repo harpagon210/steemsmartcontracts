@@ -1,5 +1,6 @@
 const SHA256 = require('crypto-js/sha256');
 const { VM, VMScript } = require('vm2');
+const currency = require('currency.js');
 const Loki = require('lokijs');
 const { Base64 } = require('js-base64');
 const fs = require('fs-extra');
@@ -361,6 +362,7 @@ class Block {
         action,
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
+        currency,
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract
         executeSmartContract: (contractName, actionName, params) => {
