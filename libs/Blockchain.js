@@ -214,6 +214,7 @@ class Block {
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
           refSteemBlockNumber,
           db,
+          currency,
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: (contractName, actionName, parameters) => {
