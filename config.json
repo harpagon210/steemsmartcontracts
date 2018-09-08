@@ -1,5 +1,5 @@
 {
-    "chainId": "b8923f70-c1f7-497f-961d",
+    "chainId": "b8923f70-c1f7-497f-961j",
     "rpcNodePort": 5000,
     "dataDirectory": "./data/",
     "blockchainFilePath": "blockchain.json",
@@ -11,6 +11,9 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 25237133,
-    "genesisSteemBlock": 25237133
+    "startSteemBlock": 25238681,
+    "genesisSteemBlock": 25237133,
+    "keyCertificat": "",
+    "certificat": "",
+    "caCertificat": ""
 }

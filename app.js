@@ -1,4 +1,5 @@
 const jayson = require('jayson');
+const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
@@ -11,6 +12,9 @@ const {
   dataDirectory,
   blockchainFilePath,
   databaseFilePath,
+  keyCertificat,
+  certificat,
+  caCertificat,
 } = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
@@ -124,7 +128,15 @@ steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePat
     app.use(bodyParser.json());
     app.post('/blockchain', jayson.server(blockchainRPC).middleware());
     app.post('/contracts', jayson.server(contractsRPC).middleware());
-    app.listen(rpcNodePort);
+
+    https.createServer({
+      key: fs.readFileSync(keyCertificat),
+      cert: fs.readFileSync(certificat),
+      ca: fs.readFileSync(caCertificat),
+    }, app)
+      .listen(rpcNodePort, () => {
+        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
+      });
 
     // execute actions before the app closes
     nodeCleanup((exitCode, signal) => {
