@@ -1,5 +1,6 @@
 const jayson = require('jayson');
 const https = require('https');
+const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
@@ -124,6 +125,7 @@ steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePat
     };
 
     const app = express();
+    app.use(cors({ methods: ['POST'] }));
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
     app.post('/blockchain', jayson.server(blockchainRPC).middleware());
