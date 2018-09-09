@@ -13,7 +13,7 @@
     ],
     "startSteemBlock": 25238681,
     "genesisSteemBlock": 25237133,
-    "keyCertificat": "",
-    "certificat": "",
-    "caCertificat": ""
+    "keyCertificate": "",
+    "certificate": "",
+    "chainCertificate": ""
 }

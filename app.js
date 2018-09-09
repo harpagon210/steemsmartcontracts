@@ -12,9 +12,9 @@ const {
   dataDirectory,
   blockchainFilePath,
   databaseFilePath,
-  keyCertificat,
-  certificat,
-  caCertificat,
+  keyCertificate,
+  certificate,
+  chainCertificate,
 } = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
@@ -130,9 +130,9 @@ steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePat
     app.post('/contracts', jayson.server(contractsRPC).middleware());
 
     https.createServer({
-      key: fs.readFileSync(keyCertificat),
-      cert: fs.readFileSync(certificat),
-      ca: fs.readFileSync(caCertificat),
+      key: fs.readFileSync(keyCertificate),
+      cert: fs.readFileSync(certificate),
+      ca: fs.readFileSync(chainCertificate),
     }, app)
       .listen(rpcNodePort, () => {
         console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
