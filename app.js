@@ -1,5 +1,6 @@
 const jayson = require('jayson');
 const https = require('https');
+const http = require('http');
 const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -11,7 +12,7 @@ const {
   rpcNodePort,
   javascriptVMTimeout,
   dataDirectory,
-  blockchainFilePath,
+  autosaveInterval,
   databaseFilePath,
   keyCertificate,
   certificate,
@@ -21,10 +22,10 @@ const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
 
 // instantiate the blockchain
-const steemContracts = new Blockchain(javascriptVMTimeout);
+const steemContracts = new Blockchain(chainId, autosaveInterval, javascriptVMTimeout);
 
 console.log('Loading Blockchain...'); // eslint-disable-line
-steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePath, (error) => {
+steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
   if (error) {
     console.error(error); // eslint-disable-line
   } else {
@@ -131,14 +132,21 @@ steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePat
     app.post('/blockchain', jayson.server(blockchainRPC).middleware());
     app.post('/contracts', jayson.server(contractsRPC).middleware());
 
-    https.createServer({
-      key: fs.readFileSync(keyCertificate),
-      cert: fs.readFileSync(certificate),
-      ca: fs.readFileSync(chainCertificate),
-    }, app)
-      .listen(rpcNodePort, () => {
-        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
-      });
+    if (keyCertificate === '' || certificate === '' || chainCertificate === '') {
+      http.createServer(app)
+        .listen(rpcNodePort, () => {
+          console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
+        });
+    } else {
+      https.createServer({
+        key: fs.readFileSync(keyCertificate),
+        cert: fs.readFileSync(certificate),
+        ca: fs.readFileSync(chainCertificate),
+      }, app)
+        .listen(rpcNodePort, () => {
+          console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
+        });
+    }
 
     // execute actions before the app closes
     nodeCleanup((exitCode, signal) => {
@@ -146,6 +154,7 @@ steemContracts.loadBlockchain(dataDirectory, blockchainFilePath, databaseFilePat
         console.log('Closing App... ', exitCode, signal); // eslint-disable-line
 
         let currentSteemBlock = steemStreamer.GetCurrentBlock();
+        steemStreamer.StopStream();
 
         steemContracts.saveBlockchain((err) => {
           if (err) {

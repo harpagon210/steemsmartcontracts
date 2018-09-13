@@ -2,8 +2,8 @@
     "chainId": "b8923f70-c1f7-497f-961j",
     "rpcNodePort": 5000,
     "dataDirectory": "./data/",
-    "blockchainFilePath": "blockchain.json",
     "databaseFilePath": "database.db",
+    "autosaveInterval": 1800000,
     "javascriptVMTimeout": 10000,
     "streamNodes": [
         "https://api.steemit.com",
@@ -11,7 +11,7 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 25238681,
+    "startSteemBlock": 25239487,
     "genesisSteemBlock": 25237133,
     "keyCertificate": "",
     "certificate": "",

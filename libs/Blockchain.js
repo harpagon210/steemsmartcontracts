@@ -92,7 +92,6 @@ class Block {
   // produce the block (deploy a smart contract or execute a smart contract)
   produceBlock(state, jsVMTimeout) {
     this.transactions.forEach((transaction) => {
-      // console.log('transaction: ', transaction);
       const {
         sender,
         contract,
@@ -117,22 +116,17 @@ class Block {
 
     this.hash = this.calculateHash();
     this.merkleRoot = this.calculateMerkleRoot(this.transactions);
-
-    // console.log(`
-    // BLOCK PRODUCED: Block #: ${this.blockNumber} #Txs: ${this.transactions.length}
-    // hash: ${this.hash} merkle root: ${this.merkleRoot}`); // eslint-disable-line max-len
   }
 
   // deploy the smart contract to the blockchain and initialize the database if needed
   static deploySmartContract(state, transaction, jsVMTimeout) {
     try {
-      // console.log(transaction);
       const { refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
       const { name, params, code } = payload;
 
       if (name && typeof name === 'string'
-          && code && typeof code === 'string') {
+        && code && typeof code === 'string') {
         // the contract name has to be a string made of letters and numbers
         const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
         const RegexLetters = /^[a-zA-Z_]+$/;
@@ -444,13 +438,15 @@ class Block {
 }
 
 class Blockchain {
-  constructor(jsVMTimeout) {
-    this.chain = [Blockchain.createGenesisBlock()];
+  constructor(chainId, autosaveInterval, jsVMTimeout) {
+    this.chain = null;
+    this.chainId = chainId;
     this.pendingTransactions = [];
     this.state = {};
 
     this.blockchainFilePath = '';
     this.databaseFilePath = '';
+    this.autosaveInterval = autosaveInterval;
     this.jsVMTimeout = jsVMTimeout;
 
     this.producing = false;
@@ -459,53 +455,44 @@ class Blockchain {
   }
 
   // create the genesis block of the blockchain
-  static createGenesisBlock() {
-    const genesisBlock = new Block('2018-06-01T00:00:00', [], -1, '0');
-    // console.log('BLOCK GENESIS CREATED: #',
-    // genesisBlock.blockNumber); // eslint-disable-line no-console
+  static createGenesisBlock(chainId) {
+    const genesisBlock = new Block('2018-06-01T00:00:00', [{ chainId }], -1, '0');
     return genesisBlock;
   }
 
-  // load the blockchain as well as the database from the filesystem
-  loadBlockchain(dataDirectory, blockchainFile, databaseFile, callback) {
+  // load the database from the filesystem
+  loadBlockchain(dataDirectory, databaseFile, callback) {
     this.loading = true;
 
-    this.blockchainFilePath = dataDirectory + blockchainFile;
     this.databaseFilePath = dataDirectory + databaseFile;
 
     // check if the app has already be run
-    if (fs.pathExistsSync(this.blockchainFilePath)) {
-      // load the file where the blocks are stored to the RAM
-      fs.readJson(this.blockchainFilePath, (error, content) => {
-        if (error) {
-          callback(error);
+    if (fs.pathExistsSync(this.databaseFilePath)) {
+      // load the blockchain
+      this.lokiJSAdapter = new lfsa(); // eslint-disable-line new-cap
+      this.state = {
+        database: new Loki(this.databaseFilePath, {
+          adapter: this.lokiJSAdapter,
+          autosave: this.autosaveInterval > 0,
+          autosaveInterval: this.autosaveInterval,
+        }),
+      };
+
+      // load the database from the filesystem to the RAM
+      this.state.database.loadDatabase({}, (errorDb) => {
+        if (errorDb) {
+          callback(errorDb);
         }
 
-        this.lokiJSAdapter = new lfsa(); // eslint-disable-line new-cap
-        this.state = {
-          database: new Loki(this.databaseFilePath, {
-            adapter: this.lokiJSAdapter,
-          }),
-        };
-
-        if (content.length > 0) {
-          this.chain = content;
+        // if the chain or the contracts collection doesn't exist we return an error
+        this.chain = this.state.database.getCollection('chain');
+        if (this.chain === null
+          || this.state.database.getCollection('contracts') === null) {
+          callback('The database is missing either the chain or the contracts table');
         }
 
-        // load the database from the filesystem to the RAM
-        this.state.database.loadDatabase({}, (errorDb) => {
-          if (errorDb) {
-            callback(errorDb);
-          }
-
-          // if the contracts collection doesn't exist we create it
-          if (this.state.database.getCollection('contracts') === null) {
-            this.state.database.addCollection('contracts');
-          }
-
-          this.loading = false;
-          callback(null);
-        });
+        this.loading = false;
+        callback(null);
       });
     } else {
       // create the data directory if necessary and empty it if files exists
@@ -516,10 +503,17 @@ class Blockchain {
       this.state = {
         database: new Loki(this.databaseFilePath, {
           adapter: this.lokiJSAdapter,
+          autosave: this.autosaveInterval > 0,
+          autosaveInterval: this.autosaveInterval,
         }),
       };
 
+      // init the main tables
+      this.chain = this.state.database.addCollection('chain');
       this.state.database.addCollection('contracts');
+
+      // insert the genesis block
+      this.chain.insert(Blockchain.createGenesisBlock(this.chainId));
 
       this.loading = false;
       callback(null);
@@ -532,25 +526,20 @@ class Blockchain {
     if (this.producing) this.saveBlockchain(callback);
     this.saving = !this.producing;
 
-    // save the blockchain from the RAM to a json file
-    fs.writeJson(this.blockchainFilePath, this.chain, { flag: 'w' }, (error) => {
-      if (error) {
-        callback(error);
+    // save the database from the RAM to the filesystem
+    this.state.database.saveDatabase((err) => {
+      if (err) {
+        callback(err);
       }
 
-      // save the database from the RAM to the filesystem
-      this.state.database.saveDatabase((err) => {
-        if (err) {
-          callback(err);
-        }
-        callback(null);
-      });
+      callback(null);
     });
   }
 
   // get the latest block of the blockchain
   getLatestBlock() {
-    return this.chain[this.chain.length - 1];
+    const { maxId } = this.chain;
+    return this.chain.findOne({ $loki: maxId });
   }
 
   // produce all the pending transactions, that will result in the creattion of a block
@@ -571,9 +560,7 @@ class Blockchain {
     );
     block.produceBlock(this.state, this.jsVMTimeout);
 
-    this.chain.push(block);
-
-    // console.log(block);
+    this.chain.insert(block);
 
     this.pendingTransactions = [];
     this.producing = false;
@@ -586,9 +573,11 @@ class Blockchain {
 
   // check if the blockchain is valid by checking the block hashes and Merkle roots
   isChainValid() {
-    for (let i = 1; i < this.chain.length; i += 1) {
-      const currentBlock = this.chain[i];
-      const previousBlock = this.chain[i - 1];
+    const chain = this.chain.find();
+
+    for (let i = 1; i < chain.length; i += 1) {
+      const currentBlock = chain[i];
+      const previousBlock = chain[i - 1];
 
       if (currentBlock.merkleRoot !== currentBlock.calculateMerkleRoot(currentBlock.transactions)) {
         return false;
@@ -607,15 +596,48 @@ class Blockchain {
   }
 
   // replay the entire blockchain (rebuild the database as well)
-  replayBlockchain() {
+  replayBlockchain(dataDirectory) {
+    const chain = this.chain.find();
+
+    // create the data directory if necessary and empty it if files exists
+    fs.emptyDirSync(dataDirectory);
+
+    // init the database
+    this.lokiJSAdapter = new lfsa(); // eslint-disable-line new-cap
     this.state = {
-      database: new Loki(),
+      database: new Loki(this.databaseFilePath, {
+        adapter: this.lokiJSAdapter,
+        autosave: this.autosaveInterval > 0,
+        autosaveInterval: this.autosaveInterval,
+      }),
     };
 
+    // init the main tables
+    this.chain = this.state.database.addCollection('chain');
     this.state.database.addCollection('contracts');
 
-    for (let i = 0; i < this.chain.length; i += 1) {
-      this.chain[i].produceBlock(this.state, this.jsVMTimeout);
+    // insert the genesis block
+    this.chain.insert(Blockchain.createGenesisBlock(this.chainId));
+
+    for (let i = 0; i < chain.length; i += 1) {
+      const txLength = chain[i].transactions.length;
+      const txs = chain[i].transactions;
+
+      for (let j = 0; j < txLength; j += 1) {
+        const {
+          refSteemBlockNumber,
+          transactionId,
+          sender,
+          contract,
+          action,
+          payload,
+        } = txs[j];
+        this.createTransaction(
+          new Transaction(refSteemBlockNumber, transactionId, sender, contract, action, payload),
+        );
+      }
+
+      this.producePendingTransactions(chain[i].timestamp);
     }
   }
 
@@ -623,8 +645,10 @@ class Blockchain {
 
   // get the block that has the block number blockNumber
   getBlockInfo(blockNumber) {
-    if (blockNumber && typeof blockNumber === 'number' && blockNumber < this.chain.length) {
-      return this.chain[blockNumber];
+    if (blockNumber && typeof blockNumber === 'number') {
+      // the $loki field starts from 1 so the block 0 has the id 1
+      // so to get the actual block we need to add 1 to blockNumber
+      return this.chain.findOne({ $loki: blockNumber + 1 });
     }
 
     return null;
@@ -632,7 +656,7 @@ class Blockchain {
 
   // get the latest block available on the blockchain
   getLatestBlockInfo() {
-    return this.chain[this.chain.length - 1];
+    return this.getLatestBlock();
   }
 
   // find records in the contract table by using the query, returns empty array if no records found

@@ -5,6 +5,7 @@ module.exports.SteemStreamer = class SteemStreamer {
   constructor(chainId, currentBlock) {
     this.chainId = chainId;
     this.currentBlock = currentBlock;
+    this.stopStream = false;
   }
 
   // stream the Steem blockchain to find transactions related to the sidechain
@@ -27,9 +28,14 @@ module.exports.SteemStreamer = class SteemStreamer {
     return this.currentBlock;
   }
 
+  StopStream() {
+    this.stopStream = true;
+  }
+
   // get a block from the Steem blockchain
   GetBlock(callback, reject) {
     try {
+      if (this.stopStream) return null;
       steem.api.getDynamicGlobalProperties((err, blockchainProps) => { // eslint-disable-line
         if (err) return reject(err);
 
@@ -37,6 +43,7 @@ module.exports.SteemStreamer = class SteemStreamer {
 
         if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
           steem.api.getBlock(this.currentBlock, (error, block) => {
+            if (this.stopStream) return null;
             if (err) return reject(error);
 
             if (block) {
