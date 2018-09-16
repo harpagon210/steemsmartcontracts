@@ -181,11 +181,19 @@ class Block {
             return state.database.addCollection(finalTableName);
           },
           // perform a query on the tables of other smart contracts
-          findInTable: (contractName, table, query) => DBUtils.findInTable(
+          findInTable: (
+            contractName,
+            table,
+            query,
+            limit = 1000,
+            offset = 0,
+          ) => DBUtils.findInTable(
             state,
             contractName,
             table,
             query,
+            limit,
+            offset,
           ),
           // perform a query on the tables of other smart contracts
           findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
@@ -328,11 +336,19 @@ class Block {
           return null;
         },
         // perform a query on the tables of other smart contracts
-        findInTable: (contractName, table, query) => DBUtils.findInTable(
+        findInTable: (
+          contractName,
+          table,
+          query,
+          limit = 1000,
+          offset = 0,
+        ) => DBUtils.findInTable(
           state,
           contractName,
           table,
           query,
+          limit,
+          offset,
         ),
         // perform a query on the tables of other smart contracts
         findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
@@ -645,7 +661,7 @@ class Blockchain {
 
   // get the block that has the block number blockNumber
   getBlockInfo(blockNumber) {
-    if (blockNumber && typeof blockNumber === 'number') {
+    if (Number.isInteger(blockNumber)) {
       // the $loki field starts from 1 so the block 0 has the id 1
       // so to get the actual block we need to add 1 to blockNumber
       return this.chain.findOne({ $loki: blockNumber + 1 });
@@ -660,8 +676,8 @@ class Blockchain {
   }
 
   // find records in the contract table by using the query, returns empty array if no records found
-  findInTable(contract, table, query) {
-    return DBUtils.findInTable(this.state, contract, table, query);
+  findInTable(contract, table, query, limit = 1000, offset = 0) {
+    return DBUtils.findInTable(this.state, contract, table, query, limit, offset);
   }
 
   // find one record in the table of a contract by using the query, returns nullrecord found

@@ -68,7 +68,7 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
       getBlockInfo: (args, callback) => {
         const { blockNumber } = args;
 
-        if (blockNumber) {
+        if (Number.isInteger(blockNumber)) {
           const res = steemContracts.getBlockInfo(blockNumber);
           callback(null, res);
         } else {
@@ -85,7 +85,7 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
       getContract: (args, callback) => {
         const { contract } = args;
 
-        if (contract) {
+        if (contract && typeof contract === 'string') {
           const res = steemContracts.getContract(contract);
           callback(null, res);
         } else {
@@ -99,7 +99,9 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
       findOneInTable: (args, callback) => {
         const { contract, table, query } = args;
 
-        if (contract && table && query) {
+        if (contract && typeof contract === 'string'
+          && table && typeof table === 'string'
+          && query && typeof query === 'object') {
           const res = steemContracts.findOneInTable(contract, table, query);
           callback(null, res);
         } else {
@@ -111,10 +113,20 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
       },
 
       findInTable: (args, callback) => {
-        const { contract, table, query } = args;
+        const {
+          contract,
+          table,
+          query,
+          limit,
+          offset,
+        } = args;
 
-        if (contract && table && query) {
-          const res = steemContracts.findInTable(contract, table, query);
+        if (contract && typeof contract === 'string'
+          && table && typeof table === 'string'
+          && query && typeof query === 'object') {
+          const lim = limit || 1000;
+          const off = offset || 0;
+          const res = steemContracts.findInTable(contract, table, query, lim, off);
           callback(null, res);
         } else {
           callback({

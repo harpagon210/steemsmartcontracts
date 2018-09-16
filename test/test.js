@@ -413,6 +413,65 @@ describe('Smart Contracts', function () {
     });
   });
 
+  it('should read the records from a smart contract table via pagination', function () {
+    cleanDataFolder();
+    const smartContractCode = `
+      actions.createSSC = function (payload) {
+        // Initialize the smart contract via the create action
+        db.createTable('users');
+      }
+      
+      actions.addUser = function (payload) {
+        const { username } = payload;
+
+        let users = db.getTable('users');
+
+        const newUser = {
+          'id': sender,
+          'username': username
+        };
+
+        users.insert(newUser);
+      }
+    `;
+
+    const base64SmartContractCode = Base64.encode(smartContractCode);
+
+    const contractPayload = {
+      name: 'users_contract',
+      params: '',
+      code: base64SmartContractCode,
+    };
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', ''));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+
+      let users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5);
+      assert.equal(users[0].$loki, 1);
+      assert.equal(users[4].$loki, 5);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 5);
+      assert.equal(users[0].$loki, 6);
+      assert.equal(users[4].$loki, 10);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 10);
+      assert.equal(users.length, 0);
+    });
+  });
+
   it('should allow only the owner of the smart contract to perform certain actions', function () {
     cleanDataFolder();
 

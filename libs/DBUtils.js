@@ -14,17 +14,25 @@ class DBUtils {
   }
 
   // find records in the contract table by using the query, returns empty array if no records found
-  static findInTable(state, contract, table, query) {
+  static findInTable(state, contract, table, query, limit = 1000, offset = 0) {
     if (contract && typeof contract === 'string'
         && table && typeof table === 'string'
-        && query && typeof query === 'object') {
+        && query && typeof query === 'object'
+        && Number.isInteger(limit)
+        && Number.isInteger(offset)
+        && limit > 0 && limit <= 1000
+        && offset >= 0) {
       const contractInDb = DBUtils.getContract(state, contract);
 
       if (contractInDb) {
         const finalTableName = `${contract}_${table}`;
         if (contractInDb.tables.includes(finalTableName)) {
           const tableData = state.database.getCollection(finalTableName);
-          return tableData.find(query);
+          return tableData.chain()
+            .find(query)
+            .offset(offset)
+            .limit(limit)
+            .data();
         }
       }
     }
