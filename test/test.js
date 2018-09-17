@@ -265,6 +265,39 @@ describe('Smart Contracts', function () {
     });
   });
 
+  it('should create a table with indexes during the smart contract deployment', function () {
+    cleanDataFolder();
+
+    const smartContractCode = `
+      actions.createSSC = function (payload) {
+        // Initialize the smart contract via the create action
+        db.createTable('test_table', ['index1', 'index2']);
+      }
+    `;
+
+    const base64SmartContractCode = Base64.encode(smartContractCode);
+
+    const contractPayload = {
+      name: 'test_contract',
+      params: '',
+      code: base64SmartContractCode,
+    };
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+
+      const table = steemSmartContracts.state.database.getCollection('test_contract_test_table');
+
+      // the name of a table starts by the name of the contract and is separated by _
+      assert.notEqual(table.binaryIndices['index1'], undefined);
+      assert.notEqual(table.binaryIndices['index2'], undefined);
+    });
+  });
+
   it('should add a record into a smart contract table', function () {
     cleanDataFolder();
 
@@ -471,6 +504,121 @@ describe('Smart Contracts', function () {
       assert.equal(users.length, 0);
     });
   });
+
+  it('should read the records from a smart contract table using an index ascending', function () {
+    cleanDataFolder();
+    const smartContractCode = `
+      actions.createSSC = function (payload) {
+        // Initialize the smart contract via the create action
+        db.createTable('users', ['age']);
+      }
+      
+      actions.addUser = function (payload) {
+        const { age } = payload;
+
+        let users = db.getTable('users');
+        const newUser = {
+          'username': sender,
+          age
+        };
+        users.insert(newUser);
+      }
+    `;
+
+    const base64SmartContractCode = Base64.encode(smartContractCode);
+
+    const contractPayload = {
+      name: 'users_contract',
+      params: '',
+      code: base64SmartContractCode,
+    };
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "age": 2 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', '{ "age": 10 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', '{ "age": 3 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', '{ "age": 199 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', '{ "age": 200 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', '{ "age": 1 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', '{ "age": 89 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', '{ "age": 2 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', '{ "age": 34 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', '{ "age": 20 }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+
+      let users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 0, 'age');
+      assert.equal(users[0].$loki, 6);
+      assert.equal(users[4].$loki, 2);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 5, 'age');
+      assert.equal(users[0].$loki, 10);
+      assert.equal(users[4].$loki, 5);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 10, 'age');
+      assert.equal(users.length, 0);
+    });
+  });
+
+  it('should read the records from a smart contract table using an index descending', function () {
+    cleanDataFolder();
+    const smartContractCode = `
+      actions.createSSC = function (payload) {
+        // Initialize the smart contract via the create action
+        db.createTable('users', ['age']);
+      }
+      
+      actions.addUser = function (payload) {
+        const { age } = payload;
+
+        let users = db.getTable('users');
+        const newUser = {
+          'username': sender,
+          age
+        };
+        users.insert(newUser);
+      }
+    `;
+
+    const base64SmartContractCode = Base64.encode(smartContractCode);
+
+    const contractPayload = {
+      name: 'users_contract',
+      params: '',
+      code: base64SmartContractCode,
+    };
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "age": 2 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', '{ "age": 10 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', '{ "age": 3 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', '{ "age": 199 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', '{ "age": 200 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', '{ "age": 1 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', '{ "age": 89 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', '{ "age": 2 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', '{ "age": 34 }'));
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', '{ "age": 20 }'));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+
+      let users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 0, 'age', true);
+      assert.equal(users[0].$loki, 5);
+      assert.equal(users[4].$loki, 10);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 5, 'age', true);
+      assert.equal(users[0].$loki, 2);
+      assert.equal(users[4].$loki, 6);
+
+      users = steemSmartContracts.findInTable('users_contract', 'users', { }, 5, 10, 'age', true);
+      assert.equal(users.length, 0);
+    });
+  });
+  
 
   it('should allow only the owner of the smart contract to perform certain actions', function () {
     cleanDataFolder();

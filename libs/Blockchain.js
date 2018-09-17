@@ -129,7 +129,6 @@ class Block {
         && code && typeof code === 'string') {
         // the contract name has to be a string made of letters and numbers
         const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
-        const RegexLetters = /^[a-zA-Z_]+$/;
 
         if (!RegexLettersNumbers.test(name)) {
           return { errors: ['invalid contract name'] };
@@ -171,14 +170,15 @@ class Block {
         // prepare the db object that will be available in the VM
         const db = {
           // createTable is only available during the smart contract deployment
-          createTable: (tableName) => {
-            if (!RegexLetters.test(tableName)) return null;
-            const finalTableName = `${name}_${tableName}`;
-            const table = state.database.getCollection(finalTableName);
-            if (table) return table;
+          createTable: (tableName, indexes = []) => {
+            const table = DBUtils.createTable(state, name, tableName, indexes);
+            if (table) {
+              // add the table name to the list of table available for this contract
+              const finalTableName = `${name}_${tableName}`;
+              if (!tables.includes(finalTableName)) tables.push(finalTableName);
+            }
 
-            tables.push(finalTableName);
-            return state.database.addCollection(finalTableName);
+            return table;
           },
           // perform a query on the tables of other smart contracts
           findInTable: (
@@ -187,6 +187,8 @@ class Block {
             query,
             limit = 1000,
             offset = 0,
+            index = '',
+            descending = false,
           ) => DBUtils.findInTable(
             state,
             contractName,
@@ -194,6 +196,8 @@ class Block {
             query,
             limit,
             offset,
+            index,
+            descending,
           ),
           // perform a query on the tables of other smart contracts
           findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
@@ -342,6 +346,8 @@ class Block {
           query,
           limit = 1000,
           offset = 0,
+          index = '',
+          descending = false,
         ) => DBUtils.findInTable(
           state,
           contractName,
@@ -349,6 +355,8 @@ class Block {
           query,
           limit,
           offset,
+          index,
+          descending,
         ),
         // perform a query on the tables of other smart contracts
         findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
@@ -676,8 +684,17 @@ class Blockchain {
   }
 
   // find records in the contract table by using the query, returns empty array if no records found
-  findInTable(contract, table, query, limit = 1000, offset = 0) {
-    return DBUtils.findInTable(this.state, contract, table, query, limit, offset);
+  findInTable(contract, table, query, limit = 1000, offset = 0, index = '', descending = false) {
+    return DBUtils.findInTable(
+      this.state,
+      contract,
+      table,
+      query,
+      limit,
+      offset,
+      index,
+      descending,
+    );
   }
 
   // find one record in the table of a contract by using the query, returns nullrecord found
