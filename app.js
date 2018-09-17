@@ -128,7 +128,7 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
           && query && typeof query === 'object') {
           const lim = limit || 1000;
           const off = offset || 0;
-          const ind = index || [];
+          const ind = index || '';
           const desc = descending || false;
           const res = steemContracts.findInTable(contract, table, query, lim, off, ind, desc);
           callback(null, res);
