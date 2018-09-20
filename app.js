@@ -10,7 +10,8 @@ const {
   databaseFilePath,
 } = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
-const { Blockchain, Transaction } = require('./libs/Blockchain');
+const { Blockchain } = require('./libs/Blockchain');
+const { Transaction } = require('./libs/Transaction');
 
 // instantiate the blockchain
 const steemContracts = new Blockchain(chainId, autosaveInterval, javascriptVMTimeout);
