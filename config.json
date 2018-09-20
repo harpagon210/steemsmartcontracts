@@ -1,19 +1,21 @@
 {
-    "chainId": "b8923f70-c1f7-497f-961j",
-    "rpcNodePort": 5000,
-    "dataDirectory": "./data/",
-    "databaseFilePath": "database.db",
-    "autosaveInterval": 1800000,
-    "javascriptVMTimeout": 10000,
+    "chainId": "b8923f70-c1f7-497f-961j", // the id of the sidechain that the node will listen to
+    "rpcNodePort": 5000, // port of the JSON RPC server that people will use to retrieve data from your node
+    "dataDirectory": "./data/", // directory where is stored the database
+    "databaseFilePath": "database.db", // name of the file for the database
+    "autosaveInterval": 1800000, // interval for which the database will be saved, in milliseconds, if 0, the autosave will be deactivated
+    "javascriptVMTimeout": 10000, // the timeout that will be applied to the JavaScript virtual machine, needs to be the same on all the nodes of the sidechain
+    // array of Steem full nodes url for the failover
     "streamNodes": [
         "https://api.steemit.com",
         "https://rpc.buildteam.io",
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 25239487,
-    "genesisSteemBlock": 25237133,
-    "keyCertificate": "",
-    "certificate": "",
-    "chainCertificate": ""
+    "startSteemBlock": 25647669, // last Steem block parsed by the node
+    "genesisSteemBlock": 25647669, // first block that was parsed by the sidechain, needs to be the same on all nodes listening to the sidechain id previously defined
+    // the folowing keys need to be populated in order to run an HTTPS node
+    "keyCertificate": "", // path to your key.pem file
+    "certificate": "", // path to your certificate.pem file
+    "chainCertificate": "" // path to your chain.pem file
 }
