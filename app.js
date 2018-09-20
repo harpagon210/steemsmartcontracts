@@ -1,22 +1,13 @@
-const jayson = require('jayson');
-const https = require('https');
-const http = require('http');
-const cors = require('cors');
-const express = require('express');
-const bodyParser = require('body-parser');
 const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
+const { JsonRPCServer } = require('./libs/JsonRPCServer');
 const {
   chainId,
   startSteemBlock,
-  rpcNodePort,
   javascriptVMTimeout,
   dataDirectory,
   autosaveInterval,
   databaseFilePath,
-  keyCertificate,
-  certificate,
-  chainCertificate,
 } = require('./config');
 const { SteemStreamer } = require('./libs/SteemStreamer');
 const { Blockchain, Transaction } = require('./libs/Blockchain');
@@ -56,113 +47,9 @@ steemContracts.loadBlockchain(dataDirectory, databaseFilePath, (error) => {
       }
     });
 
-
-    // launch an RPC server to be able to get data from the blockchain
-    const blockchainRPC = {
-
-      getLatestBlockInfo: (args, callback) => {
-        const res = steemContracts.getLatestBlockInfo();
-        callback(null, res);
-      },
-
-      getBlockInfo: (args, callback) => {
-        const { blockNumber } = args;
-
-        if (Number.isInteger(blockNumber)) {
-          const res = steemContracts.getBlockInfo(blockNumber);
-          callback(null, res);
-        } else {
-          callback({
-            code: 400,
-            message: 'missing or wrong parameters: blockNumber is required',
-          }, null);
-        }
-      },
-    };
-
-    const contractsRPC = {
-
-      getContract: (args, callback) => {
-        const { contract } = args;
-
-        if (contract && typeof contract === 'string') {
-          const res = steemContracts.getContract(contract);
-          callback(null, res);
-        } else {
-          callback({
-            code: 400,
-            message: 'missing or wrong parameters: contract is required',
-          }, null);
-        }
-      },
-
-      findOneInTable: (args, callback) => {
-        const { contract, table, query } = args;
-
-        if (contract && typeof contract === 'string'
-          && table && typeof table === 'string'
-          && query && typeof query === 'object') {
-          const res = steemContracts.findOneInTable(contract, table, query);
-          callback(null, res);
-        } else {
-          callback({
-            code: 400,
-            message: 'missing or wrong parameters: contract and tableName are required',
-          }, null);
-        }
-      },
-
-      findInTable: (args, callback) => {
-        const {
-          contract,
-          table,
-          query,
-          limit,
-          offset,
-          index,
-          descending,
-        } = args;
-
-        if (contract && typeof contract === 'string'
-          && table && typeof table === 'string'
-          && query && typeof query === 'object') {
-          const lim = limit || 1000;
-          const off = offset || 0;
-          const ind = index || '';
-          const desc = descending || false;
-          const res = steemContracts.findInTable(contract, table, query, lim, off, ind, desc);
-          callback(null, res);
-        } else {
-          callback({
-            code: 400,
-            message: 'missing or wrong parameters: contract and tableName are required',
-          }, null);
-        }
-      },
-    };
-
-    const app = express();
-    app.use(cors({ methods: ['POST'] }));
-    app.use(bodyParser.urlencoded({ extended: true }));
-    app.use(bodyParser.json());
-    app.post('/blockchain', jayson.server(blockchainRPC).middleware());
-    app.post('/contracts', jayson.server(contractsRPC).middleware());
-
-    if (keyCertificate === '' || certificate === '' || chainCertificate === '') {
-      http.createServer(app)
-        .listen(rpcNodePort, () => {
-          console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
-        });
-    } else {
-      https.createServer({
-        key: fs.readFileSync(keyCertificate),
-        cert: fs.readFileSync(certificate),
-        ca: fs.readFileSync(chainCertificate),
-      }, app)
-        .listen(rpcNodePort, () => {
-          console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
-        });
-    }
+    // JSON RPC Server instantiation
+    const jsonRPCServer = new JsonRPCServer(steemContracts);
+    jsonRPCServer.StartServer();
 
     // execute actions before the app closes
     nodeCleanup((exitCode, signal) => {
