@@ -15,28 +15,18 @@ This is actually pretty easy, you basically need a Steem account and that's it. 
 - Smart Contracts run in a sandboxed Javascript Virtual Machine called [VM2](https://github.com/patriksimek/vm2)
 - a block on the sidechain is produced only if transactions are being parsed in a Steem block
 
- ## 4.  Roadmap
+## 4. Setup a Steem Smart Contracts node
+
+see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki/How-to-setup-a-Steem-Smart-Contracts-node
+
+## 5. Tests
+* npm run test
+
+## 6. Usage/docs
+
+* see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki
+
+ ## 7.  Roadmap
  This project is actually in an early stage, I will consider it more as a Proof Of Concept for now as important features are still missing:
  - implement the P2P layer
  - implement the Consensus layer (PoS? DPoS? other?)
-
-## 5. Requirements
-You need to have NodeJS installed
-
-## 6. Installation
-
-* Clone the repository
-
-* Open a command line
-
-* execute `npm install`
-
-## 7. Run
-* node app.js
-
-## 8. Test
-* npm test
-
-## 9. Usage
-
-* see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki
