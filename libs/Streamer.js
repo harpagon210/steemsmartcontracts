@@ -103,7 +103,7 @@ class Streamer {
         this.stream(reject);
       }, this.pollingTime);
 
-      console.log('-----------------------------------------------------------------------');
+      console.log('-----------------------------------------------------------------------'); // eslint-disable-line no-console
     } catch (err) {
       reject(err);
     }
