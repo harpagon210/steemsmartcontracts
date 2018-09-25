@@ -61,55 +61,52 @@ class Streamer {
     return this.blocks.pop();
   }
 
-  async stream() {
-    // try {
-    console.log('head_block_number', this.headBlockNumber); // eslint-disable-line no-console
-    console.log('currentBlock', this.currentBlock); // eslint-disable-line no-console
-    const delta = this.headBlockNumber - this.currentBlock;
-    console.log(`Steem blockchain is ${delta > 0 ? delta : 0} block(s) ahead`); // eslint-disable-line no-console
-    const block = await this.client.database.getBlock(this.currentBlock);
-    let addBlockToBuffer = false;
+  async stream(reject) {
+    try {
+      console.log('head_block_number', this.headBlockNumber); // eslint-disable-line no-console
+      console.log('currentBlock', this.currentBlock); // eslint-disable-line no-console
+      const delta = this.headBlockNumber - this.currentBlock;
+      console.log(`Steem blockchain is ${delta > 0 ? delta : 0} block(s) ahead`); // eslint-disable-line no-console
+      const block = await this.client.database.getBlock(this.currentBlock);
+      let addBlockToBuffer = false;
 
-    if (block) {
-      // check if there are data in the buffer
-      if (this.buffer.size() > 0) {
-        const lastBlock = this.buffer.first();
-        console.log('block_id', lastBlock.block_id); // eslint-disable-line no-console
-        console.log('previous block_id', block.previous); // eslint-disable-line no-console
-        if (lastBlock.block_id === block.previous) {
-          addBlockToBuffer = true;
+      if (block) {
+        // check if there are data in the buffer
+        if (this.buffer.size() > 0) {
+          const lastBlock = this.buffer.first();
+          console.log('block_id', lastBlock.block_id); // eslint-disable-line no-console
+          console.log('previous block_id', block.previous); // eslint-disable-line no-console
+          if (lastBlock.block_id === block.previous) {
+            addBlockToBuffer = true;
+          } else {
+            this.buffer.clear();
+            throw new ForkException(`a fork happened between block ${this.currentBlock - 1} and block ${this.currentBlock}`);
+          }
         } else {
-          this.buffer.clear();
-          throw new ForkException(`a fork happened between block ${this.currentBlock - 1} and block ${this.currentBlock}`);
+          // get the previous block
+          const prevBlock = await this.client.database.getBlock(this.currentBlock - 1);
+
+          if (prevBlock && prevBlock.block_id === block.previous) {
+            addBlockToBuffer = true;
+          } else {
+            throw new ForkException(`a fork happened between block ${this.currentBlock - 1} and block ${this.currentBlock}`);
+          }
         }
-      } else {
-        // get the previous block
-        const prevBlock = await this.client.database.getBlock(this.currentBlock - 1);
 
-        if (prevBlock && prevBlock.block_id === block.previous) {
-          addBlockToBuffer = true;
-        } else {
-          throw new ForkException(`a fork happened between block ${this.currentBlock - 1} and block ${this.currentBlock}`);
+        // add the block to the buffer
+        if (addBlockToBuffer === true) {
+          this.addBlock(block);
         }
       }
 
-      // add the block to the buffer
-      if (addBlockToBuffer === true) {
-        this.addBlock(block);
-      }
+      this.poller = setTimeout(() => {
+        this.stream(reject);
+      }, this.pollingTime);
+
+      console.log('-----------------------------------------------------------------------');
+    } catch (err) {
+      reject(err);
     }
-
-    this.poller = setTimeout(() => {
-      this.stream();
-    }, this.pollingTime);
-
-    console.log('-----------------------------------------------------------------------');
-    /* } catch (err) {
-      console.error(err);
-      setTimeout(() => {
-        main();
-      }, timeout)
-    } */
   }
 }
 

@@ -14,25 +14,27 @@ module.exports.SteemStreamer = class SteemStreamer {
     this.currentBlock = currentBlock;
     this.stopStream = false;
     this.streamer = null;
+    this.blockPoller = null;
   }
 
   // stream the Steem blockchain to find transactions related to the sidechain
   stream(callback) {
     const node = streamNodes[0];
     this.streamer = new Streamer(node, this.GetCurrentBlock(), 4);
+    this.streamer.init();
 
-    try {
+    return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
       console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
-      this.streamer.init();
-      this.streamer.stream();
+      this.streamer.stream(reject);
 
-      this.GetBlock(callback);
-    } catch (err) {
+      this.GetBlock(callback, reject);
+    }).catch((err) => {
+      if (this.blockPoller) clearTimeout(this.blockPoller);
       this.streamer.stop();
       console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
       streamNodes.push(streamNodes.shift());
       this.stream(callback);
-    }
+    });
   }
 
   GetCurrentBlock() {
@@ -40,37 +42,42 @@ module.exports.SteemStreamer = class SteemStreamer {
   }
 
   StopStream() {
+    if (this.blockPoller) clearTimeout(this.blockPoller);
     if (this.streamer) this.streamer.stop();
     this.stopStream = true;
   }
 
   // get a block from the Steem blockchain
-  GetBlock(callback) {
-    if (this.stopStream) return;
+  GetBlock(callback, reject) {
+    try {
+      if (this.stopStream) return;
 
-    const block = this.streamer.getNextBlock();
-    if (block && !this.stopStream) {
-      callback(
-        {
-          // we timestamp the block with the Steem block timestamp
-          timestamp: block.timestamp,
-          transactions: this.ParseTransactions(
-            this.currentBlock,
-            block,
-          ),
-        },
-      );
+      const block = this.streamer.getNextBlock();
+      if (block && !this.stopStream) {
+        callback(
+          {
+            // we timestamp the block with the Steem block timestamp
+            timestamp: block.timestamp,
+            transactions: this.ParseTransactions(
+              this.currentBlock,
+              block,
+            ),
+          },
+        );
 
-      console.log('-----------------------------------------------------------------------'); // eslint-disable-line
-      console.log('Last Steem block parsed:', block.blockNumber); // eslint-disable-line
-      if (this.currentBlock !== block.blockNumber) {
-        throw new BlockNumberException(`there is a discrepancy between the current block number (${this.currentBlock}) and the last streamed block number (${block.blockNumber})`);
-      } else {
-        this.currentBlock = block.blockNumber + 1;
+        console.log('Last Steem block parsed:', block.blockNumber); // eslint-disable-line
+        console.log('-----------------------------------------------------------------------'); // eslint-disable-line
+        if (this.currentBlock !== block.blockNumber) {
+          throw new BlockNumberException(`there is a discrepancy between the current block number (${this.currentBlock}) and the last streamed block number (${block.blockNumber})`);
+        } else {
+          this.currentBlock = block.blockNumber + 1;
+        }
       }
-    }
 
-    setTimeout(() => this.GetBlock(callback), 500);
+      this.blockPoller = setTimeout(() => this.GetBlock(callback, reject), 500);
+    } catch (err) {
+      reject(err);
+    }
   }
 
   // parse the transactions found in a Steem block
