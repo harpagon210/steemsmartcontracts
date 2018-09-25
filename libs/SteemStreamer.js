@@ -1,23 +1,36 @@
-const steem = require('steem');
+const { Streamer } = require('./Streamer');
 const { streamNodes } = require('../config');
+
+class BlockNumberException {
+  constructor(message) {
+    this.error = 'BlockNumberException';
+    this.message = message;
+  }
+}
 
 module.exports.SteemStreamer = class SteemStreamer {
   constructor(chainId, currentBlock) {
     this.chainId = chainId;
     this.currentBlock = currentBlock;
     this.stopStream = false;
+    this.streamer = null;
+    this.blockPoller = null;
   }
 
   // stream the Steem blockchain to find transactions related to the sidechain
   stream(callback) {
     const node = streamNodes[0];
-    steem.api.setOptions({ url: node });
+    this.streamer = new Streamer(node, this.GetCurrentBlock());
+    this.streamer.init();
 
     return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
       console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
+      this.streamer.stream(reject);
 
       this.GetBlock(callback, reject);
     }).catch((err) => {
+      if (this.blockPoller) clearTimeout(this.blockPoller);
+      this.streamer.stop();
       console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
       streamNodes.push(streamNodes.shift());
       this.stream(callback);
@@ -29,59 +42,46 @@ module.exports.SteemStreamer = class SteemStreamer {
   }
 
   StopStream() {
+    if (this.blockPoller) clearTimeout(this.blockPoller);
+    if (this.streamer) this.streamer.stop();
     this.stopStream = true;
   }
 
   // get a block from the Steem blockchain
   GetBlock(callback, reject) {
     try {
-      if (this.stopStream) return null;
-      steem.api.getDynamicGlobalProperties((err, blockchainProps) => { // eslint-disable-line
-        if (err) return reject(err);
+      if (this.stopStream) return;
 
-        const { last_irreversible_block_num } = blockchainProps; // eslint-disable-line camelcase
+      const block = this.streamer.getNextBlock();
+      if (block && !this.stopStream) {
+        callback(
+          {
+            // we timestamp the block with the Steem block timestamp
+            timestamp: block.timestamp,
+            transactions: this.ParseTransactions(
+              this.currentBlock,
+              block,
+            ),
+          },
+        );
 
-        if (this.currentBlock <= last_irreversible_block_num) { // eslint-disable-line camelcase
-          steem.api.getBlock(this.currentBlock, (error, block) => {
-            if (this.stopStream) return null;
-            if (err) return reject(error);
-
-            if (block) {
-              callback(
-                {
-                  // we timestamp the block with the Steem block timestamp
-                  timestamp: block.timestamp,
-                  transactions: SteemStreamer.ParseTransactions(
-                    this.chainId,
-                    this.currentBlock,
-                    block,
-                  ),
-                },
-              );
-
-              console.log('--------------------------------------------------------------------------'); // eslint-disable-line
-              console.log('Steem last irreversible block number:', last_irreversible_block_num); // eslint-disable-line
-              console.log('Steem blockchain is ', last_irreversible_block_num - this.currentBlock, 'blocks ahead'); // eslint-disable-line
-              console.log('Last Steem block parsed:', this.currentBlock); // eslint-disable-line
-
-              this.currentBlock += 1;
-            }
-
-            return this.GetBlock(callback, reject);
-          });
+        console.log('Last Steem block parsed:', block.blockNumber); // eslint-disable-line
+        console.log('-----------------------------------------------------------------------'); // eslint-disable-line
+        if (this.currentBlock !== block.blockNumber) {
+          throw new BlockNumberException(`there is a discrepancy between the current block number (${this.currentBlock}) and the last streamed block number (${block.blockNumber})`);
         } else {
-          return this.GetBlock(callback, reject);
+          this.currentBlock = block.blockNumber + 1;
         }
-      });
+      }
 
-      return null;
-    } catch (e) {
-      return reject(e);
+      this.blockPoller = setTimeout(() => this.GetBlock(callback, reject), 500);
+    } catch (err) {
+      reject(err);
     }
   }
 
   // parse the transactions found in a Steem block
-  static ParseTransactions(chainId, refBlockNumber, block) {
+  ParseTransactions(refBlockNumber, block) {
     const newTransactions = [];
     const transactionsLength = block.transactions.length;
 
@@ -120,7 +120,8 @@ module.exports.SteemStreamer = class SteemStreamer {
               sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
             }
 
-            if (id && id === `ssc-${chainId}` && sscTransaction) {
+
+            if (id && id === `ssc-${this.chainId}` && sscTransaction) {
               const { contractName, contractAction, contractPayload } = sscTransaction;
               if (contractName && typeof contractName === 'string'
                 && contractAction && typeof contractAction === 'string'
