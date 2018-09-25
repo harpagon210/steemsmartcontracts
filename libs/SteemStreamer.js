@@ -20,7 +20,7 @@ module.exports.SteemStreamer = class SteemStreamer {
   // stream the Steem blockchain to find transactions related to the sidechain
   stream(callback) {
     const node = streamNodes[0];
-    this.streamer = new Streamer(node, this.GetCurrentBlock(), 4);
+    this.streamer = new Streamer(node, this.GetCurrentBlock());
     this.streamer.init();
 
     return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
