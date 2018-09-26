@@ -184,6 +184,32 @@ describe('Blockchain', function () {
       assert.equal(user.id, 'Harpagon');
     });
   });
+
+  it('should get the genesis block', function () {
+    cleanDataFolder();
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      assert.equal(steemSmartContracts.getBlockInfo(0).blockNumber, 0);
+    });
+  });
+
+  it('should get the latest block', function () {
+    cleanDataFolder();
+
+    // all the variables that we needed are now ready, we can deploy the smart contract
+    const steemSmartContracts = new Blockchain('testChainId', 0, 10000);
+
+    steemSmartContracts.loadBlockchain('./test/data/', 'database.db', (error) => {
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+      steemSmartContracts.createTransaction(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', ''));
+      steemSmartContracts.producePendingTransactions('2018-06-01T00:00:00');
+
+      assert.equal(steemSmartContracts.getLatestBlock().blockNumber, 2);
+    });
+  });
   
 });
 
