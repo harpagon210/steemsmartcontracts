@@ -79,7 +79,7 @@ class Blockchain {
 
       // init the main tables
       this.chain = this.state.database.addCollection('chain');
-      this.state.database.addCollection('contracts');
+      this.state.database.addCollection('contracts', { indices: ['name'] });
 
       // insert the genesis block
       this.chain.insert(Blockchain.createGenesisBlock(this.chainId));
@@ -108,7 +108,7 @@ class Blockchain {
   // get the latest block of the blockchain
   getLatestBlock() {
     const { maxId } = this.chain;
-    return this.chain.findOne({ $loki: maxId });
+    return this.chain.get(maxId);
   }
 
   // produce all the pending transactions, that will result in the creattion of a block
@@ -183,7 +183,7 @@ class Blockchain {
 
     // init the main tables
     this.chain = this.state.database.addCollection('chain');
-    this.state.database.addCollection('contracts');
+    this.state.database.addCollection('contracts', { indices: ['name'] });
 
     // insert the genesis block
     this.chain.insert(Blockchain.createGenesisBlock(this.chainId));
@@ -217,7 +217,7 @@ class Blockchain {
     if (Number.isInteger(blockNumber)) {
       // the $loki field starts from 1 so the block 0 has the id 1
       // so to get the actual block we need to add 1 to blockNumber
-      return this.chain.findOne({ $loki: blockNumber + 1 });
+      return this.chain.get(blockNumber + 1);
     }
 
     return null;
@@ -231,7 +231,7 @@ class Blockchain {
   // find records in the contract table by using the query, returns empty array if no records found
   findInTable(contract, table, query, limit = 1000, offset = 0, index = '', descending = false) {
     return DBUtils.findInTable(
-      this.state,
+      this.state.database,
       contract,
       table,
       query,
@@ -244,12 +244,12 @@ class Blockchain {
 
   // find one record in the table of a contract by using the query, returns nullrecord found
   findOneInTable(contract, table, query) {
-    return DBUtils.findOneInTable(this.state, contract, table, query);
+    return DBUtils.findOneInTable(this.state.database, contract, table, query);
   }
 
   // get the contract info (owner, code, tables available, etc...)
   getContract(contract) {
-    return DBUtils.getContract(this.state, contract);
+    return DBUtils.getContract(this.state.database, contract);
   }
 }
 

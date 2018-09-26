@@ -57,7 +57,7 @@ class SmartContracts {
         const db = {
           // createTable is only available during the smart contract deployment
           createTable: (tableName, indexes = []) => {
-            const table = DBUtils.createTable(state, name, tableName, indexes);
+            const table = DBUtils.createTable(state.database, name, tableName, indexes);
             if (table) {
               // add the table name to the list of table available for this contract
               const finalTableName = `${name}_${tableName}`;
@@ -76,7 +76,7 @@ class SmartContracts {
             index = '',
             descending = false,
           ) => DBUtils.findInTable(
-            state,
+            state.database,
             contractName,
             table,
             query,
@@ -87,7 +87,7 @@ class SmartContracts {
           ),
           // perform a query on the tables of other smart contracts
           findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
-            state,
+            state.database,
             contractName,
             table,
             query,
@@ -235,7 +235,7 @@ class SmartContracts {
           index = '',
           descending = false,
         ) => DBUtils.findInTable(
-          state,
+          state.database,
           contractName,
           table,
           query,
@@ -246,7 +246,7 @@ class SmartContracts {
         ),
         // perform a query on the tables of other smart contracts
         findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
-          state,
+          state.database,
           contractName,
           table,
           query,
