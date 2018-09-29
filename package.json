@@ -1,6 +1,6 @@
 {
   "name": "steemsmartcontracts",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "app.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "body-parser": "^1.18.3",
+    "commander": "^2.18.0",
     "cors": "^2.8.4",
     "crypto-js": "^3.1.9-1",
     "currency.js": "^1.1.4",
