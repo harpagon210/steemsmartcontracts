@@ -41,32 +41,42 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  produceBlock(state, jsVMTimeout) {
-    this.transactions.forEach((transaction) => {
-      const {
-        sender,
-        contract,
-        action,
-        payload,
-      } = transaction;
+  produceBlock(ipc, jsVMTimeout) {
+    return new Promise(async (resolve) => {
+      const nbTransactions = this.transactions.length;
+      for (let i = 0; i < nbTransactions; i += 1) {
+        const transaction = this.transactions[i];
+        const {
+          sender,
+          contract,
+          action,
+          payload,
+        } = transaction;
 
-      let logs = null;
+        let logs = null;
 
-      if (sender && contract && action) {
-        if (contract === 'contract' && action === 'deploy' && payload) {
-          logs = SmartContracts.deploySmartContract(state, transaction, jsVMTimeout);
+        if (sender && contract && action) {
+          if (contract === 'contract' && action === 'deploy' && payload) {
+            logs = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
+              ipc, transaction, jsVMTimeout,
+            );
+          } else {
+            logs = await SmartContracts.executeSmartContract(// eslint-disable-line no-await-in-loop
+              ipc, transaction, jsVMTimeout,
+            );
+          }
         } else {
-          logs = SmartContracts.executeSmartContract(state, transaction, jsVMTimeout);
+          logs = { errors: ['the parameters sender, contract and action are required'] };
         }
-      } else {
-        logs = { errors: ['the parameters sender, contract and action are required'] };
+
+        console.log('transac logs', logs);
+        transaction.addLogs(logs);
       }
 
-      transaction.addLogs(logs);
+      this.hash = this.calculateHash();
+      this.merkleRoot = this.calculateMerkleRoot(this.transactions);
+      resolve();
     });
-
-    this.hash = this.calculateHash();
-    this.merkleRoot = this.calculateMerkleRoot(this.transactions);
   }
 }
 
