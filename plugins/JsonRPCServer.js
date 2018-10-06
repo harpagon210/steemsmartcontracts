@@ -75,7 +75,6 @@ ipc.onReceiveMessage((message) => {
     case 'stop':
       console.log('successfully stopped');
       ipc.reply(message);
-      process.exit(0);
       break;
     default:
       ipc.reply(message);

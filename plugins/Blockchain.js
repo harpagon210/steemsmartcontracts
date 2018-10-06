@@ -130,8 +130,8 @@ ipc.onReceiveMessage((message) => {
     ipc.reply(message);
   } else if (action === 'stop') {
     stop(() => {
-      ipc.reply(message);
       console.log('successfully stopped');
+      ipc.reply(message);
     });
   } else if (action === PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC) {
     produceNewBlockSync(payload, () => {
