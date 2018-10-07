@@ -12,6 +12,7 @@ const PLUGIN_PATH = require.resolve(__filename);
 const PLUGIN_ACTIONS = {
   ADD_BLOCK: 'addBlock',
   GET_LATEST_BLOCK_INFO: 'getLatestBlockInfo',
+  GET_BLOCK_INFO: 'getBlockInfo',
   FIND_CONTRACT: 'findContract',
   ADD_CONTRACT: 'addContract',
   FIND: 'find',
@@ -71,7 +72,7 @@ function init(conf, callback) {
     fs.emptyDirSync(dataDirectory);
 
     // init the main tables
-    chain = database.addCollection('chain');
+    chain = database.addCollection('chain', { indices: ['blockNumber'] });
     database.addCollection('contracts', { indices: ['name'] });
 
     // insert the genesis block
@@ -104,6 +105,8 @@ actions.getLatestBlockInfo = () => { // eslint-disable-line no-unused-vars
   const { maxId } = chain;
   return chain.get(maxId);
 };
+
+actions.getBlockInfo = blockNumber => chain.findOne({ blockNumber });
 
 /**
  * Get the information of a contract (owner, source code, etc...)
@@ -213,29 +216,25 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
     && Number.isInteger(off)
     && lim > 0 && lim <= 1000
     && off >= 0) {
-    const contractInDb = actions.findContract({ name: contract });
+    const finalTableName = `${contract}_${table}`;
+    const tableData = database.getCollection(finalTableName);
 
-    if (contractInDb) {
-      const finalTableName = `${contract}_${table}`;
-      if (contractInDb.tables.includes(finalTableName)) {
-        const tableData = database.getCollection(finalTableName);
-
-        // if there is an index passed, check if it exists
-        if (ind !== '' && tableData.binaryIndices[ind] !== undefined) {
-          return tableData.chain()
-            .find(query)
-            .simplesort(ind, des)
-            .offset(off)
-            .limit(lim)
-            .data();
-        }
-
+    if (tableData) {
+      // if there is an index passed, check if it exists
+      if (ind !== '' && tableData.binaryIndices[ind] !== undefined) {
         return tableData.chain()
           .find(query)
+          .simplesort(ind, des)
           .offset(off)
           .limit(lim)
           .data();
       }
+
+      return tableData.chain()
+        .find(query)
+        .offset(off)
+        .limit(lim)
+        .data();
     }
   }
 
@@ -255,15 +254,10 @@ actions.findOne = (payload) => { // eslint-disable-line no-unused-vars
   if (contract && typeof contract === 'string'
     && table && typeof table === 'string'
     && query && typeof query === 'object') {
-    const contractInDb = actions.findContract({ name: contract });
+    const finalTableName = `${contract}_${table}`;
 
-    if (contractInDb) {
-      const finalTableName = `${contract}_${table}`;
-      if (contractInDb.tables.includes(finalTableName)) {
-        const tableData = database.getCollection(finalTableName);
-        return tableData.findOne(query);
-      }
-    }
+    const tableData = database.getCollection(finalTableName);
+    return tableData ? tableData.findOne(query) : null;
   }
 
   return null;

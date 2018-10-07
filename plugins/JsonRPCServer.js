@@ -27,6 +27,110 @@ function blockchainRPC() {
         callback(error, null);
       }
     },
+    getBlockInfo: async (args, callback) => {
+      const { blockNumber } = args;
+
+      if (Number.isInteger(blockNumber)) {
+        const res = await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_BLOCK_INFO, payload: blockNumber },
+        );
+        callback(null, res.payload);
+      } else {
+        callback({
+          code: 400,
+          message: 'missing or wrong parameters: blockNumber is required',
+        }, null);
+      }
+    },
+  };
+}
+
+function contractsRPC() {
+  return {
+    getContract: async (args, callback) => {
+      const { name } = args;
+
+      if (name && typeof name === 'string') {
+        const res = await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.FIND_CONTRACT, payload: { name } },
+        );
+        callback(null, res.payload);
+      } else {
+        callback({
+          code: 400,
+          message: 'missing or wrong parameters: contract is required',
+        }, null);
+      }
+    },
+
+    findOne: async (args, callback) => {
+      const { contract, table, query } = args;
+
+      if (contract && typeof contract === 'string'
+        && table && typeof table === 'string'
+        && query && typeof query === 'object') {
+        const res = await ipc.send(
+          {
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTION.FIND_ONE,
+            payload: {
+              contract,
+              table,
+              query,
+            },
+          },
+        );
+        callback(null, res.payload);
+      } else {
+        callback({
+          code: 400,
+          message: 'missing or wrong parameters: contract and tableName are required',
+        }, null);
+      }
+    },
+
+    find: async (args, callback) => {
+      const {
+        contract,
+        table,
+        query,
+        limit,
+        offset,
+        index,
+        descending,
+      } = args;
+
+      if (contract && typeof contract === 'string'
+        && table && typeof table === 'string'
+        && query && typeof query === 'object') {
+        const lim = limit || 1000;
+        const off = offset || 0;
+        const ind = index || '';
+        const desc = descending || false;
+
+        const res = await ipc.send(
+          {
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTION.FIND,
+            payload: {
+              contract,
+              table,
+              query,
+              limit: lim,
+              offset: off,
+              index: ind,
+              descending: desc,
+            },
+          },
+        );
+        callback(null, res.payload);
+      } else {
+        callback({
+          code: 400,
+          message: 'missing or wrong parameters: contract and tableName are required',
+        }, null);
+      }
+    },
   };
 }
 
@@ -43,6 +147,7 @@ function init(conf) {
   serverRPC.use(bodyParser.urlencoded({ extended: true }));
   serverRPC.use(bodyParser.json());
   serverRPC.post('/blockchain', jayson.server(blockchainRPC()).middleware());
+  serverRPC.post('/contracts', jayson.server(contractsRPC()).middleware());
 
   if (keyCertificate === '' || certificate === '' || chainCertificate === '') {
     http.createServer(serverRPC)
