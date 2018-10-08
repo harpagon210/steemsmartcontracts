@@ -41,42 +41,39 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  produceBlock(ipc, jsVMTimeout) {
-    return new Promise(async (resolve) => {
-      const nbTransactions = this.transactions.length;
-      for (let i = 0; i < nbTransactions; i += 1) {
-        const transaction = this.transactions[i];
-        const {
-          sender,
-          contract,
-          action,
-          payload,
-        } = transaction;
+  async produceBlock(ipc, jsVMTimeout) {
+    const nbTransactions = this.transactions.length;
+    for (let i = 0; i < nbTransactions; i += 1) {
+      const transaction = this.transactions[i];
+      const {
+        sender,
+        contract,
+        action,
+        payload,
+      } = transaction;
 
-        let logs = null;
+      let logs = null;
 
-        if (sender && contract && action) {
-          if (contract === 'contract' && action === 'deploy' && payload) {
-            logs = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
-              ipc, transaction, jsVMTimeout,
-            );
-          } else {
-            logs = await SmartContracts.executeSmartContract(// eslint-disable-line no-await-in-loop
-              ipc, transaction, jsVMTimeout,
-            );
-          }
+      if (sender && contract && action) {
+        if (contract === 'contract' && action === 'deploy' && payload) {
+          logs = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
+            ipc, transaction, jsVMTimeout,
+          );
         } else {
-          logs = { errors: ['the parameters sender, contract and action are required'] };
+          logs = await SmartContracts.executeSmartContract(// eslint-disable-line no-await-in-loop
+            ipc, transaction, jsVMTimeout,
+          );
         }
-
-        // console.log('transac logs', logs);
-        transaction.addLogs(logs);
+      } else {
+        logs = { errors: ['the parameters sender, contract and action are required'] };
       }
 
-      this.hash = this.calculateHash();
-      this.merkleRoot = this.calculateMerkleRoot(this.transactions);
-      resolve();
-    });
+      // console.log('transac logs', logs);
+      transaction.addLogs(logs);
+    }
+
+    this.hash = this.calculateHash();
+    this.merkleRoot = this.calculateMerkleRoot(this.transactions);
   }
 }
 

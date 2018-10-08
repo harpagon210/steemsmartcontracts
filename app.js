@@ -84,7 +84,7 @@ const loadPlugin = (newPlugin) => {
   return send(plugin, { action: 'init', payload: conf });
 };
 
-const unloadPlugin = plugin => new Promise(async (resolve) => {
+const unloadPlugin = async (plugin) => {
   let res = null;
   let plg = getPlugin(plugin);
   if (plg) {
@@ -93,8 +93,8 @@ const unloadPlugin = plugin => new Promise(async (resolve) => {
     plg = null;
   }
 
-  resolve(res);
-});
+  return res;
+};
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
 async function start() {
