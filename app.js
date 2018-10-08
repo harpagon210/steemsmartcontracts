@@ -16,6 +16,7 @@ const plugins = {};
 const jobs = new Map();
 let currentJobId = 0;
 
+// send an IPC message to a plugin with a promise in return
 function send(plugin, message) {
   const newMessage = {
     ...message,
@@ -33,7 +34,6 @@ function send(plugin, message) {
     });
   });
 }
-
 
 // function to route the IPC requests
 const route = (message) => {
@@ -71,7 +71,7 @@ const getPlugin = (plugin) => {
   return null;
 };
 
-const loadPluging = (newPlugin) => {
+const loadPlugin = (newPlugin) => {
   const plugin = {};
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
@@ -96,17 +96,17 @@ const unloadPlugin = plugin => new Promise(async (resolve) => {
   resolve(res);
 });
 
-// load the plugins
+// start streaming the Steem blockchain and produce the sidechain blocks accordingly
 async function start() {
-  let res = await loadPluging(database);
+  let res = await loadPlugin(database);
   if (res && res.payload === null) {
-    res = await loadPluging(blockchain);
+    res = await loadPlugin(blockchain);
     res = await send(getPlugin(blockchain),
       { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
     if (res && res.payload === null) {
-      res = await loadPluging(streamer);
+      res = await loadPlugin(streamer);
       if (res && res.payload === null) {
-        res = await loadPluging(jsonRPCServer);
+        res = await loadPlugin(jsonRPCServer);
       }
     }
   }
@@ -130,14 +130,15 @@ async function checkReplayStatus(numberBlocksToReplay) {
   }
 }
 
+// replay the sidechain from a blocks log file
 async function replayBlocksLog() {
-  let res = await loadPluging(database);
+  let res = await loadPlugin(database);
   if (res && res.payload === null) {
-    res = await loadPluging(blockchain);
+    res = await loadPlugin(blockchain);
     res = await send(getPlugin(blockchain),
       { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
     if (res && res.payload === null) {
-      await loadPluging(replay);
+      await loadPlugin(replay);
       res = await send(getPlugin(replay),
         { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
       checkReplayStatus(res.payload);
@@ -173,6 +174,7 @@ if (program.replay !== undefined) {
   start();
 }
 
+// graceful app closing
 nodeCleanup((exitCode, signal) => {
   if (signal) {
     console.log('Closing App... ', exitCode, signal); // eslint-disable-line

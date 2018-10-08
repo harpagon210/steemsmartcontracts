@@ -93,7 +93,7 @@ const route = (message) => {
   }
 };
 
-const loadPluging = (newPlugin) => {
+const loadPlugin = (newPlugin) => {
   const plugin = {};
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true });
@@ -120,7 +120,7 @@ describe('Database', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
+      await loadPlugin(database);
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
       assert.equal(res.payload.blockNumber, 0);
@@ -136,7 +136,7 @@ describe('Database', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
+      await loadPlugin(database);
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', ''));
@@ -179,8 +179,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -224,8 +224,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -274,8 +274,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -321,8 +321,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -377,8 +377,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -446,8 +446,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -510,8 +510,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -611,8 +611,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -717,8 +717,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -826,8 +826,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -901,8 +901,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -990,8 +990,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1079,8 +1079,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -1131,8 +1131,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1206,8 +1206,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1257,8 +1257,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1311,8 +1311,8 @@ describe('Smart Contracts', () => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
-      await loadPluging(database);
-      await loadPluging(blockchain);
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {

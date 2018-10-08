@@ -1,1 +1,20 @@
-{"chainId":"00000000000000000001","rpcNodePort":5000,"dataDirectory":"./data/","databaseFileName":"database.db","blocksLogFilePath":"./blocks.log","autosaveInterval":1800000,"javascriptVMTimeout":10000,"streamNodes":["https://api.steemit.com","https://rpc.buildteam.io","https://rpc.steemviz.com","https://steemd.minnowsupportproject.org"],"startSteemBlock":2000029,"genesisSteemBlock":25647669,"keyCertificate":"","certificate":"","chainCertificate":""}
+{
+    "chainId": "00000000000000000001",
+    "rpcNodePort": 5000,
+    "dataDirectory": "./data/",
+    "databaseFileName": "database.db",
+    "blocksLogFilePath": "./blocks.log",
+    "autosaveInterval": 1800000,
+    "javascriptVMTimeout": 10000,
+    "streamNodes": [
+        "https://api.steemit.com",
+        "https://rpc.buildteam.io",
+        "https://rpc.steemviz.com",
+        "https://steemd.minnowsupportproject.org"
+    ],
+    "startSteemBlock": 25647669,
+    "genesisSteemBlock": 25647669,
+    "keyCertificate": "",
+    "certificate": "",
+    "chainCertificate": ""
+}
