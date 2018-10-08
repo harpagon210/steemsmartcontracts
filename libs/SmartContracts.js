@@ -278,7 +278,7 @@ class SmartContracts {
           sandbox: {
             ...vmState,
             done: (error) => {
-              console.log('error', error);
+              // console.log('error', error);
               resolve(error);
             },
           },

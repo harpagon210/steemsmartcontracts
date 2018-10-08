@@ -22,6 +22,7 @@ const PLUGIN_ACTIONS = {
   REMOVE: 'remove',
   UPDATE: 'update',
   GET_TABLE_DETAILS: 'getTableDetails',
+  SAVE: 'save',
 };
 
 const actions = {};
@@ -83,7 +84,7 @@ function init(conf, callback) {
 }
 
 // save the blockchain as well as the database on the filesystem
-function stop(callback) {
+actions.save = (callback) => {
   saving = true;
 
   // save the database from the RAM to the filesystem
@@ -95,6 +96,11 @@ function stop(callback) {
 
     callback(null);
   });
+};
+
+// save the blockchain as well as the database on the filesystem
+function stop(callback) {
+  actions.save(callback);
 }
 
 actions.addBlock = (block) => { // eslint-disable-line no-unused-vars
@@ -356,6 +362,11 @@ ipc.onReceiveMessage((message) => {
     });
   } else if (action === 'stop') {
     stop((res) => {
+      console.log('successfully saved');
+      ipc.reply(message, res);
+    });
+  } else if (action === PLUGIN_ACTIONS.SAVE) {
+    actions.save((res) => {
       console.log('successfully saved');
       ipc.reply(message, res);
     });

@@ -1,10 +1,13 @@
 const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
+const program = require('commander');
 const { fork } = require('child_process');
+const packagejson = require('./package.json');
 const database = require('./plugins/Database');
 const blockchain = require('./plugins/Blockchain');
 const jsonRPCServer = require('./plugins/JsonRPCServer');
 const streamer = require('./plugins/Streamer');
+const replay = require('./plugins/Replay');
 
 const conf = require('./config');
 
@@ -60,6 +63,14 @@ const route = (message) => {
   }
 };
 
+const getPlugin = (plugin) => {
+  if (plugins[plugin.PLUGIN_NAME]) {
+    return plugins[plugin.PLUGIN_NAME];
+  }
+
+  return null;
+};
+
 const loadPluging = (newPlugin) => {
   const plugin = {};
   plugin.name = newPlugin.PLUGIN_NAME;
@@ -75,9 +86,8 @@ const loadPluging = (newPlugin) => {
 
 const unloadPlugin = plugin => new Promise(async (resolve) => {
   let res = null;
-  if (plugins[plugin.PLUGIN_NAME]) {
-    let plg = plugins[plugin.PLUGIN_NAME];
-
+  let plg = getPlugin(plugin);
+  if (plg) {
     res = await send(plg, { action: 'stop' });
     plg.cp.kill('SIGINT');
     plg = null;
@@ -91,6 +101,8 @@ async function start() {
   let res = await loadPluging(database);
   if (res && res.payload === null) {
     res = await loadPluging(blockchain);
+    res = await send(getPlugin(blockchain),
+      { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
     if (res && res.payload === null) {
       res = await loadPluging(streamer);
       if (res && res.payload === null) {
@@ -100,16 +112,66 @@ async function start() {
   }
 }
 
+async function checkReplayStatus(numberBlocksToReplay) {
+  const res = await send(getPlugin(database),
+    { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
+
+  if (res) {
+    const { blockNumber } = res.payload;
+
+    if (blockNumber === numberBlocksToReplay) {
+      console.log(`Done replaying ${numberBlocksToReplay} blocks`);
+      await send(getPlugin(database),
+        { action: database.PLUGIN_ACTIONS.SAVE });
+    } else {
+      console.log(`${blockNumber} blocks replayed on ${numberBlocksToReplay}`);
+      setTimeout(() => checkReplayStatus(numberBlocksToReplay), 500);
+    }
+  }
+}
+
+async function replayBlocksLog() {
+  let res = await loadPluging(database);
+  if (res && res.payload === null) {
+    res = await loadPluging(blockchain);
+    res = await send(getPlugin(blockchain),
+      { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
+    if (res && res.payload === null) {
+      await loadPluging(replay);
+      res = await send(getPlugin(replay),
+        { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
+      checkReplayStatus(res.payload);
+    }
+  }
+}
+
 async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
   // get the last Steem block parsed
-  const res = await unloadPlugin(streamer);
+  let res = null;
+  const streamerPlugin = getPlugin(streamer);
+  if (streamerPlugin) {
+    res = await unloadPlugin(streamer);
+  } else {
+    res = await unloadPlugin(replay);
+  }
+
   await unloadPlugin(blockchain);
   await unloadPlugin(database);
   callback(res.payload);
 }
 
-start();
+// manage the console args
+program
+  .version(packagejson.version)
+  .option('-r, --replay [type]', 'replay the blockchain from [file]', /^(file)$/i)
+  .parse(process.argv);
+
+if (program.replay !== undefined) {
+  replayBlocksLog();
+} else {
+  start();
+}
 
 nodeCleanup((exitCode, signal) => {
   if (signal) {

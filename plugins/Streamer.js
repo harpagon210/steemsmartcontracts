@@ -137,7 +137,7 @@ function parseTransactions(refBlockNumber, block) {
 
 function sendBlock(block) {
   return ipc.send(
-    { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK, payload: block },
+    { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.ADD_BLOCK_TO_QUEUE, payload: block },
   );
 }
 

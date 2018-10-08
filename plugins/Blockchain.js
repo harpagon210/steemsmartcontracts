@@ -1,5 +1,6 @@
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
+const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database').PLUGIN_ACTIONS;
@@ -7,8 +8,9 @@ const DB_PLUGIN_ACTIONS = require('./Database').PLUGIN_ACTIONS;
 const PLUGIN_NAME = 'Blockchain';
 const PLUGIN_PATH = require.resolve(__filename);
 const PLUGIN_ACTIONS = {
-  PRODUCE_NEW_BLOCK: 'produceNewBlock',
   PRODUCE_NEW_BLOCK_SYNC: 'produceNewBlockSync',
+  ADD_BLOCK_TO_QUEUE: 'addBlockToQueue',
+  START_BLOCK_PRODUCTION: 'startBlockProduction',
 };
 
 if (process.env.NODE_ENV === 'test') console.log = () => {}; // eslint-disable-line
@@ -19,10 +21,7 @@ const ipc = new IPC(PLUGIN_NAME);
 let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
-
-function init(conf) {
-  javascriptVMTimeout = conf.javascriptVMTimeout; // eslint-disable-line prefer-destructuring
-}
+const blockProductionQueue = new Queue();
 
 function createGenesisBlock(chainId) {
   const genesisBlock = new Block('2018-06-01T00:00:00', [{ chainId }], -1, '0');
@@ -38,51 +37,27 @@ function addBlock(block) {
 }
 
 // produce all the pending transactions, that will result in the creation of a block
-function producePendingTransactions(transactions, timestamp) {
-  return new Promise(async (resolve) => {
-    const res = await getLatestBlock();
-    if (res) {
-      const previousBlock = res.payload;
-      const newBlock = new Block(
-        timestamp,
-        transactions,
-        previousBlock.blockNumber,
-        previousBlock.hash,
-      );
+async function producePendingTransactions(transactions, timestamp) {
+  const res = await getLatestBlock();
+  if (res) {
+    const previousBlock = res.payload;
+    const newBlock = new Block(
+      timestamp,
+      transactions,
+      previousBlock.blockNumber,
+      previousBlock.hash,
+    );
 
-      await newBlock.produceBlock(ipc, javascriptVMTimeout);
-      await addBlock(newBlock);
-    }
-    resolve();
-  });
+    await newBlock.produceBlock(ipc, javascriptVMTimeout);
+    await addBlock(newBlock);
+  }
 }
 
-actions.produceNewBlock = (block) => {
-  if (stopRequested) return;
-  producing = true;
-  // the stream parsed transactions from the Steem blockchain
-  const { transactions, timestamp } = block;
-  const newTransactions = [];
-
-  transactions.forEach((transaction) => {
-    newTransactions.push(new Transaction(
-      transaction.refSteemBlockNumber,
-      transaction.transactionId,
-      transaction.sender,
-      transaction.contract,
-      transaction.action,
-      transaction.payload,
-    ));
-  });
-
-  // if there are transactions pending we produce a block
-  if (newTransactions.length > 0) {
-    producePendingTransactions(newTransactions, timestamp);
-  }
-  producing = false;
+actions.addBlockToQueue = (block) => {
+  blockProductionQueue.push(block);
 };
 
-const produceNewBlockSync = async (block, callback) => {
+actions.produceNewBlock = async (block) => {
   if (stopRequested) return;
   producing = true;
   // the stream parsed transactions from the Steem blockchain
@@ -105,7 +80,33 @@ const produceNewBlockSync = async (block, callback) => {
     await producePendingTransactions(newTransactions, timestamp);
   }
   producing = false;
-  callback();
+};
+
+const produceNewBlockSync = async (block, callback = null) => {
+  if (stopRequested) return;
+  producing = true;
+  // the stream parsed transactions from the Steem blockchain
+  const { transactions, timestamp } = block;
+  const newTransactions = [];
+
+  transactions.forEach((transaction) => {
+    newTransactions.push(new Transaction(
+      transaction.refSteemBlockNumber,
+      transaction.transactionId,
+      transaction.sender,
+      transaction.contract,
+      transaction.action,
+      transaction.payload,
+    ));
+  });
+
+  // if there are transactions pending we produce a block
+  if (newTransactions.length > 0) {
+    await producePendingTransactions(newTransactions, timestamp);
+  }
+  producing = false;
+
+  if (callback) callback();
 };
 
 // when stopping, we wait until the current block is produced
@@ -118,12 +119,28 @@ function stop(callback) {
   callback();
 }
 
+async function startBlockProduction() {
+  // get a block from the queue
+  const block = blockProductionQueue.pop();
+
+  if (block) {
+    await produceNewBlockSync(block);
+  }
+
+  setTimeout(() => startBlockProduction(), 10);
+}
+
+function init(conf) {
+  javascriptVMTimeout = conf.javascriptVMTimeout; // eslint-disable-line prefer-destructuring
+}
+
 ipc.onReceiveMessage((message) => {
   const {
     action,
     payload,
     // from,
   } = message;
+
   if (action === 'init') {
     init(payload);
     console.log('successfully initialized');
@@ -133,6 +150,9 @@ ipc.onReceiveMessage((message) => {
       console.log('successfully stopped');
       ipc.reply(message);
     });
+  } else if (action === PLUGIN_ACTIONS.START_BLOCK_PRODUCTION) {
+    startBlockProduction();
+    ipc.reply(message);
   } else if (action === PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC) {
     produceNewBlockSync(payload, () => {
       ipc.reply(message);

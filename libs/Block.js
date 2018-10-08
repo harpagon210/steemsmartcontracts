@@ -69,7 +69,7 @@ class Block {
           logs = { errors: ['the parameters sender, contract and action are required'] };
         }
 
-        console.log('transac logs', logs);
+        // console.log('transac logs', logs);
         transaction.addLogs(logs);
       }
 
