@@ -13,6 +13,7 @@ process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",
+  genesisSteemBlock: 2000000,
   dataDirectory: "./test/data/",
   databaseFileName: "database.db",
   autosaveInterval: 0,
@@ -22,25 +23,6 @@ const conf = {
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-let codeTemplate = `
-  let actions = {};
-
-  ###ACTIONS###
-
-  const execute = async function () {
-    if (action && typeof action === 'string' && typeof actions[action] === 'function') {
-      if (action !== 'createSSC') {
-        actions.createSSC = null;
-      }
-
-      await actions[action](payload);
-      done();
-    }
-  }
-
-  execute();
-`;
 
 function cleanDataFolder() {
   fs.emptyDirSync(conf.dataDirectory);
@@ -113,6 +95,14 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+const getPlugin = (plugin) => {
+  if (plugins[plugin.PLUGIN_NAME]) {
+    return plugins[plugin.PLUGIN_NAME];
+  }
+
+  return null;
+};
+
 // Database
 describe('Database', () => {
 
@@ -121,12 +111,15 @@ describe('Database', () => {
       cleanDataFolder();
 
       await loadPlugin(database);
-
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO, payload: 0 });
+      
       assert.equal(res.payload.blockNumber, 0);
       resolve();
     })
       .then(() => {
+        unloadPlugin(blockchain);
         unloadPlugin(database);
         done();
       });
@@ -137,6 +130,8 @@ describe('Database', () => {
       cleanDataFolder();
 
       await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', ''));
@@ -167,6 +162,7 @@ describe('Database', () => {
       resolve();
     })
     .then(() => {
+      unloadPlugin(blockchain);
       unloadPlugin(database);
       done();
     });
@@ -181,6 +177,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -226,6 +223,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -276,6 +274,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -323,6 +322,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -379,6 +379,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -448,6 +449,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -512,6 +514,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -613,6 +616,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -719,6 +723,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -828,6 +833,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -903,6 +909,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -992,6 +999,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1081,6 +1089,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -1133,6 +1142,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1208,6 +1218,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1259,6 +1270,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1313,6 +1325,7 @@ describe('Smart Contracts', () => {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
