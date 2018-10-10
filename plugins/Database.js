@@ -1,8 +1,10 @@
 const fs = require('fs-extra');
 const Loki = require('lokijs');
-const { createGenesisBlock } = require('./Blockchain');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
+
+const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
+const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
 
 if (process.env.NODE_ENV === 'test') console.log = () => {}; // eslint-disable-line
 
@@ -23,6 +25,7 @@ const PLUGIN_ACTIONS = {
   UPDATE: 'update',
   GET_TABLE_DETAILS: 'getTableDetails',
   SAVE: 'save',
+  GENERATE_GENESIS_BLOCK: 'generateGenesisBlock',
 };
 
 const actions = {};
@@ -34,10 +37,9 @@ let chain = null;
 let saving = false;
 
 // load the database from the filesystem
-function init(conf, callback) {
+async function init(conf, callback) {
   const {
     autosaveInterval,
-    chainId,
     databaseFileName,
     dataDirectory,
   } = conf;
@@ -76,11 +78,35 @@ function init(conf, callback) {
     chain = database.addCollection('chain', { indices: ['blockNumber'] });
     database.addCollection('contracts', { indices: ['name'] });
 
-    // insert the genesis block
-    chain.insert(createGenesisBlock(chainId));
-
     callback(null);
   }
+}
+
+async function generateGenesisBlock(conf, callback) {
+  const {
+    chainId,
+    genesisSteemBlock,
+  } = conf;
+
+  // check if genesis block hasn't been generated already
+  const genBlock = actions.getBlockInfo(0);
+
+  if (!genBlock) {
+    // insert the genesis block
+    const res = await ipc.send(
+      {
+        to: BC_PLUGIN_NAME,
+        action: BC_PLUGIN_ACTIONS.CREATE_GENESIS_BLOCK,
+        payload: {
+          chainId,
+          genesisSteemBlock,
+        },
+      },
+    );
+    chain.insert(res.payload);
+  }
+
+  callback();
 }
 
 // save the blockchain as well as the database on the filesystem
@@ -364,6 +390,10 @@ ipc.onReceiveMessage((message) => {
     stop((res) => {
       console.log('successfully saved');
       ipc.reply(message, res);
+    });
+  } else if (action === PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK) {
+    generateGenesisBlock(payload, () => {
+      ipc.reply(message);
     });
   } else if (action === PLUGIN_ACTIONS.SAVE) {
     actions.save((res) => {

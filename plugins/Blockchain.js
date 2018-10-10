@@ -1,9 +1,11 @@
+const { Base64 } = require('js-base64');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database').PLUGIN_ACTIONS;
+const { Contracts } = require('../contracts/bootstrap');
 
 const PLUGIN_NAME = 'Blockchain';
 const PLUGIN_PATH = require.resolve(__filename);
@@ -11,6 +13,7 @@ const PLUGIN_ACTIONS = {
   PRODUCE_NEW_BLOCK_SYNC: 'produceNewBlockSync',
   ADD_BLOCK_TO_QUEUE: 'addBlockToQueue',
   START_BLOCK_PRODUCTION: 'startBlockProduction',
+  CREATE_GENESIS_BLOCK: 'createGenesisBlock',
 };
 
 if (process.env.NODE_ENV === 'test') console.log = () => {}; // eslint-disable-line
@@ -23,9 +26,27 @@ let producing = false;
 let stopRequested = false;
 const blockProductionQueue = new Queue();
 
-function createGenesisBlock(chainId) {
-  const genesisBlock = new Block('2018-06-01T00:00:00', [{ chainId }], -1, '0');
-  return genesisBlock;
+async function createGenesisBlock(payload, callback) {
+  const { chainId, genesisSteemBlock } = payload;
+  const genesisTransactions = [];
+
+  // deploy bootstrap contracts
+  Contracts.forEach((contract) => {
+    const base64SmartContractCode = Base64.encode(contract.code);
+
+    const contractPayload = {
+      name: contract.name,
+      params: '',
+      code: base64SmartContractCode,
+    };
+
+    genesisTransactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+  });
+
+  const genesisBlock = new Block('2018-06-01T00:00:00', genesisTransactions, -1, '0');
+  await genesisBlock.produceBlock(ipc, javascriptVMTimeout);
+  genesisBlock.transactions.unshift({ chainId, genesisSteemBlock });
+  return callback(genesisBlock);
 }
 
 function getLatestBlock() {
@@ -150,6 +171,10 @@ ipc.onReceiveMessage((message) => {
       console.log('successfully stopped');
       ipc.reply(message);
     });
+  } else if (action === PLUGIN_ACTIONS.CREATE_GENESIS_BLOCK) {
+    createGenesisBlock(payload, (genBlock) => {
+      ipc.reply(message, genBlock);
+    });
   } else if (action === PLUGIN_ACTIONS.START_BLOCK_PRODUCTION) {
     startBlockProduction();
     ipc.reply(message);
@@ -164,7 +189,6 @@ ipc.onReceiveMessage((message) => {
   }
 });
 
-module.exports.createGenesisBlock = createGenesisBlock;
 module.exports.producePendingTransactions = producePendingTransactions;
 module.exports.PLUGIN_NAME = PLUGIN_NAME;
 module.exports.PLUGIN_PATH = PLUGIN_PATH;
