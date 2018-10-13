@@ -161,7 +161,7 @@ function init(conf) {
       ca: fs.readFileSync(chainCertificate),
     }, serverRPC)
       .listen(rpcNodePort, () => {
-        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
+        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line no-console
       });
   }
 }
@@ -178,7 +178,7 @@ ipc.onReceiveMessage((message) => {
       ipc.reply(message);
       break;
     case 'stop':
-      console.log('successfully stopped');
+      console.log('successfully stopped'); // eslint-disable-line no-console
       ipc.reply(message);
       break;
     default:

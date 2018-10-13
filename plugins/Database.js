@@ -383,12 +383,12 @@ ipc.onReceiveMessage((message) => {
 
   if (action === 'init') {
     init(payload, (res) => {
-      console.log('successfully initialized');
+      console.log('successfully initialized'); // eslint-disable-line no-console
       ipc.reply(message, res);
     });
   } else if (action === 'stop') {
     stop((res) => {
-      console.log('successfully saved');
+      console.log('successfully saved'); // eslint-disable-line no-console
       ipc.reply(message, res);
     });
   } else if (action === PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK) {
@@ -397,7 +397,7 @@ ipc.onReceiveMessage((message) => {
     });
   } else if (action === PLUGIN_ACTIONS.SAVE) {
     actions.save((res) => {
-      console.log('successfully saved');
+      console.log('successfully saved'); // eslint-disable-line no-console
       ipc.reply(message, res);
     });
   } else if (action && typeof actions[action] === 'function') {

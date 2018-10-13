@@ -53,7 +53,7 @@ function replayFile(callback) {
           if (blockNumber !== 0) {
             currentSteemBlock = transactions[0].refSteemBlockNumber;
             currentBlock = blockNumber;
-            console.log(`block ${currentBlock} scheduled to replay`);
+            console.log(`block ${currentBlock} scheduled to replay`); // eslint-disable-line no-console
             await sendBlock({
               blockNumber,
               timestamp,
@@ -93,11 +93,11 @@ ipc.onReceiveMessage((message) => {
     case 'init':
       init(payload);
       ipc.reply(message);
-      console.log('successfully initialized');
+      console.log('successfully initialized'); // eslint-disable-line no-console
       break;
     case 'stop':
       ipc.reply(message, getCurrentSteemBlock());
-      console.log('successfully stopped');
+      console.log('successfully stopped'); // eslint-disable-line no-console
       break;
     case PLUGIN_ACTIONS.REPLAY_FILE:
       replayFile((result) => {
@@ -105,7 +105,7 @@ ipc.onReceiveMessage((message) => {
         if (result === null) {
           finalResult = getCurrentBlock();
         }
-        if (result) console.log('error encountered during the replay:', result);
+        if (result) console.log('error encountered during the replay:', result); // eslint-disable-line no-console
 
         ipc.reply(message, finalResult);
       });

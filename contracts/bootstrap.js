@@ -15,7 +15,7 @@ const accounts = new Contract('accounts', `
   // register an account helps other contracts to know 
   // if an account exists on the Steem blockchain
   actions.register = async (payload) => {
-    let account = await db.findOne('accounts', { 'id': sender });
+    const account = await db.findOne('accounts', { 'id': sender });
 
     if (account === null) {
       const newAccount = {
@@ -62,7 +62,7 @@ const tokens = new Contract('tokens', `
             maxSupply,
             'supply': 0
           };
-
+          
           await db.insert('tokens', newToken);
         }
       }
@@ -88,19 +88,20 @@ const tokens = new Contract('tokens', `
         && assert(quantity > 0, 'must issue positive quantity')
         && assert(quantity <= (token.maxSupply - token.supply), 'quantity exceeds available supply')) {
 
-        let account = await db.findOneInTable('account', 'accounts', { 'id': to });
+        let account = await db.findOneInTable('accounts', 'accounts', { 'id': to });
 
         // the account must have been registered before
         if (assert(account !== null, 'to account does not exist')) {
           // we made all the required verification, let's now issue the tokens
 
           token.supply = calculateBalance(token.supply, quantity, token.precision, true);
+          
           await db.update('tokens', token);
 
-          addBalance(token.issuer, token, quantity);
+          await addBalance(token.issuer, token, quantity);
 
           if (to !== token.issuer) {
-            actions.transfer(payload);
+            await actions.transfer(payload);
           }
         }
       }
@@ -116,8 +117,8 @@ const tokens = new Contract('tokens', `
       && quantity && typeof quantity === 'number') {
 
       if (assert(to !== sender, 'cannot transfer to self')) {
-        let account = await db.findOneInTable('account', 'accounts', { 'id': to });
-
+        let account = await db.findOneInTable('accounts', 'accounts', { 'id': to });
+  
         // the account must have been registered before
         if (assert(account !== null, 'to account does not exist')) {
           let token = await db.findOne('tokens', { symbol });
@@ -128,8 +129,8 @@ const tokens = new Contract('tokens', `
             && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
             && assert(quantity > 0, 'must transfer positive quantity')) {
 
-            if (subBalance(sender, token, quantity)) {
-              addBalance(to, token, quantity);
+            if (await subBalance(sender, token, quantity)) {
+              await addBalance(to, token, quantity);
             }
           }
         }
@@ -157,8 +158,7 @@ const tokens = new Contract('tokens', `
   }
 
   const addBalance = async (account, token, quantity) => {
-    let balance = db.findOne('balances', { account, 'symbol': token.symbol });
-
+    let balance = await db.findOne('balances', { account, 'symbol': token.symbol });
     if (balance === null) {
       balance = {
         account,

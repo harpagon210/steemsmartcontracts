@@ -164,11 +164,11 @@ ipc.onReceiveMessage((message) => {
 
   if (action === 'init') {
     init(payload);
-    console.log('successfully initialized');
+    console.log('successfully initialized'); // eslint-disable-line no-console
     ipc.reply(message);
   } else if (action === 'stop') {
     stop(() => {
-      console.log('successfully stopped');
+      console.log('successfully stopped'); // eslint-disable-line no-console
       ipc.reply(message);
     });
   } else if (action === PLUGIN_ACTIONS.CREATE_GENESIS_BLOCK) {

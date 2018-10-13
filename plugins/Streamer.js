@@ -210,11 +210,11 @@ ipc.onReceiveMessage((message) => {
     case 'init':
       init(payload);
       ipc.reply(message);
-      console.log('successfully initialized');
+      console.log('successfully initialized'); // eslint-disable-line no-console
       break;
     case 'stop':
       ipc.reply(message, stop());
-      console.log('successfully stopped');
+      console.log('successfully stopped'); // eslint-disable-line no-console
       break;
     case PLUGIN_ACTIONS.GET_CURRENT_BLOCK:
       ipc.reply(message, getCurrentBlock());

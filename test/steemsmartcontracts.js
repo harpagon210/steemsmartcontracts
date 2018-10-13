@@ -9,7 +9,7 @@ const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
-process.env.NODE_ENV = 'test';
+//process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",
@@ -94,14 +94,6 @@ const unloadPlugin = (plugin) => {
   jobs = new Map();
   currentJobId = 0;
 }
-
-const getPlugin = (plugin) => {
-  if (plugins[plugin.PLUGIN_NAME]) {
-    return plugins[plugin.PLUGIN_NAME];
-  }
-
-  return null;
-};
 
 // Database
 describe('Database', () => {
@@ -201,7 +193,7 @@ describe('Smart Contracts', () => {
         transactions,
       };
 
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: 'produceNewBlockSync', payload: block });
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'test_contract' } });
       const contract = res.payload;
