@@ -138,6 +138,8 @@ async function replayBlocksLog() {
   let res = await loadPlugin(database);
   if (res && res.payload === null) {
     res = await loadPlugin(blockchain);
+    await send(getPlugin(database),
+      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
     res = await send(getPlugin(blockchain),
       { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
     if (res && res.payload === null) {
