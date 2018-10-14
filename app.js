@@ -115,42 +115,6 @@ async function start() {
   }
 }
 
-async function checkReplayStatus(numberBlocksToReplay) {
-  const res = await send(getPlugin(database),
-    { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-
-  if (res) {
-    const { blockNumber } = res.payload;
-
-    if (blockNumber === numberBlocksToReplay) {
-      console.log(`Done replaying ${numberBlocksToReplay} blocks`);
-      await send(getPlugin(database),
-        { action: database.PLUGIN_ACTIONS.SAVE });
-    } else {
-      console.log(`${blockNumber} blocks replayed on ${numberBlocksToReplay}`);
-      setTimeout(() => checkReplayStatus(numberBlocksToReplay), 500);
-    }
-  }
-}
-
-// replay the sidechain from a blocks log file
-async function replayBlocksLog() {
-  let res = await loadPlugin(database);
-  if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-    res = await send(getPlugin(blockchain),
-      { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
-    if (res && res.payload === null) {
-      await loadPlugin(replay);
-      res = await send(getPlugin(replay),
-        { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
-      checkReplayStatus(res.payload);
-    }
-  }
-}
-
 async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
   // get the last Steem block parsed
@@ -165,6 +129,36 @@ async function stop(callback) {
   await unloadPlugin(blockchain);
   await unloadPlugin(database);
   callback(res.payload);
+}
+
+function saveConfig(lastBlockParsed) {
+  const config = fs.readJSONSync('./config.json');
+  config.startSteemBlock = lastBlockParsed;
+  fs.writeJSONSync('./config.json', config);
+}
+
+function stopApp(signal = 0) {
+  stop((lastBlockParsed) => {
+    saveConfig(lastBlockParsed);
+    // calling process.exit() won't inform parent process of signal
+    process.kill(process.pid, signal);
+  });
+}
+
+// replay the sidechain from a blocks log file
+async function replayBlocksLog() {
+  let res = await loadPlugin(database);
+  if (res && res.payload === null) {
+    res = await loadPlugin(blockchain);
+    await send(getPlugin(database),
+      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+    if (res && res.payload === null) {
+      await loadPlugin(replay);
+      res = await send(getPlugin(replay),
+        { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
+      stopApp();
+    }
+  }
 }
 
 // manage the console args
@@ -184,14 +178,7 @@ nodeCleanup((exitCode, signal) => {
   if (signal) {
     console.log('Closing App... ', exitCode, signal); // eslint-disable-line
 
-    stop((lastBlockParsed) => {
-      const config = fs.readJSONSync('./config.json');
-      config.startSteemBlock = lastBlockParsed;
-      fs.writeJSONSync('./config.json', config);
-
-      // calling process.exit() won't inform parent process of signal
-      process.kill(process.pid, signal);
-    });
+    stopApp();
 
     nodeCleanup.uninstall(); // don't call cleanup handler again
     return false;

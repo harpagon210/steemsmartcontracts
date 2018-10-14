@@ -1,6 +1,6 @@
 const fs = require('fs');
-const readline = require('readline');
-const stream = require('stream');
+const readLastLines = require('read-last-lines');
+const LineByLineReader = require('line-by-line');
 const { IPC } = require('../libs/IPC');
 const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
@@ -29,31 +29,34 @@ function getCurrentSteemBlock() {
 
 function sendBlock(block) {
   return ipc.send(
-    { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.ADD_BLOCK_TO_QUEUE, payload: block },
+    { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block },
   );
 }
 
 
 function replayFile(callback) {
-  let instream;
-  let outstream;
-  let rl;
+  let lr;
 
   // make sure file exists
-  fs.stat(filePath, (err, stats) => {
+  fs.stat(filePath, async (err, stats) => {
     if (!err && stats.isFile()) {
-      instream = fs.createReadStream(filePath);
-      outstream = new stream(); // eslint-disable-line new-cap
-      rl = readline.createInterface(instream, outstream);
+      // read last line of the file to determine the number of blocks to replay
+      const lastLine = await readLastLines.read(filePath, 1);
+      const lastBlock = JSON.parse(lastLine);
+      const lastBockNumber = lastBlock.blockNumber;
 
-      rl.on('line', async (line) => {
+      // read the file from the start
+      lr = new LineByLineReader(filePath);
+
+      lr.on('line', async (line) => {
+        lr.pause();
         if (line !== '') {
           const block = JSON.parse(line);
           const { blockNumber, timestamp, transactions } = block;
           if (blockNumber !== 0) {
             currentSteemBlock = transactions[0].refSteemBlockNumber;
             currentBlock = blockNumber;
-            console.log(`block ${currentBlock} scheduled to replay`); // eslint-disable-line no-console
+            console.log(`replaying block ${currentBlock} / ${lastBockNumber}`); // eslint-disable-line no-console
             await sendBlock({
               blockNumber,
               timestamp,
@@ -61,13 +64,15 @@ function replayFile(callback) {
             });
           }
         }
+        lr.resume();
       });
 
-      rl.on('error', (error) => {
+      lr.on('error', (error) => {
         callback(error);
       });
 
-      rl.on('close', () => {
+      lr.on('end', () => {
+        console.log('Replay done');
         callback(null);
       });
     } else {
