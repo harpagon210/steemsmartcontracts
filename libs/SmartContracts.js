@@ -1,11 +1,13 @@
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const currency = require('currency.js');
-const { DBUtils } = require('./DBUtils');
+
+const DB_PLUGIN_NAME = require('../plugins/Database').PLUGIN_NAME;
+const DB_PLUGIN_ACTIONS = require('../plugins/Database').PLUGIN_ACTIONS;
 
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
-  static deploySmartContract(state, transaction, jsVMTimeout) {
+  static async deploySmartContract(ipc, transaction, jsVMTimeout) {
     try {
       const { refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
@@ -20,11 +22,12 @@ class SmartContracts {
           return { errors: ['invalid contract name'] };
         }
 
-        const contracts = state.database.getCollection('contracts');
-        const contract = contracts.findOne({ name });
+        const res = await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name } },
+        );
 
         // for now the contracts are immutable
-        if (contract) {
+        if (res.payload) {
           // contract.code = code;
           return { errors: ['contract already exists'] };
         }
@@ -36,13 +39,21 @@ class SmartContracts {
 
           ###ACTIONS###
 
-          if (action && typeof action === 'string' && typeof actions[action] === 'function') {
-            if (action !== 'createSSC') {
-              actions.createSSC = null;
+          const execute = async function () {
+            try {
+              if (action && typeof action === 'string' && typeof actions[action] === 'function') {
+                if (action !== 'createSSC') {
+                  actions.createSSC = null;
+                }
+                await actions[action](payload);
+                done(null);
+              }
+            } catch (error) {
+              done(error);
             }
-
-            actions[action](payload);
           }
+
+          execute();
         `;
 
         // the code of the smart contarct comes as a Base64 encoded string
@@ -56,42 +67,29 @@ class SmartContracts {
         // prepare the db object that will be available in the VM
         const db = {
           // createTable is only available during the smart contract deployment
-          createTable: (tableName, indexes = []) => {
-            const table = DBUtils.createTable(state.database, name, tableName, indexes);
-            if (table) {
-              // add the table name to the list of table available for this contract
-              const finalTableName = `${name}_${tableName}`;
-              if (!tables.includes(finalTableName)) tables.push(finalTableName);
-            }
-
-            return table;
-          },
-          // perform a query on the tables of other smart contracts
-          findInTable: (
-            contractName,
-            table,
-            query,
-            limit = 1000,
-            offset = 0,
-            index = '',
-            descending = false,
-          ) => DBUtils.findInTable(
-            state.database,
-            contractName,
-            table,
-            query,
-            limit,
-            offset,
-            index,
-            descending,
+          createTable: (tableName, indexes = []) => this.createTable(
+            ipc, tables, name, tableName, indexes,
           ),
-          // perform a query on the tables of other smart contracts
-          findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
-            state.database,
-            contractName,
-            table,
-            query,
+          // perform a query find on a table of the smart contract
+          find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+            ipc, name, table, query, limit, offset, index, descending,
           ),
+          // perform a query find on a table of an other smart contract
+          findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+            ipc, contractName, table, query, limit, offset, index, descending,
+          ),
+          // perform a query findOne on a table of the smart contract
+          findOne: (table, query) => this.findOne(ipc, name, table, query),
+          // perform a query findOne on a table of an other smart contract
+          findOneInTable: (contractName, table, query) => this.findOne(
+            ipc, contractName, table, query,
+          ),
+          // insert a record in the table of the smart contract
+          insert: (table, record) => this.insert(ipc, name, table, record),
+          // insert a record in the table of the smart contract
+          remove: (table, record) => this.remove(ipc, name, table, record),
+          // insert a record in the table of the smart contract
+          update: (table, record) => this.update(ipc, name, table, record),
         };
 
         // logs used to store events or errors
@@ -109,55 +107,12 @@ class SmartContracts {
           currency,
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
-          executeSmartContract: (contractName, actionName, parameters) => {
-            if (typeof contractName !== 'string' || typeof actionName !== 'string' || (parameters && typeof parameters !== 'string')) return null;
-            const sanitizedParams = parameters ? JSON.parse(parameters) : null;
-
-            // check if a recipient or amountSTEEMSBD
-            //  or isSignedWithActiveKey  were passed initially
-            if (params && params.amountSTEEMSBD) {
-              sanitizedParams.amountSTEEMSBD = params.amountSTEEMSBD;
-            }
-
-            if (params && params.recipient) {
-              sanitizedParams.recipient = params.recipient;
-            }
-
-            if (params && params.isSignedWithActiveKey) {
-              sanitizedParams.isSignedWithActiveKey = params.isSignedWithActiveKey;
-            }
-
-            const res = SmartContracts.executeSmartContract(
-              state,
-              {
-                sender,
-                contract: contractName,
-                action: actionName,
-                payload: JSON.stringify(sanitizedParams),
-              },
-              jsVMTimeout,
-            );
-            res.errors.forEach(error => logs.errors.push(error));
-            res.events.forEach(event => logs.events.push(event));
-
-            const results = {};
-            res.errors.forEach((error) => {
-              if (results.errors === undefined) {
-                results.errors = [];
-              }
-              logs.errors.push(error);
-              results.errors.push(error);
-            });
-            res.events.forEach((event) => {
-              if (results.events === undefined) {
-                results.events = [];
-              }
-              logs.events.push(event);
-              results.events.push(event);
-            });
-
-            return results;
-          },
+          executeSmartContract: async (
+            contractName, actionName, parameters,
+          ) => SmartContracts.executeSmartContractFromSmartContract(
+            ipc, logs, sender, params, contractName, actionName,
+            JSON.stringify(parameters), jsVMTimeout,
+          ),
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
           // add an error that will be stored in the logs
@@ -169,7 +124,15 @@ class SmartContracts {
           },
         };
 
-        SmartContracts.runContractCode(vmState, script, jsVMTimeout);
+        const error = await SmartContracts.runContractCode(vmState, script, jsVMTimeout);
+        if (error) {
+          if (error.name && typeof error.name === 'string'
+            && error.message && typeof error.message === 'string') {
+            return { errors: [`${error.name}: ${error.message}`] };
+          }
+
+          return { errors: ['unknown error'] };
+        }
 
         const newContract = {
           name,
@@ -178,7 +141,9 @@ class SmartContracts {
           tables,
         };
 
-        contracts.insert(newContract);
+        await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_CONTRACT, payload: newContract },
+        );
 
         return logs;
       }
@@ -191,7 +156,7 @@ class SmartContracts {
   }
 
   // execute the smart contract and perform actions on the database if needed
-  static executeSmartContract(state, transaction, jsVMTimeout) {
+  static async executeSmartContract(ipc, transaction, jsVMTimeout) {
     try {
       const {
         sender,
@@ -205,8 +170,15 @@ class SmartContracts {
 
       const payloadObj = payload ? JSON.parse(payload) : {};
 
-      const contracts = state.database.getCollection('contracts');
-      const contractInDb = contracts.findOne({ name: contract });
+      const res = await ipc.send(
+        {
+          to: DB_PLUGIN_NAME,
+          action: DB_PLUGIN_ACTIONS.FIND_CONTRACT,
+          payload: { name: contract },
+        },
+      );
+
+      const contractInDb = res.payload;
       if (contractInDb === null) {
         return { errors: ['contract doesn\'t exist'] };
       }
@@ -216,41 +188,26 @@ class SmartContracts {
 
       // prepare the db object that will be available in the VM
       const db = {
-        // get a table that is owned by the current smart contract
-        getTable: (tableName) => {
-          const finalTableName = `${contract}_${tableName}`;
-          if (contractInDb.tables.includes(finalTableName)) {
-            return state.database.getCollection(finalTableName);
-          }
-
-          return null;
-        },
-        // perform a query on the tables of other smart contracts
-        findInTable: (
-          contractName,
-          table,
-          query,
-          limit = 1000,
-          offset = 0,
-          index = '',
-          descending = false,
-        ) => DBUtils.findInTable(
-          state.database,
-          contractName,
-          table,
-          query,
-          limit,
-          offset,
-          index,
-          descending,
+        // perform a query find on a table of the smart contract
+        find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+          ipc, contract, table, query, limit, offset, index, descending,
         ),
-        // perform a query on the tables of other smart contracts
-        findOneInTable: (contractName, table, query) => DBUtils.findOneInTable(
-          state.database,
-          contractName,
-          table,
-          query,
+        // perform a query find on a table of an other smart contract
+        findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+          ipc, contractName, table, query, limit, offset, index, descending,
         ),
+        // perform a query findOne on a table of the smart contract
+        findOne: (table, query) => this.findOne(ipc, contract, table, query),
+        // perform a query findOne on a table of an other smart contract
+        findOneInTable: (contractName, table, query) => this.findOne(
+          ipc, contractName, table, query,
+        ),
+        // insert a record in the table of the smart contract
+        insert: (table, record) => this.insert(ipc, contract, table, record),
+        // insert a record in the table of the smart contract
+        remove: (table, record) => this.remove(ipc, contract, table, record),
+        // insert a record in the table of the smart contract
+        update: (table, record) => this.update(ipc, contract, table, record),
       };
 
       // logs used to store events or errors
@@ -270,51 +227,12 @@ class SmartContracts {
         currency,
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract
-        executeSmartContract: (contractName, actionName, params) => {
-          if (typeof contractName !== 'string' || typeof actionName !== 'string' || (params && typeof params !== 'string')) return null;
-          const sanitizedParams = params ? JSON.parse(params) : null;
-
-          // check if a recipient or amountSTEEMSBD or isSignedWithActiveKey  were passed initially
-          if (payloadObj && payloadObj.amountSTEEMSBD) {
-            sanitizedParams.amountSTEEMSBD = payloadObj.amountSTEEMSBD;
-          }
-
-          if (payloadObj && payloadObj.recipient) {
-            sanitizedParams.recipient = payloadObj.recipient;
-          }
-
-          if (payloadObj && payloadObj.isSignedWithActiveKey) {
-            sanitizedParams.isSignedWithActiveKey = payloadObj.isSignedWithActiveKey;
-          }
-
-          const res = SmartContracts.executeSmartContract(
-            state,
-            {
-              sender,
-              contract: contractName,
-              action: actionName,
-              payload: JSON.stringify(sanitizedParams),
-            },
-            jsVMTimeout,
-          );
-          const results = {};
-          res.errors.forEach((error) => {
-            if (results.errors === undefined) {
-              results.errors = [];
-            }
-            logs.errors.push(error);
-            results.errors.push(error);
-          });
-          res.events.forEach((event) => {
-            if (results.events === undefined) {
-              results.events = [];
-            }
-            logs.events.push(event);
-            results.events.push(event);
-          });
-
-          return results;
-        },
+        executeSmartContract: async (
+          contractName, actionName, parameters,
+        ) => SmartContracts.executeSmartContractFromSmartContract(
+          ipc, logs, sender, payloadObj, contractName, actionName,
+          JSON.stringify(parameters), jsVMTimeout,
+        ),
         // emit an event that will be stored in the logs
         emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
         // add an error that will be stored in the logs
@@ -326,7 +244,17 @@ class SmartContracts {
         },
       };
 
-      SmartContracts.runContractCode(vmState, contractCode, jsVMTimeout);
+      const error = await SmartContracts.runContractCode(vmState, contractCode, jsVMTimeout);
+
+      if (error) {
+        const { name, message } = error;
+        if (name && typeof name === 'string'
+          && message && typeof message === 'string') {
+          return { errors: [`${name}: ${message}`] };
+        }
+
+        return { errors: ['unknown error'] };
+      }
 
       return logs;
     } catch (e) {
@@ -337,13 +265,185 @@ class SmartContracts {
 
   // run the contractCode in a VM with the vmState as a state for the VM
   static runContractCode(vmState, contractCode, jsVMTimeout) {
-    // run the code in the VM
-    const vm = new VM({
-      timeout: jsVMTimeout,
-      sandbox: vmState,
+    return new Promise((resolve) => {
+      try {
+        // console.log('vmState', vmState)
+        // run the code in the VM
+        const vm = new VM({
+          timeout: jsVMTimeout,
+          sandbox: {
+            ...vmState,
+            done: (error) => {
+              // console.log('error', error);
+              resolve(error);
+            },
+          },
+        });
+
+        vm.run(contractCode);
+      } catch (err) {
+        resolve(err);
+      }
+    });
+  }
+
+  static async executeSmartContractFromSmartContract(
+    ipc, logs, sender, originalParameters, contract, action, parameters, jsVMTimeout,
+  ) {
+    if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
+    const sanitizedParams = parameters ? JSON.parse(parameters) : null;
+
+    // check if a recipient or amountSTEEMSBD
+    //  or isSignedWithActiveKey  were passed initially
+    if (originalParameters && originalParameters.amountSTEEMSBD) {
+      sanitizedParams.amountSTEEMSBD = originalParameters.amountSTEEMSBD;
+    }
+
+    if (originalParameters && originalParameters.recipient) {
+      sanitizedParams.recipient = originalParameters.recipient;
+    }
+
+    if (originalParameters && originalParameters.isSignedWithActiveKey) {
+      sanitizedParams.isSignedWithActiveKey = originalParameters.isSignedWithActiveKey;
+    }
+
+    const results = {};
+    try {
+      const res = await SmartContracts.executeSmartContract(
+        ipc,
+        {
+          sender,
+          contract,
+          action,
+          payload: JSON.stringify(sanitizedParams),
+        },
+        jsVMTimeout,
+      );
+
+      if (res && res.errors !== undefined) {
+        res.errors.forEach((error) => {
+          if (results.errors === undefined) {
+            results.errors = [];
+          }
+          if (logs.errors === undefined) {
+            logs.errors = []; // eslint-disable-line no-param-reassign
+          }
+
+          logs.errors.push(error);
+          results.errors.push(error);
+        });
+      }
+
+      if (res && res.events !== undefined) {
+        res.events.forEach((event) => {
+          if (results.events === undefined) {
+            results.events = [];
+          }
+          if (logs.events === undefined) {
+            logs.events = []; // eslint-disable-line no-param-reassign
+          }
+
+          logs.events.push(event);
+          results.events.push(event);
+        });
+      }
+    } catch (error) {
+      results.errors = [];
+      results.errors.push(error);
+    }
+    return results;
+  }
+
+  static async createTable(ipc, tables, contractName, tableName, indexes = []) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.CREATE_TABLE,
+      payload: {
+        contractName,
+        tableName,
+        indexes,
+      },
     });
 
-    vm.run(contractCode);
+    if (res.payload === true) {
+      // add the table name to the list of table available for this contract
+      const finalTableName = `${contractName}_${tableName}`;
+      if (!tables.includes(finalTableName)) tables.push(finalTableName);
+    }
+  }
+
+  static async find(ipc, contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.FIND,
+      payload: {
+        contract: contractName,
+        table,
+        query,
+        limit,
+        offset,
+        index,
+        descending,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async findOne(ipc, contractName, table, query) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.FIND_ONE,
+      payload: {
+        contract: contractName,
+        table,
+        query,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async insert(ipc, contractName, table, record) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.INSERT,
+      payload: {
+        contract: contractName,
+        table,
+        record,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async remove(ipc, contractName, table, record) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.REMOVE,
+      payload: {
+        contract: contractName,
+        table,
+        record,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async update(ipc, contractName, table, record) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.UPDATE,
+      payload: {
+        contract: contractName,
+        table,
+        record,
+      },
+    });
+
+    return res.payload;
   }
 }
 

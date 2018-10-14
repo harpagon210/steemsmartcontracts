@@ -16,7 +16,7 @@ class Streamer {
     this.currentBlock = currentBlock;
     this.pollingTime = pollingTime;
     this.headBlockNumber = 0;
-    this.client = new dsteem.Client(nodeUrl);
+    this.client = process.env.NODE_ENV === 'test' ? dsteem.Client.testnet() : new dsteem.Client(nodeUrl);
 
     this.updaterGlobalProps = null;
     this.poller = null;
@@ -24,18 +24,18 @@ class Streamer {
 
   async init() {
     await this.updateGlobalProps();
-    this.updaterGlobalProps = setInterval(() => this.updateGlobalProps(), 3000);
   }
 
   stop() {
     if (this.poller) clearTimeout(this.poller);
-    if (this.updaterGlobalProps) clearInterval(this.updaterGlobalProps);
+    if (this.updaterGlobalProps) clearTimeout(this.updaterGlobalProps);
   }
 
   async updateGlobalProps() {
     try {
       const globProps = await this.client.database.getDynamicGlobalProperties();
       this.headBlockNumber = globProps.head_block_number;
+      this.updaterGlobalProps = setTimeout(() => this.updateGlobalProps(), 3000);
     } catch (ex) {
       console.error('An error occured while trying to fetch the Steem blockchain global properties'); // eslint-disable-line no-console
     }
@@ -50,7 +50,6 @@ class Streamer {
 
       if (lastBlock) {
         this.blocks.push(lastBlock);
-        // console.log(lastBlock.blockNumber); // eslint-disable-line no-console
       }
     }
     this.buffer.push(finalBlock);
@@ -74,8 +73,6 @@ class Streamer {
         // check if there are data in the buffer
         if (this.buffer.size() > 0) {
           const lastBlock = this.buffer.first();
-          console.log('block_id', lastBlock.block_id); // eslint-disable-line no-console
-          console.log('previous block_id', block.previous); // eslint-disable-line no-console
           if (lastBlock.block_id === block.previous) {
             addBlockToBuffer = true;
           } else {
@@ -102,8 +99,6 @@ class Streamer {
       this.poller = setTimeout(() => {
         this.stream(reject);
       }, this.pollingTime);
-
-      console.log('-----------------------------------------------------------------------'); // eslint-disable-line no-console
     } catch (err) {
       reject(err);
     }
