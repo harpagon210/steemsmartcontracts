@@ -16,7 +16,7 @@ class Streamer {
     this.currentBlock = currentBlock;
     this.pollingTime = pollingTime;
     this.headBlockNumber = 0;
-    this.client = new dsteem.Client(nodeUrl);
+    this.client = process.env.NODE_ENV === 'test' ? dsteem.Client.testnet() : new dsteem.Client(nodeUrl);
 
     this.updaterGlobalProps = null;
     this.poller = null;

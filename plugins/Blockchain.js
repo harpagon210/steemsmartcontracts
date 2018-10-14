@@ -16,8 +16,6 @@ const PLUGIN_ACTIONS = {
   CREATE_GENESIS_BLOCK: 'createGenesisBlock',
 };
 
-if (process.env.NODE_ENV === 'test') console.log = () => {}; // eslint-disable-line
-
 const actions = {};
 
 const ipc = new IPC(PLUGIN_NAME);

@@ -6,8 +6,6 @@ const { IPC } = require('../libs/IPC');
 const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
 
-if (process.env.NODE_ENV === 'test') console.log = () => {}; // eslint-disable-line
-
 const PLUGIN_NAME = 'Database';
 const PLUGIN_PATH = require.resolve(__filename);
 
