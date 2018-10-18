@@ -1,11 +1,12 @@
-const { Base64 } = require('js-base64');
+const dsteem = require('dsteem');
+
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database').PLUGIN_ACTIONS;
-const { Contracts } = require('../contracts/bootstrap');
+const { Bootstrap } = require('../contracts/Bootstrap');
 
 const PLUGIN_NAME = 'Blockchain';
 const PLUGIN_PATH = require.resolve(__filename);
@@ -23,27 +24,24 @@ let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
 const blockProductionQueue = new Queue();
+let activeSigningKey = null;
+if (process.env.NODE_ENV === 'production') {
+  if (process.env.ACTIVE_SIGNING_KEY) {
+    activeSigningKey = dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY);
+  } else {
+    throw Object.assign({ error: 'MissingActiveSigningKeyException', message: 'missing active signing key' });
+  }
+} else {
+  activeSigningKey = dsteem.PrivateKey.fromString('5JQy7moK9SvNNDxn8rKNfQYFME5VDYC2j9Mv2tb7uXV5jz3fQR8');
+}
 
 async function createGenesisBlock(payload, callback) {
   const { chainId, genesisSteemBlock } = payload;
-  const genesisTransactions = [];
-
-  // deploy bootstrap contracts
-  Contracts.forEach((contract) => {
-    const base64SmartContractCode = Base64.encode(contract.code);
-
-    const contractPayload = {
-      name: contract.name,
-      params: '',
-      code: base64SmartContractCode,
-    };
-
-    genesisTransactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
-  });
+  const genesisTransactions = Bootstrap.getBootstrapTransactions(genesisSteemBlock);
+  genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
 
   const genesisBlock = new Block('2018-06-01T00:00:00', genesisTransactions, -1, '0');
-  await genesisBlock.produceBlock(ipc, javascriptVMTimeout);
-  genesisBlock.transactions.unshift({ chainId, genesisSteemBlock });
+  await genesisBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);
   return callback(genesisBlock);
 }
 
@@ -67,7 +65,7 @@ async function producePendingTransactions(transactions, timestamp) {
       previousBlock.hash,
     );
 
-    await newBlock.produceBlock(ipc, javascriptVMTimeout);
+    await newBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);
     await addBlock(newBlock);
   }
 }

@@ -1,3 +1,5 @@
+const SHA256 = require('crypto-js/sha256');
+const enchex = require('crypto-js/enc-hex');
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const currency = require('currency.js');
@@ -19,7 +21,7 @@ class SmartContracts {
         const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
 
         if (!RegexLettersNumbers.test(name)) {
-          return { errors: ['invalid contract name'] };
+          return { logs: { errors: ['invalid contract name'] } };
         }
 
         const res = await ipc.send(
@@ -29,7 +31,7 @@ class SmartContracts {
         // for now the contracts are immutable
         if (res.payload) {
           // contract.code = code;
-          return { errors: ['contract already exists'] };
+          return { logs: { errors: ['contract already exists'] } };
         }
 
         // this code template is used to manage the code of the smart contract
@@ -131,13 +133,14 @@ class SmartContracts {
             return { errors: [`${error.name}: ${error.message}`] };
           }
 
-          return { errors: ['unknown error'] };
+          return { logs: { errors: ['unknown error'] } };
         }
 
         const newContract = {
           name,
           owner: sender,
           code: codeTemplate,
+          codeHash: SHA256(codeTemplate).toString(enchex),
           tables,
         };
 
@@ -145,13 +148,13 @@ class SmartContracts {
           { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_CONTRACT, payload: newContract },
         );
 
-        return logs;
+        return { executedCodeHash: newContract.codeHash, logs };
       }
 
-      return { errors: ['parameters name and code are mandatory and they must be strings'] };
+      return { logs: { errors: ['parameters name and code are mandatory and they must be strings'] } };
     } catch (e) {
       // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
-      return { errors: [`${e.name}: ${e.message}`] };
+      return { logs: { errors: [`${e.name}: ${e.message}`] } };
     }
   }
 
@@ -166,7 +169,7 @@ class SmartContracts {
         refSteemBlockNumber,
       } = transaction;
 
-      if (action === 'createSSC') return { errors: ['you cannot trigger the createSSC action'] };
+      if (action === 'createSSC') return { logs: { errors: ['you cannot trigger the createSSC action'] } };
 
       const payloadObj = payload ? JSON.parse(payload) : {};
 
@@ -180,7 +183,7 @@ class SmartContracts {
 
       const contractInDb = res.payload;
       if (contractInDb === null) {
-        return { errors: ['contract doesn\'t exist'] };
+        return { logs: { errors: ['contract doesn\'t exist'] } };
       }
 
       const contractCode = contractInDb.code;
@@ -211,9 +214,12 @@ class SmartContracts {
       };
 
       // logs used to store events or errors
-      const logs = {
-        errors: [],
-        events: [],
+      const results = {
+        executedCodeHash: contractInDb.codeHash,
+        logs: {
+          errors: [],
+          events: [],
+        },
       };
 
       // initialize the state that will be available in the VM
@@ -230,15 +236,15 @@ class SmartContracts {
         executeSmartContract: async (
           contractName, actionName, parameters,
         ) => SmartContracts.executeSmartContractFromSmartContract(
-          ipc, logs, sender, payloadObj, contractName, actionName,
-          JSON.stringify(parameters), jsVMTimeout,
+          ipc, results, sender, payloadObj, contractName, actionName,
+          JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
         ),
         // emit an event that will be stored in the logs
-        emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
+        emit: (event, data) => typeof event === 'string' && results.logs.events.push({ event, data }),
         // add an error that will be stored in the logs
         assert: (condition, error) => {
           if (!condition && typeof error === 'string') {
-            logs.errors.push(error);
+            results.logs.errors.push(error);
           }
           return condition;
         },
@@ -250,16 +256,16 @@ class SmartContracts {
         const { name, message } = error;
         if (name && typeof name === 'string'
           && message && typeof message === 'string') {
-          return { errors: [`${name}: ${message}`] };
+          return { logs: { errors: [`${name}: ${message}`] } };
         }
 
-        return { errors: ['unknown error'] };
+        return { logs: { errors: ['unknown error'] } };
       }
 
-      return logs;
+      return results;
     } catch (e) {
       // console.error('ERROR DURING CONTRACT EXECUTION: ', e);
-      return { errors: [`${e.name}: ${e.message}`] };
+      return { logs: { errors: [`${e.name}: ${e.message}`] } };
     }
   }
 
@@ -288,7 +294,8 @@ class SmartContracts {
   }
 
   static async executeSmartContractFromSmartContract(
-    ipc, logs, sender, originalParameters, contract, action, parameters, jsVMTimeout,
+    ipc, originalResults, sender, originalParameters,
+    contract, action, parameters, refSteemBlockNumber, jsVMTimeout,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
@@ -316,36 +323,42 @@ class SmartContracts {
           contract,
           action,
           payload: JSON.stringify(sanitizedParams),
+          refSteemBlockNumber,
         },
         jsVMTimeout,
       );
 
-      if (res && res.errors !== undefined) {
-        res.errors.forEach((error) => {
+      if (res && res.logs && res.logs.errors !== undefined) {
+        res.logs.errors.forEach((error) => {
           if (results.errors === undefined) {
             results.errors = [];
           }
-          if (logs.errors === undefined) {
-            logs.errors = []; // eslint-disable-line no-param-reassign
+          if (originalResults.logs.errors === undefined) {
+            originalResults.logs.errors = []; // eslint-disable-line no-param-reassign
           }
 
-          logs.errors.push(error);
+          originalResults.logs.errors.push(error);
           results.errors.push(error);
         });
       }
 
-      if (res && res.events !== undefined) {
-        res.events.forEach((event) => {
+      if (res && res.logs && res.logs.events !== undefined) {
+        res.logs.events.forEach((event) => {
           if (results.events === undefined) {
             results.events = [];
           }
-          if (logs.events === undefined) {
-            logs.events = []; // eslint-disable-line no-param-reassign
+          if (originalResults.logs.events === undefined) {
+            originalResults.logs.events = []; // eslint-disable-line no-param-reassign
           }
 
-          logs.events.push(event);
+          originalResults.logs.events.push(event);
           results.events.push(event);
         });
+      }
+
+      if (res && res.executedCodeHash) {
+        results.executedCodeHash = res.executedCodeHash;
+        originalResults.executedCodeHash += res.executedCodeHash; // eslint-disable-line
       }
     } catch (error) {
       results.errors = [];

@@ -1,4 +1,5 @@
 const SHA256 = require('crypto-js/sha256');
+const enchex = require('crypto-js/enc-hex');
 
 class Transaction {
   constructor(refSteemBlockNumber, transactionId, sender, contract, action, payload) {
@@ -8,7 +9,8 @@ class Transaction {
     this.contract = typeof contract === 'string' ? contract : null;
     this.action = typeof action === 'string' ? action : null;
     this.payload = typeof payload === 'string' ? payload : null;
-    this.hash = this.calculateHash();
+    this.executedCodeHash = '';
+    this.hash = '';
     this.logs = {};
   }
 
@@ -29,15 +31,17 @@ class Transaction {
 
   // calculate the hash of the transaction
   calculateHash() {
-    return SHA256(
+    this.hash = SHA256(
       this.refSteemBlockNumber
       + this.transactionId
       + this.sender
       + this.contract
       + this.action
-      + this.payload,
+      + this.payload
+      + this.executedCodeHash
+      + this.logs,
     )
-      .toString();
+      .toString(enchex);
   }
 }
 

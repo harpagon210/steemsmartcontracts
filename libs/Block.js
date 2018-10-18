@@ -1,4 +1,6 @@
 const SHA256 = require('crypto-js/sha256');
+const enchex = require('crypto-js/enc-hex');
+
 const { SmartContracts } = require('./SmartContracts');
 
 class Block {
@@ -10,12 +12,19 @@ class Block {
     this.transactions = transactions;
     this.hash = this.calculateHash();
     this.merkleRoot = '';
+    this.signature = '';
   }
 
   // calculate the hash of the block
   calculateHash() {
-    return SHA256(this.previousHash + this.timestamp + JSON.stringify(this.transactions))
-      .toString();
+    return SHA256(
+      this.previousHash
+      + this.blockNumber.toString()
+      + this.refSteemBlockNumber.toString()
+      + this.timestamp
+      + JSON.stringify(this.transactions) // eslint-disable-line
+    )
+      .toString(enchex);
   }
 
   // calculate the Merkle root of the block ((#TA + #TB) + (#TC + #TD) )
@@ -30,7 +39,7 @@ class Block {
       const left = tmpTransactions[index].hash;
       const right = index + 1 < nbTransactions ? tmpTransactions[index + 1].hash : left;
 
-      newTransactions.push({ hash: SHA256(left + right).toString() });
+      newTransactions.push({ hash: SHA256(left + right).toString(enchex) });
     }
 
     if (newTransactions.length === 1) {
@@ -41,7 +50,7 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  async produceBlock(ipc, jsVMTimeout) {
+  async produceBlock(ipc, jsVMTimeout, activeSigningKey) {
     const nbTransactions = this.transactions.length;
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
@@ -52,28 +61,32 @@ class Block {
         payload,
       } = transaction;
 
-      let logs = null;
+      let results = null;
 
       if (sender && contract && action) {
         if (contract === 'contract' && action === 'deploy' && payload) {
-          logs = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
+          results = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
             ipc, transaction, jsVMTimeout,
           );
         } else {
-          logs = await SmartContracts.executeSmartContract(// eslint-disable-line no-await-in-loop
+          results = await SmartContracts.executeSmartContract(// eslint-disable-line
             ipc, transaction, jsVMTimeout,
           );
         }
       } else {
-        logs = { errors: ['the parameters sender, contract and action are required'] };
+        results = { logs: { errors: ['the parameters sender, contract and action are required'] } };
       }
 
       // console.log('transac logs', logs);
-      transaction.addLogs(logs);
+      transaction.addLogs(results.logs);
+      transaction.executedCodeHash = results.executedCodeHash || '';
+      transaction.calculateHash();
     }
 
     this.hash = this.calculateHash();
     this.merkleRoot = this.calculateMerkleRoot(this.transactions);
+    const buffMR = Buffer.from(this.merkleRoot, 'hex');
+    this.signature = activeSigningKey.sign(buffMR).toString();
   }
 }
 
