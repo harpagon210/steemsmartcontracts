@@ -343,5 +343,224 @@ describe('Voting', () => {
         done();
       });
   });
+
+  it('should vote', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" }} });
+      let producer = res.payload;
+
+      assert.equal(producer.power, 0);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      let userVotes = res.payload;
+      assert.equal(userVotes.account, 'satoshi');
+      assert.equal(userVotes.votes[0], 'harpagon');
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30 }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" }} });
+      producer = res.payload;
+
+      assert.equal(producer.power, 30);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      userVotes = res.payload;
+      assert.equal(userVotes.account, 'satoshi');
+      assert.equal(userVotes.votes[0], 'harpagon');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should unvote', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'registerNode', '{ "url": "https://mynode2.com"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "vitalik"}'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      let producers = res.payload;
+
+      assert.equal(producers[0].account, 'harpagon');
+      assert.equal(producers[0].power, 30.0001);
+      assert.equal(producers[1].account, 'vitalik');
+      assert.equal(producers[1].power, 30.0001);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      let userVotes = res.payload;
+      assert.equal(userVotes.account, 'satoshi');
+      assert.equal(userVotes.votes[0], 'harpagon');
+      assert.equal(userVotes.votes[1], 'vitalik');
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unvote', '{ "producer": "harpagon" }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      producers = res.payload;
+
+      assert.equal(producers[0].account, 'harpagon');
+      assert.equal(producers[0].power, 0);
+      assert.equal(producers[1].account, 'vitalik');
+      assert.equal(producers[1].power, 30.0001);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      userVotes = res.payload;
+      assert.equal(userVotes.votes[0], 'vitalik');
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unvote', '{ "producer": "vitalik" }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      producers = res.payload;
+
+      assert.equal(producers[0].account, 'harpagon');
+      assert.equal(producers[0].power, 0);
+      assert.equal(producers[1].account, 'vitalik');
+      assert.equal(producers[1].power, 0);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      userVotes = res.payload;
+      assert.equal(userVotes, null);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should rank the producers by power', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'vitalik', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "vitalik", "isSignedWithActiveKey": true }'));
+
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'registerNode', '{ "url": "https://eth.com"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'registerNode', '{ "url": "https://btc.com"}'));
+
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'stake', '{ "quantity": 0.0002 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 0.0003 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'stake', '{ "quantity": 0.0001 }'));
+
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'vote', '{ "producer": "satoshi"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "vitalik"}'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: BP_CONSTANTS.CONTRACT_NAME,
+          table: BP_CONSTANTS.BP_PRODUCERS_TABLE,
+          query: {
+            account: {
+              '$in' : ['harpagon', 'vitalik', 'satoshi']
+            }
+          },
+          index: 'power',
+          descending: true,
+        } 
+      });
+
+      let producers = res.payload;
+      console.log(producers)
+      assert.equal(producers[0].account, 'vitalik');
+      assert.equal(producers[0].power, 0.0003);
+      assert.equal(producers[1].account, 'satoshi');
+      assert.equal(producers[1].power, 0.0002);
+      assert.equal(producers[2].account, 'harpagon');
+      assert.equal(producers[2].power, 0.0001);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
   
 });

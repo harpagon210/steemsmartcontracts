@@ -4,6 +4,8 @@ const TOKENS_CONTRACT_NAME = 'tokens';
 const STAKE_ACTION = 'stake'; // action to stake UTILITY_TOKEN_SYMBOL in order to vote and run validator tools
 const UNSTAKE_ACTION = 'unstake'; // action to unstake UTILITY_TOKEN_SYMBOL afer the STAKE_WITHDRAWAL_COOLDOWN period
 const REGISTER_NODE_ACTION = 'registerNode'; // action to register a block production node
+const VOTE = 'vote'; // vote for a block producer
+const UNVOTE = 'unvote'; // unvote for a block producer
 
 const UTILITY_TOKEN_SYMBOL = 'SSC';
 const UTILITY_TOKEN_PRECISION = 4;
@@ -17,8 +19,10 @@ const CONSTANTS = {
   STAKE_ACTION,
   UNSTAKE_ACTION,
   REGISTER_NODE_ACTION,
+  VOTE,
+  UNVOTE,
 
-  AUTHORIZED_ACTIONS: [STAKE_ACTION, UNSTAKE_ACTION, REGISTER_NODE_ACTION],
+  AUTHORIZED_ACTIONS: [STAKE_ACTION, UNSTAKE_ACTION, REGISTER_NODE_ACTION, VOTE, UNVOTE],
 
   // 1200: number of Steem blocks per hour, meaning to unstake you will have to wait one week
   STAKE_WITHDRAWAL_COOLDOWN: 1200 * 24 * 7,

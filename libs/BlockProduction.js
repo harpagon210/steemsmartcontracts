@@ -62,6 +62,10 @@ class BlockProduction {
         await this.unstake(transaction);
       } else if (action === CONSTANTS.REGISTER_NODE_ACTION) {
         await this.registerNode(transaction);
+      } else if (action === CONSTANTS.VOTE) {
+        await this.vote(transaction);
+      } else if (action === CONSTANTS.UNVOTE) {
+        await this.unvote(transaction);
       }
 
       return this.results;
@@ -153,7 +157,7 @@ class BlockProduction {
       );
 
       if (this.assert(producerRec, 'producer does not exist')) {
-        let votes = this.findOne(
+        let votes = await this.findOne(
           CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_VOTES_TABLE, { account: sender },
         );
 
@@ -174,6 +178,7 @@ class BlockProduction {
 
         // update the rank of the producer that received the vote
         const votingPower = await this.getUserVotingPower(sender);
+
         await this.updateProducerRank(producer, votingPower);
       }
     }
@@ -231,7 +236,7 @@ class BlockProduction {
       CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_STAKES_TABLE, { account },
     );
 
-    return stake ? stake.power : 1;
+    return stake ? stake.balance : 0;
   }
 
   async updateProducerRank(account, power) {
@@ -240,7 +245,7 @@ class BlockProduction {
     );
 
     if (producer) {
-      producer.power = BlockProduction.calculateBalance(producer.power, power, power > 0);
+      producer.power = BlockProduction.calculateBalance(producer.power, power);
       await this.update(CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_PRODUCERS_TABLE, producer);
     }
   }
@@ -338,7 +343,7 @@ class BlockProduction {
       && this.assert(balance.balance >= quantity, 'overdrawn balance')) {
       // check it the account can unstake
       if (this.assert(refSteemBlockNumber - balance.stakedBlockNumber >= CONSTANTS.STAKE_WITHDRAWAL_COOLDOWN, `you can only unstake after a period of ${CONSTANTS.STAKE_WITHDRAWAL_COOLDOWN} blocks`)) {
-        balance.balance = BlockProduction.calculateBalance(balance.balance, quantity, false);
+        balance.balance = BlockProduction.calculateBalance(balance.balance, -quantity);
 
         if (balance.balance <= 0) {
           await this.remove(CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_STAKES_TABLE, balance);
@@ -366,7 +371,7 @@ class BlockProduction {
 
       await this.insert(CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_STAKES_TABLE, balance);
     } else {
-      balance.balance = BlockProduction.calculateBalance(balance.balance, quantity, true);
+      balance.balance = BlockProduction.calculateBalance(balance.balance, quantity);
       balance.stakedBlockNumber = refSteemBlockNumber;
 
       await this.update(CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_STAKES_TABLE, balance);
@@ -379,7 +384,7 @@ class BlockProduction {
 
     if (this.assert(balance !== null, 'balance does not exist')
       && this.assert(balance.balance >= quantity, 'overdrawn balance')) {
-      balance.balance = BlockProduction.calculateBalance(balance.balance, quantity, false);
+      balance.balance = BlockProduction.calculateBalance(balance.balance, -quantity);
 
       if (balance.balance <= 0) {
         await this.remove(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
@@ -405,20 +410,20 @@ class BlockProduction {
 
       await this.insert(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
     } else {
-      balance.balance = BlockProduction.calculateBalance(balance.balance, quantity, true);
+      balance.balance = BlockProduction.calculateBalance(balance.balance, quantity);
 
       await this.update(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
     }
   }
 
-  static calculateBalance(balance, quantity, add) {
+  static calculateBalance(balance, quantity) {
     if (CONSTANTS.UTILITY_TOKEN_PRECISION === 0) {
-      return add ? balance + quantity : balance - quantity;
+      return balance + quantity;
     }
 
-    return add
+    return quantity >= 0
       ? currency(balance, { precision: CONSTANTS.UTILITY_TOKEN_PRECISION }).add(quantity)
-      : currency(balance, { precision: CONSTANTS.UTILITY_TOKEN_PRECISION }).subtract(quantity);
+      : currency(balance, { precision: CONSTANTS.UTILITY_TOKEN_PRECISION }).subtract(-quantity);
   }
 
   static countDecimals(value) {
