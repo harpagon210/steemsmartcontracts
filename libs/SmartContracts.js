@@ -4,8 +4,11 @@ const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const currency = require('currency.js');
 
-const DB_PLUGIN_NAME = require('../plugins/Database').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('../plugins/Database').PLUGIN_ACTIONS;
+const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
+const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
+
+const RESERVED_CONTRACT_NAMES = ['contract', 'blockProduction'];
+const RESERVED_ACTIONS = ['createSSC'];
 
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
@@ -20,7 +23,7 @@ class SmartContracts {
         // the contract name has to be a string made of letters and numbers
         const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
 
-        if (!RegexLettersNumbers.test(name)) {
+        if (!RegexLettersNumbers.test(name) || RESERVED_CONTRACT_NAMES.includes(name)) {
           return { logs: { errors: ['invalid contract name'] } };
         }
 
@@ -169,7 +172,7 @@ class SmartContracts {
         refSteemBlockNumber,
       } = transaction;
 
-      if (action === 'createSSC') return { logs: { errors: ['you cannot trigger the createSSC action'] } };
+      if (RESERVED_ACTIONS.includes(action)) return { logs: { errors: ['you cannot trigger this action'] } };
 
       const payloadObj = payload ? JSON.parse(payload) : {};
 
@@ -237,6 +240,14 @@ class SmartContracts {
           contractName, actionName, parameters,
         ) => SmartContracts.executeSmartContractFromSmartContract(
           ipc, results, sender, payloadObj, contractName, actionName,
+          JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
+        ),
+        // execute a smart contract from the current smart contract
+        // with the contractOwner authority level
+        executeSmartContractAsOwner: async (
+          contractName, actionName, parameters,
+        ) => SmartContracts.executeSmartContractFromSmartContract(
+          ipc, results, contractOwner, payloadObj, contractName, actionName,
           JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
         ),
         // emit an event that will be stored in the logs

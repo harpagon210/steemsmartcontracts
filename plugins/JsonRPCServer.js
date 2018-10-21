@@ -6,8 +6,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { IPC } = require('../libs/IPC');
-const DB_PLUGIN_NAME = require('./Database').PLUGIN_NAME;
-const DB_PLUGIN_ACTION = require('./Database').PLUGIN_ACTIONS;
+const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
+const DB_PLUGIN_ACTION = require('./Database.constants').PLUGIN_ACTIONS;
 
 const PLUGIN_NAME = 'JsonRPCServer';
 const PLUGIN_PATH = require.resolve(__filename);

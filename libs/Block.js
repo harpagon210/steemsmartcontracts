@@ -2,6 +2,7 @@ const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 
 const { SmartContracts } = require('./SmartContracts');
+const { BlockProduction } = require('./BlockProduction');
 
 class Block {
   constructor(timestamp, transactions, previousBlockNumber, previousHash = '') {
@@ -68,6 +69,9 @@ class Block {
           results = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
             ipc, transaction, jsVMTimeout,
           );
+        } else if (contract === 'blockProduction' && payload) {
+          const bp = new BlockProduction(ipc);
+          results = await bp.processTransaction(transaction); // eslint-disable-line
         } else {
           results = await SmartContracts.executeSmartContract(// eslint-disable-line
             ipc, transaction, jsVMTimeout,

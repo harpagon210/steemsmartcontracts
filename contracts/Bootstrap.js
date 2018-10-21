@@ -38,7 +38,6 @@ class Bootstrap {
 
     // tokens contract
     contractCode = `
-      const MAIN_TOKEN = 'SSC';
       actions.createSSC = async (payload) => {
         await db.createTable('tokens', ['symbol']);
         await db.createTable('balances', ['account']);
@@ -209,13 +208,8 @@ class Bootstrap {
 
 
     // bootstrap transactions
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'accounts', 'register'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'accounts', 'register'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', JSON.stringify({ symbol: 'SSC', precision: 4, maxSupply: 1000000000 })));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', JSON.stringify(
-      {
-        symbol: 'SSC', to: 'steemsc', quantity: 350000000, isSignedWithActiveKey: true,
-      },
-    )));
 
     return transactions;
   }

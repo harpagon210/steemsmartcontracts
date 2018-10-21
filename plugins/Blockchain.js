@@ -4,18 +4,12 @@ const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
-const DB_PLUGIN_NAME = require('./Database').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('./Database').PLUGIN_ACTIONS;
+const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
+const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
 const { Bootstrap } = require('../contracts/Bootstrap');
 
-const PLUGIN_NAME = 'Blockchain';
 const PLUGIN_PATH = require.resolve(__filename);
-const PLUGIN_ACTIONS = {
-  PRODUCE_NEW_BLOCK_SYNC: 'produceNewBlockSync',
-  ADD_BLOCK_TO_QUEUE: 'addBlockToQueue',
-  START_BLOCK_PRODUCTION: 'startBlockProduction',
-  CREATE_GENESIS_BLOCK: 'createGenesisBlock',
-};
+const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Blockchain.constants');
 
 const actions = {};
 
