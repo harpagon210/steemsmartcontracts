@@ -50,12 +50,10 @@ class Bootstrap {
           && (precision && typeof precision === 'number' || precision === 0)
           && maxSupply && typeof maxSupply === 'number') {
 
-          const RegexPureLetters = /^[a-zA-Z]+$/;
-
           // the symbol must be made of letters only
           // the precision must be between 0 and 8 and must be an integer
           // the max supply must be positive
-          if (assert(RegexPureLetters.test(symbol), 'invalid symbol')
+          if (assert(validator.isAlpha(symbol), 'invalid symbol')
             && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
             && assert(maxSupply > 0, 'maxSupply must be positive')) {
 

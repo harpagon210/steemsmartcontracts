@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const Loki = require('lokijs');
+const validator = require('validator');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
 const { BlockProduction } = require('../libs/BlockProduction');
@@ -58,8 +59,8 @@ async function init(conf, callback) {
     fs.emptyDirSync(dataDirectory);
 
     // init the main tables
-    chain = database.addCollection('chain', { indices: ['blockNumber'] });
-    database.addCollection('contracts', { indices: ['name'] });
+    chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
+    database.addCollection('contracts', { indices: ['name'], disableMeta: true });
 
     callback(null);
   }
@@ -89,7 +90,7 @@ async function generateGenesisBlock(conf, callback) {
     chain.insert(res.payload);
 
     // initialize the block production tools
-    BlockProduction.initialize(database);
+    BlockProduction.initialize(database, genesisSteemBlock);
   }
 
   callback();
@@ -177,20 +178,19 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
  */
 actions.createTable = (payload) => { // eslint-disable-line no-unused-vars
   const { contractName, tableName, indexes } = payload;
-  const RegexLetters = /^[a-zA-Z_]+$/;
 
   // check that the params are correct
   // each element of the indexes array have to be a string if defined
-  if (RegexLetters.test(tableName)
+  if (validator.isAlphanumeric(tableName)
     && Array.isArray(indexes)
     && (indexes.length === 0
-    || (indexes.length > 0 && indexes.every(el => typeof el === 'string')))) {
+    || (indexes.length > 0 && indexes.every(el => typeof el === 'string' && validator.isAlphanumeric(el))))) {
     const finalTableName = `${contractName}_${tableName}`;
     // get the table from the database
     const table = database.getCollection(finalTableName);
     if (table === null) {
       // if it doesn't exist, create it (with the binary indexes)
-      database.addCollection(finalTableName, { indices: indexes });
+      database.addCollection(finalTableName, { indices: indexes, disableMeta: true });
       return true;
     }
   }
@@ -387,21 +387,25 @@ actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
 
   const tableData = database.getCollection(table);
 
-  // if there is an index passed, check if it exists
-  if (ind !== '') {
+  if (tableData) {
+    // if there is an index passed, check if it exists
+    if (ind !== '') {
+      return tableData.chain()
+        .find(query)
+        .simplesort(ind, des)
+        .offset(off)
+        .limit(lim)
+        .data();
+    }
+
     return tableData.chain()
       .find(query)
-      .simplesort(ind, des)
       .offset(off)
       .limit(lim)
       .data();
   }
 
-  return tableData.chain()
-    .find(query)
-    .offset(off)
-    .limit(lim)
-    .data();
+  return [];
 };
 
 /**
@@ -414,7 +418,11 @@ actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
   const { table, query } = payload;
 
   const tableData = database.getCollection(table);
-  return tableData.findOne(query);
+  if (tableData) {
+    return tableData.findOne(query);
+  }
+
+  return null;
 };
 
 /**

@@ -3,6 +3,7 @@ const { fork } = require('child_process');
 const assert = require('assert');
 const { Base64 } = require('js-base64');
 const fs = require('fs-extra');
+const currency = require('currency.js');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -546,13 +547,224 @@ describe('Voting', () => {
       });
 
       let producers = res.payload;
-      console.log(producers)
+
       assert.equal(producers[0].account, 'vitalik');
       assert.equal(producers[0].power, 0.0003);
       assert.equal(producers[1].account, 'satoshi');
       assert.equal(producers[1].power, 0.0002);
       assert.equal(producers[2].account, 'harpagon');
       assert.equal(producers[2].power, 0.0001);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should initialize the rewards table', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(2000001, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(2000001, 'TXID1235', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(2000001, 'TXID1236', 'vitalik', 'accounts', 'register', ''));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: BP_CONSTANTS.CONTRACT_NAME,
+          table: BP_CONSTANTS.BP_REWARDS_TABLE,
+          query: {
+          },
+        } 
+      });
+
+      let rewardsParams = res.payload;
+
+      assert.equal(rewardsParams.lastInflationCalculation, conf.genesisSteemBlock);
+      assert.equal(rewardsParams.inflationRate, BP_CONSTANTS.INITIAL_INFLATION_RATE);
+
+      // the rewardsPerBlockPerProducer should be (0.1% of the total supply) / (the number of blocks * the number of block producers)
+      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.05905139);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should update the inflation rate until MINIMUM_INFLATION_RATE is reached', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(2000001, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let lastBlockNumber = 2000001;
+      let totalSupply = BP_CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY;
+
+      let maxLoop = 100;
+
+      for (let index = 1; index < maxLoop; index++) {
+        lastBlockNumber += BP_CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE + 1;
+        const totalRewards = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE);
+
+        totalSupply = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).add(totalRewards);
+        transactions = [];
+        transactions.push(new Transaction(lastBlockNumber, 'TXID1234', 'null', 'tokens', 'issue', `{ "symbol": "SSC", "quantity": ${totalRewards}, "to": "satoshi", "isSignedWithActiveKey": true }`));
+  
+        block = {
+          timestamp: '2018-06-01T00:00:00',
+          transactions,
+        };
+  
+        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+  
+        let res = await send(database.PLUGIN_NAME, 'MASTER', {
+          action: database.PLUGIN_ACTIONS.FIND_ONE,
+          payload: {
+            contract: BP_CONSTANTS.CONTRACT_NAME,
+            table: BP_CONSTANTS.BP_REWARDS_TABLE,
+            query: {
+            },
+          } 
+        });
+  
+        let rewardsParams = res.payload;
+        let inflationRate = currency(BP_CONSTANTS.INITIAL_INFLATION_RATE, { precision: 3}).subtract(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE * index).value;
+
+        if (inflationRate <= BP_CONSTANTS.MINIMUM_INFLATION_RATE) {
+          index = maxLoop + 1;
+        } else {
+          assert.equal(rewardsParams.lastInflationCalculation, lastBlockNumber);
+          assert.equal(rewardsParams.inflationRate, inflationRate);
+        }
+      }
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should reward the top NB_BLOCK_PRODUCERS block producers after a block is produced', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
+
+      // register block producers
+      for (let index = 0; index < 50; index++) {
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));        
+      }
+
+      // stake
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'stake', '{ "quantity": 100 }'));
+
+      // vote
+      for (let index = 0; index < 30; index++) {
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));        
+      }
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: BP_CONSTANTS.CONTRACT_NAME,
+          table: BP_CONSTANTS.BP_PRODUCERS_TABLE,
+          query: {
+          },
+          index: 'power',
+          descending: true,
+          limit: BP_CONSTANTS.NB_BLOCK_PRODUCERS + 10
+        } 
+      });
+
+      let producers = res.payload;
+
+      for (let index = 0; index < producers.length; index++) {
+        const producer = producers[index];
+        
+        if (index < BP_CONSTANTS.NB_VOTES_ALLOWED) {
+          assert.equal(producer.power, 100);
+        } else {
+          assert.equal(producer.power, 0);
+        }
+      }
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: { symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL }
+        }
+      });
+
+      let balances = res.payload;
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: BP_CONSTANTS.CONTRACT_NAME,
+          table: BP_CONSTANTS.BP_REWARDS_TABLE,
+          query: {
+          },
+        } 
+      });
+
+      let rewardsParams = res.payload;
+
+      for (let index = 0; index < balances.length; index++) {
+        const balance = balances[index];
+        if (balance.account !== 'steemsc') {
+          assert.equal(balance.balance, rewardsParams.rewardsPerBlockPerProducer);
+        }
+      }
 
       resolve();
     })

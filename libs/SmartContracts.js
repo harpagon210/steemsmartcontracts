@@ -3,6 +3,7 @@ const enchex = require('crypto-js/enc-hex');
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const currency = require('currency.js');
+const validator = require('validator');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
@@ -21,9 +22,7 @@ class SmartContracts {
       if (name && typeof name === 'string'
         && code && typeof code === 'string') {
         // the contract name has to be a string made of letters and numbers
-        const RegexLettersNumbers = /^[a-zA-Z0-9_]+$/;
-
-        if (!RegexLettersNumbers.test(name) || RESERVED_CONTRACT_NAMES.includes(name)) {
+        if (!validator.isAlphanumeric(name) || RESERVED_CONTRACT_NAMES.includes(name)) {
           return { logs: { errors: ['invalid contract name'] } };
         }
 
@@ -40,6 +39,10 @@ class SmartContracts {
         // this code template is used to manage the code of the smart contract
         // this way we keep control of what can be executed in a smart contract
         let codeTemplate = `
+          RegExp.prototype.constructor = function () { };
+          RegExp.prototype.exec = function () {  };
+          RegExp.prototype.test = function () {  };
+
           let actions = {};
 
           ###ACTIONS###
@@ -110,6 +113,7 @@ class SmartContracts {
           refSteemBlockNumber,
           db,
           currency,
+          validator,
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: async (
@@ -234,6 +238,7 @@ class SmartContracts {
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
         currency,
+        validator,
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract
         executeSmartContract: async (

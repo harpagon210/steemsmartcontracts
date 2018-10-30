@@ -8,7 +8,7 @@ const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
-process.env.NODE_ENV = 'test';
+//process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",

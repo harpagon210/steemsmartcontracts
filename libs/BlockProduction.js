@@ -5,8 +5,9 @@ const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTION
 const { CONSTANTS } = require('./BlockProduction.contants');
 
 class BlockProduction {
-  constructor(ipc) {
+  constructor(ipc, refSteemBlockNumber) {
     this.ipc = ipc;
+    this.refSteemBlockNumber = refSteemBlockNumber;
     this.results = {
       logs: {
         errors: [],
@@ -15,16 +16,17 @@ class BlockProduction {
     };
   }
 
-  static initialize(database) {
+  static initialize(database, genesisSteemBlock) {
     // get the tables created via the tokens contract
     const tokensTable = database.getCollection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.TOKENS_TABLE}`);
     const balancesTable = database.getCollection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.BALANCES_TABLE}`);
 
     if (tokensTable && balancesTable) {
       // create the necessary tables
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`, { indices: ['account', 'power'] });
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`, { indices: ['account'] });
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`, { indices: ['account'] });
+      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`, { indices: ['account', 'power'], disableMeta: true });
+      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`, { indices: ['account'], disableMeta: true });
+      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`, { indices: ['account'], disableMeta: true });
+      const rewardsTable = database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_REWARDS_TABLE}`, { disableMeta: true });
 
       // add the contract to the database
       const bpContract = {
@@ -32,10 +34,29 @@ class BlockProduction {
         owner: 'null',
         code: '',
         codeHash: '',
-        tables: [`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`, `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`, `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`],
+        tables: [
+          `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`,
+          `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`,
+          `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`,
+          `${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_REWARDS_TABLE}`,
+        ],
       };
       const contracts = database.getCollection('contracts');
       contracts.insert(bpContract);
+
+      // calculate rewards parameters
+      const totalRewards = CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY
+        * CONSTANTS.INFLATION_RATE_DECREASING_RATE;
+      const rewardsPerBlockPerProducer = BlockProduction
+        .calculateRewardsPerBlockPerProducer(totalRewards);
+
+      const rewardsParams = {
+        lastInflationCalculation: genesisSteemBlock,
+        inflationRate: CONSTANTS.INITIAL_INFLATION_RATE,
+        rewardsPerBlockPerProducer,
+      };
+
+      rewardsTable.insert(rewardsParams);
 
       // create the utility token
       tokensTable.insert(CONSTANTS.UTILITY_TOKEN);
@@ -47,12 +68,146 @@ class BlockProduction {
     }
   }
 
+  static calculateNewRewards(rewardsPerBlockPerProducer) {
+    return currency(
+      rewardsPerBlockPerProducer,
+      { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
+    ).multiply(CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE).value;
+  }
+
+  static calculateRewardsPerBlockPerProducer(totalRewards) {
+    const rewardsPerBlock = totalRewards / CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE;
+    let rewardsPerBlockPerBP = currency(
+      rewardsPerBlock,
+      { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
+    ).divide(CONSTANTS.NB_BLOCK_PRODUCERS).value;
+
+    const calcultaedRewardsPerBlock = currency(
+      rewardsPerBlockPerBP,
+      { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
+    ).multiply(CONSTANTS.NB_BLOCK_PRODUCERS).value;
+
+    if (calcultaedRewardsPerBlock > rewardsPerBlock) {
+      // console.log('adjusting rewardsPerBlockPerBP');
+      rewardsPerBlockPerBP = currency(
+        rewardsPerBlockPerBP,
+        { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
+      ).subtract(CONSTANTS.MINIMUM_TOKEN_VALUE).value;
+    }
+
+    return rewardsPerBlockPerBP;
+  }
+
+  async calculateRewardsParameters() {
+    // get the rewards params
+    const rewardsParams = await this.findOne(
+      CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_REWARDS_TABLE, {},
+    );
+
+    // check if we need to calculate the new inflation
+    if (rewardsParams && (this.refSteemBlockNumber - rewardsParams.lastInflationCalculation
+        > CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE)) {
+      // get current supply
+      const token = await this.findOne(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.TOKENS_TABLE, {
+        symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL,
+      });
+
+      // calculate the new inflation rate if needed
+      let inflationRate = rewardsParams.inflationRate; // eslint-disable-line
+      if (inflationRate > CONSTANTS.MINIMUM_INFLATION_RATE) {
+        inflationRate = currency(
+          rewardsParams.inflationRate,
+          { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
+        ).subtract(CONSTANTS.INFLATION_RATE_DECREASING_RATE);
+      }
+
+      // calculate the new rewards that will be distributed
+      const totalRewards = token.supply * CONSTANTS.INFLATION_RATE_DECREASING_RATE;
+
+      // calculate the rewards per block per producer for the new year
+      rewardsParams.rewardsPerBlockPerProducer = BlockProduction
+        .calculateRewardsPerBlockPerProducer(totalRewards);
+      rewardsParams.inflationRate = inflationRate;
+      rewardsParams.lastInflationCalculation = this.refSteemBlockNumber;
+
+      await this.update(
+        CONSTANTS.CONTRACT_NAME,
+        CONSTANTS.BP_REWARDS_TABLE,
+        rewardsParams,
+      );
+    }
+  }
+
+  async rewardBlockProducers() {
+    // update the rewards parameters if needed
+    await this.calculateRewardsParameters();
+
+    // get the top producers
+    const producers = await this.find(
+      CONSTANTS.CONTRACT_NAME,
+      CONSTANTS.BP_PRODUCERS_TABLE,
+      {},
+      CONSTANTS.NB_BLOCK_PRODUCERS,
+      0,
+      'power',
+      true,
+    );
+
+    // if there are producers
+    if (producers.length > 0) {
+      // get the rewards per block
+      const rewardsParams = await this.findOne(
+        CONSTANTS.CONTRACT_NAME, CONSTANTS.BP_REWARDS_TABLE, {},
+      );
+
+      let totalDistributedTokens = 0;
+
+      for (let index = 0; index < producers.length; index += 1) {
+        const producer = producers[index];
+
+        // add the rewards to the producer's tokens balances
+        await this.addBalance(producer.account, rewardsParams.rewardsPerBlockPerProducer); // eslint-disable-line
+
+        // update the total od distributed tokens
+        totalDistributedTokens = BlockProduction.calculateBalance(
+          totalDistributedTokens, rewardsParams.rewardsPerBlockPerProducer,
+        ).value;
+      }
+
+      // get current supply of the token
+      const token = await this.findOne(
+        CONSTANTS.TOKENS_CONTRACT_NAME,
+        CONSTANTS.TOKENS_TABLE, {
+          symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL,
+        },
+      );
+
+      // update the total supply of the token
+      token.supply = BlockProduction.calculateBalance(
+        token.supply, totalDistributedTokens,
+      ).value;
+
+      await this.update(
+        CONSTANTS.TOKENS_CONTRACT_NAME,
+        CONSTANTS.TOKENS_TABLE,
+        token,
+      );
+    }
+  }
+
   async processTransaction(transaction) {
     try {
       const {
         action,
         payload,
       } = transaction;
+
+      this.results = {
+        logs: {
+          errors: [],
+          events: [],
+        },
+      };
 
       if (!CONSTANTS.AUTHORIZED_ACTIONS.includes(action)) return { logs: { errors: ['invalid action'] } };
 

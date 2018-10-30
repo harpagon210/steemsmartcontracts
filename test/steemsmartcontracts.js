@@ -180,7 +180,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -195,10 +195,10 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'test_contract' } });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
 
-      assert.equal(contract.name, 'test_contract');
+      assert.equal(contract.name, 'testContract');
       assert.equal(contract.owner, 'Harpagon');
       resolve()
     })
@@ -219,14 +219,14 @@ describe('Smart Contracts', () => {
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
-          await db.createTable('test_table');
+          await db.createTable('testTable');
         }
       `;
 
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -242,12 +242,12 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'test_contract' } });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
       
-      assert.equal(contract.tables.includes('test_contract_test_table'), true);
+      assert.equal(contract.tables.includes('testContract_testTable'), true);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'test_contract', table: 'test_table'} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable'} });
       
       assert.notEqual(res.payload, null);
 
@@ -270,14 +270,14 @@ describe('Smart Contracts', () => {
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
-          await db.createTable('test_table', ['index1', 'index2']);
+          await db.createTable('testTable', ['index1', 'index2']);
         }
       `;
 
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -293,7 +293,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'test_contract', table: 'test_table'} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable'} });
       const table = res.payload;
       const { binaryIndices } = table;
       
@@ -334,7 +334,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -342,7 +342,7 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -351,7 +351,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'users_contract', table: 'users', query: { "id": "Harpagon" }} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Harpagon" }} });
       const user = res.payload;
 
       assert.equal(user.id, 'Harpagon');
@@ -402,7 +402,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -410,8 +410,8 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'usersContract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -420,7 +420,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'users_contract', table: 'users', query: { "id": "Harpagon" }} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Harpagon" }} });
       const user = res.payload;
 
       assert.equal(user.id, 'Harpagon');
@@ -468,7 +468,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -476,8 +476,8 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'users_contract', 'removeUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'usersContract', 'removeUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -486,7 +486,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'users_contract', table: 'users', query: { "id": "Harpagon" }} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Harpagon" }} });
       const user = res.payload;
 
       assert.equal(user, null);
@@ -527,7 +527,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -535,16 +535,16 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'usersContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -554,7 +554,7 @@ describe('Smart Contracts', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       let payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5
@@ -567,7 +567,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 5);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -581,7 +581,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 10);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -631,7 +631,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -639,16 +639,16 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'usersContract', 'addUser', '{ "age": 10 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -658,7 +658,7 @@ describe('Smart Contracts', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       let payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -672,7 +672,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 2);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -687,7 +687,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 5);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -738,7 +738,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -746,16 +746,16 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'users_contract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'users_contract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'users_contract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'users_contract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'users_contract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'users_contract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'users_contract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'users_contract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'users_contract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon1', 'usersContract', 'addUser', '{ "age": 10 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -765,7 +765,7 @@ describe('Smart Contracts', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       let payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -780,7 +780,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 10);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -796,7 +796,7 @@ describe('Smart Contracts', () => {
       assert.equal(users[4].$loki, 6);
 
       payload = { 
-        contract: 'users_contract',
+        contract: 'usersContract',
         table: 'users',
         query: { },
         limit: 5,
@@ -849,7 +849,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'users_contract',
+        name: 'usersContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -857,7 +857,7 @@ describe('Smart Contracts', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Dan', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Dan', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -866,13 +866,13 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'users_contract', table: 'users', query: { "id": "Dan" }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Dan" }} });
       let user = res.payload;
 
       assert.equal(user, null);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', '{ "userId": "Dan" }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
 
       block = {
         timestamp: '2018-06-01T00:00:03',
@@ -881,7 +881,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'users_contract', table: 'users', query: { "id": "Dan" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Dan" }} });
       user = res.payload;
 
       assert.equal(user.id, "Dan");
@@ -929,7 +929,7 @@ describe('Smart Contracts', () => {
 
         const { title } = payload;
 
-        let user = await db.findOneInTable('users_contract', 'users', { "id": sender });
+        let user = await db.findOneInTable('usersContract', 'users', { "id": sender });
 
         if (user) {
           const newBook = {
@@ -946,13 +946,13 @@ describe('Smart Contracts', () => {
     const base64BooksSmartContractCode = Base64.encode(booksSmartContractCode);
 
     const usersContractPayload = {
-      name: 'users_contract',
+      name: 'usersContract',
       params: '',
       code: base64UsersSmartContractCode,
     };
 
     const booksContractPayload = {
-      name: 'books_contract',
+      name: 'booksContract',
       params: '',
       code: base64BooksSmartContractCode,
     };
@@ -961,8 +961,8 @@ describe('Smart Contracts', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'books_contract', 'addBook', '{ "title": "The Awesome Book" }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'booksContract', 'addBook', '{ "title": "The Awesome Book" }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -971,7 +971,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'books_contract', table: 'books', query: { "userId": "Harpagon" }} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'booksContract', table: 'books', query: { "userId": "Harpagon" }} });
       const book = res.payload;
 
       assert.equal(book.title, "The Awesome Book");
@@ -1007,7 +1007,7 @@ describe('Smart Contracts', () => {
 
           const user = await db.insert('users', newUser);
 
-          await executeSmartContract('books_contract', 'addBook', { "title": "The Awesome Book" })
+          await executeSmartContract('booksContract', 'addBook', { "title": "The Awesome Book" })
         }
       `;
 
@@ -1020,7 +1020,7 @@ describe('Smart Contracts', () => {
       actions.addBook = async (payload) => {
         const { title } = payload;
         
-        let user = await db.findOneInTable('users_contract', 'users', { "id": sender });
+        let user = await db.findOneInTable('usersContract', 'users', { "id": sender });
 
         if (user) {
           const newBook = {
@@ -1037,13 +1037,13 @@ describe('Smart Contracts', () => {
     const base64BooksSmartContractCode = Base64.encode(booksSmartContractCode);
 
     const usersContractPayload = {
-      name: 'users_contract',
+      name: 'usersContract',
       params: '',
       code: base64UsersSmartContractCode,
     };
 
     const booksContractPayload = {
-      name: 'books_contract',
+      name: 'booksContract',
       params: '',
       code: base64BooksSmartContractCode,
     };
@@ -1052,7 +1052,7 @@ describe('Smart Contracts', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -1061,7 +1061,7 @@ describe('Smart Contracts', () => {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'books_contract', table: 'books', query: { "userId": "Harpagon" }} });
+      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'booksContract', table: 'books', query: { "userId": "Harpagon" }} });
       const book = res.payload;
 
       assert.equal(book.title, "The Awesome Book");
@@ -1086,14 +1086,14 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = function (payload) {
           // Initialize the smart contract via the create action
-          emit('contract_create', { "contractName": "test_contract" })
+          emit('contract_create', { "contractName": "testContract" })
         }
       `;
 
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -1117,7 +1117,7 @@ describe('Smart Contracts', () => {
       const logs = JSON.parse(txs[0].logs);
 
       assert.equal(logs.events[0].event, 'contract_create');
-      assert.equal(logs.events[0].data.contractName, 'test_contract');
+      assert.equal(logs.events[0].data.contractName, 'testContract');
 
       resolve();
     })
@@ -1142,7 +1142,7 @@ describe('Smart Contracts', () => {
         }
 
         actions.addUser = async (payload) => {
-          await executeSmartContract('books_contract', 'addBook', { })
+          await executeSmartContract('booksContract', 'addBook', { })
         }
       `;
 
@@ -1152,7 +1152,7 @@ describe('Smart Contracts', () => {
       }
       
       actions.addBook = async (payload) => {
-        emit('contract_create', { "contractName": "test_contract" });
+        emit('contract_create', { "contractName": "testContract" });
       }
     `;
 
@@ -1160,13 +1160,13 @@ describe('Smart Contracts', () => {
     const base64BooksSmartContractCode = Base64.encode(booksSmartContractCode);
 
     const usersContractPayload = {
-      name: 'users_contract',
+      name: 'usersContract',
       params: '',
       code: base64UsersSmartContractCode,
     };
 
     const booksContractPayload = {
-      name: 'books_contract',
+      name: 'booksContract',
       params: '',
       code: base64BooksSmartContractCode,
     };
@@ -1175,7 +1175,7 @@ describe('Smart Contracts', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -1192,7 +1192,7 @@ describe('Smart Contracts', () => {
       const logs = JSON.parse(txs[0].logs);
 
       assert.equal(logs.events[0].event, 'contract_create');
-      assert.equal(logs.events[0].data.contractName, 'test_contract');
+      assert.equal(logs.events[0].data.contractName, 'testContract');
 
       resolve();
     })
@@ -1223,7 +1223,7 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -1277,14 +1277,14 @@ describe('Smart Contracts', () => {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'test_contract',
+        name: 'testContract',
         params: '',
         code: base64SmartContractCode,
       };
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'test_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'testContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -1325,7 +1325,7 @@ describe('Smart Contracts', () => {
         }
 
         actions.addUser = async (payload) => {
-          await executeSmartContract('books_contract', 'addBook', { })
+          await executeSmartContract('booksContract', 'addBook', { })
         }
       `;
 
@@ -1343,13 +1343,13 @@ describe('Smart Contracts', () => {
     const base64BooksSmartContractCode = Base64.encode(booksSmartContractCode);
 
     const usersContractPayload = {
-      name: 'users_contract',
+      name: 'usersContract',
       params: '',
       code: base64UsersSmartContractCode,
     };
 
     const booksContractPayload = {
-      name: 'books_contract',
+      name: 'booksContract',
       params: '',
       code: base64BooksSmartContractCode,
     };
@@ -1358,7 +1358,7 @@ describe('Smart Contracts', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'users_contract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'usersContract', 'addUser', ''));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',

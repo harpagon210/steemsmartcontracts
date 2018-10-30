@@ -53,6 +53,8 @@ class Block {
   // produce the block (deploy a smart contract or execute a smart contract)
   async produceBlock(ipc, jsVMTimeout, activeSigningKey) {
     const nbTransactions = this.transactions.length;
+    const bp = new BlockProduction(ipc, this.refSteemBlockNumber);
+
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
       const {
@@ -70,7 +72,6 @@ class Block {
             ipc, transaction, jsVMTimeout,
           );
         } else if (contract === 'blockProduction' && payload) {
-          const bp = new BlockProduction(ipc);
           results = await bp.processTransaction(transaction); // eslint-disable-line
         } else {
           results = await SmartContracts.executeSmartContract(// eslint-disable-line
@@ -81,11 +82,14 @@ class Block {
         results = { logs: { errors: ['the parameters sender, contract and action are required'] } };
       }
 
-      // console.log('transac logs', logs);
+      // console.log('transac logs', results.logs);
       transaction.addLogs(results.logs);
       transaction.executedCodeHash = results.executedCodeHash || '';
       transaction.calculateHash();
     }
+
+    // reward block producers
+    await bp.rewardBlockProducers(); // eslint-disable-line
 
     this.hash = this.calculateHash();
     this.merkleRoot = this.calculateMerkleRoot(this.transactions);
