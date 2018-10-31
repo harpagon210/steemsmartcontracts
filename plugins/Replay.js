@@ -2,16 +2,11 @@ const fs = require('fs');
 const readLastLines = require('read-last-lines');
 const LineByLineReader = require('line-by-line');
 const { IPC } = require('../libs/IPC');
-const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
-const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
+const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
+const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
+const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Replay.constants');
 
-const PLUGIN_NAME = 'Replay';
 const PLUGIN_PATH = require.resolve(__filename);
-const PLUGIN_ACTIONS = {
-  GET_CURRENT_BLOCK: 'getCurrentBlock',
-  GET_CURRENT_STEEM_BLOCK: 'getCurrentSteemBlock',
-  REPLAY_FILE: 'replayFile',
-};
 
 const ipc = new IPC(PLUGIN_NAME);
 

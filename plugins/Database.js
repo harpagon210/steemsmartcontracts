@@ -1,30 +1,16 @@
 const fs = require('fs-extra');
 const Loki = require('lokijs');
+const validator = require('validator');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
+const { BlockProduction } = require('../libs/BlockProduction');
 
-const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
-const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
+const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
+const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
 
-const PLUGIN_NAME = 'Database';
+const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Database.constants');
+
 const PLUGIN_PATH = require.resolve(__filename);
-
-const PLUGIN_ACTIONS = {
-  ADD_BLOCK: 'addBlock',
-  GET_LATEST_BLOCK_INFO: 'getLatestBlockInfo',
-  GET_BLOCK_INFO: 'getBlockInfo',
-  FIND_CONTRACT: 'findContract',
-  ADD_CONTRACT: 'addContract',
-  FIND: 'find',
-  FIND_ONE: 'findOne',
-  CREATE_TABLE: 'createTable',
-  INSERT: 'insert',
-  REMOVE: 'remove',
-  UPDATE: 'update',
-  GET_TABLE_DETAILS: 'getTableDetails',
-  SAVE: 'save',
-  GENERATE_GENESIS_BLOCK: 'generateGenesisBlock',
-};
 
 const actions = {};
 
@@ -73,8 +59,8 @@ async function init(conf, callback) {
     fs.emptyDirSync(dataDirectory);
 
     // init the main tables
-    chain = database.addCollection('chain', { indices: ['blockNumber'] });
-    database.addCollection('contracts', { indices: ['name'] });
+    chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
+    database.addCollection('contracts', { indices: ['name'], disableMeta: true });
 
     callback(null);
   }
@@ -102,6 +88,9 @@ async function generateGenesisBlock(conf, callback) {
       },
     );
     chain.insert(res.payload);
+
+    // initialize the block production tools
+    BlockProduction.initialize(database, genesisSteemBlock);
   }
 
   callback();
@@ -189,20 +178,19 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
  */
 actions.createTable = (payload) => { // eslint-disable-line no-unused-vars
   const { contractName, tableName, indexes } = payload;
-  const RegexLetters = /^[a-zA-Z_]+$/;
 
   // check that the params are correct
   // each element of the indexes array have to be a string if defined
-  if (RegexLetters.test(tableName)
+  if (validator.isAlphanumeric(tableName)
     && Array.isArray(indexes)
     && (indexes.length === 0
-    || (indexes.length > 0 && indexes.every(el => typeof el === 'string')))) {
+    || (indexes.length > 0 && indexes.every(el => typeof el === 'string' && validator.isAlphanumeric(el))))) {
     const finalTableName = `${contractName}_${tableName}`;
     // get the table from the database
     const table = database.getCollection(finalTableName);
     if (table === null) {
       // if it doesn't exist, create it (with the binary indexes)
-      database.addCollection(finalTableName, { indices: indexes });
+      database.addCollection(finalTableName, { indices: indexes, disableMeta: true });
       return true;
     }
   }
@@ -372,6 +360,106 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
   return null;
 };
 
+/**
+ * retrieve records from the table
+ * @param {String} table table name
+ * @param {JSON} query query to perform on the table
+ * @param {Integer} limit limit the number of records to retrieve
+ * @param {Integer} offset offset applied to the records set
+ * @param {String} index name of the index to use for the query
+ * @param {Boolean} descending the records set is sorted ascending if false, descending if true
+ * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
+ */
+actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
+  const {
+    table,
+    query,
+    limit,
+    offset,
+    index,
+    descending,
+  } = payload;
+
+  const lim = limit || 1000;
+  const off = offset || 0;
+  const ind = index || '';
+  const des = descending || false;
+
+  const tableData = database.getCollection(table);
+
+  if (tableData) {
+    // if there is an index passed, check if it exists
+    if (ind !== '') {
+      return tableData.chain()
+        .find(query)
+        .simplesort(ind, des)
+        .offset(off)
+        .limit(lim)
+        .data();
+    }
+
+    return tableData.chain()
+      .find(query)
+      .offset(off)
+      .limit(lim)
+      .data();
+  }
+
+  return [];
+};
+
+/**
+ * retrieve a record from the table
+ * @param {String} table table name
+ * @param {JSON} query query to perform on the table
+ * @returns {Object} returns a record if it exists, null otherwise
+ */
+actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
+  const { table, query } = payload;
+
+  const tableData = database.getCollection(table);
+  if (tableData) {
+    return tableData.findOne(query);
+  }
+
+  return null;
+};
+
+/**
+ * insert a record
+ * @param {String} table table name
+ * @param {String} record record to save in the table
+ */
+actions.dinsert = (payload) => { // eslint-disable-line no-unused-vars
+  const { table, record } = payload;
+  const tableInDb = database.getCollection(table);
+  return tableInDb.insert(record);
+};
+
+/**
+ * update a record in the table
+ * @param {String} table table name
+ * @param {String} record record to update in the table
+ */
+actions.dupdate = (payload) => { // eslint-disable-line no-unused-vars
+  const { table, record } = payload;
+
+  const tableInDb = database.getCollection(table);
+  tableInDb.update(record);
+};
+
+/**
+ * remove a record
+ * @param {String} table table name
+ * @param {String} record record to remove from the table
+ */
+actions.dremove = (payload) => { // eslint-disable-line no-unused-vars
+  const { table, record } = payload;
+
+  const tableInDb = database.getCollection(table);
+  tableInDb.remove(record);
+};
+
 ipc.onReceiveMessage((message) => {
   const {
     action,
@@ -411,6 +499,6 @@ ipc.onReceiveMessage((message) => {
   }
 });
 
-module.exports.PLUGIN_NAME = PLUGIN_NAME;
 module.exports.PLUGIN_PATH = PLUGIN_PATH;
+module.exports.PLUGIN_NAME = PLUGIN_NAME;
 module.exports.PLUGIN_ACTIONS = PLUGIN_ACTIONS;

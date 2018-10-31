@@ -1,14 +1,11 @@
 const { Streamer } = require('../libs/Streamer');
 const { Transaction } = require('../libs/Transaction');
 const { IPC } = require('../libs/IPC');
-const BC_PLUGIN_NAME = require('./Blockchain').PLUGIN_NAME;
-const BC_PLUGIN_ACTIONS = require('./Blockchain').PLUGIN_ACTIONS;
+const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
+const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
 
-const PLUGIN_NAME = 'Streamer';
 const PLUGIN_PATH = require.resolve(__filename);
-const PLUGIN_ACTIONS = {
-  GET_CURRENT_BLOCK: 'getCurrentBlock',
-};
+const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Streamer.constants');
 
 const ipc = new IPC(PLUGIN_NAME);
 
