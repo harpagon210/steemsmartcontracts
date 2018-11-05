@@ -27,11 +27,12 @@ const CONSTANTS = {
 
   // 1200: number of Steem blocks per hour, meaning to unstake you will have to wait one week
   STAKE_WITHDRAWAL_COOLDOWN: 1200 * 24 * 7,
-  // 1200: number of Steem blocks per hour, meaning to unstake you will have to wait one week
+  // 1200: number of Steem blocks per hour
   NB_BLOCKS_UPDATE_INFLATION_RATE: 1200 * 24 * 7,
+  NB_INFLATION_DECREASE_PER_YEAR: 52,
   INITIAL_INFLATION_RATE: 0.095, // 9.5%
   MINIMUM_INFLATION_RATE: 0.01, // 1%
-  INFLATION_RATE_DECREASING_RATE: 0.001, // 0.1%
+  INFLATION_RATE_DECREASING_RATE: 0.0001, // 0.01%
 
   // table names used by the library
   BP_PRODUCERS_TABLE: 'producers',
