@@ -123,7 +123,7 @@ function parseTransactions(refBlockNumber, block) {
             }
           }
         } catch (e) {
-          // IPC.error('Invalid transaction', e); // eslint-disable-line no-console
+          // console.error('Invalid transaction', e); // eslint-disable-line no-console
         }
       }
     });
@@ -190,7 +190,7 @@ function init(conf) {
   }).catch((err) => {
     if (blockPoller) clearTimeout(blockPoller);
     streamer.stop();
-    IPC.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
+    console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
     streamNodes.push(streamNodes.shift());
     init(conf);
   });
