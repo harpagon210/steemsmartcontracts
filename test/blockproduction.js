@@ -599,8 +599,8 @@ describe('Voting', () => {
       assert.equal(rewardsParams.lastInflationCalculation, conf.genesisSteemBlock);
       assert.equal(rewardsParams.inflationRate, BP_CONSTANTS.INITIAL_INFLATION_RATE);
 
-      // the rewardsPerBlockPerProducer should be (0.1% of the total supply) / (the number of blocks * the number of block producers)
-      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.05905139);
+      // the rewardsPerBlockPerProducer should be (0.01% of the total supply) / (the number of blocks * the number of block producers)
+      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.10788236);
 
       resolve();
     })
@@ -631,12 +631,14 @@ describe('Voting', () => {
 
       let lastBlockNumber = 2000001;
       let totalSupply = BP_CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY;
+      let inflationRate = BP_CONSTANTS.INITIAL_INFLATION_RATE;
 
       let maxLoop = 100;
 
       for (let index = 1; index < maxLoop; index++) {
         lastBlockNumber += BP_CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE + 1;
-        const totalRewards = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE);
+        const totalRewards = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(inflationRate).divide(BP_CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR);
+        inflationRate = currency(inflationRate, { precision: 4 }).subtract(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE);
 
         totalSupply = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).add(totalRewards);
         transactions = [];
@@ -660,7 +662,6 @@ describe('Voting', () => {
         });
   
         let rewardsParams = res.payload;
-        let inflationRate = currency(BP_CONSTANTS.INITIAL_INFLATION_RATE, { precision: 3}).subtract(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE * index).value;
 
         if (inflationRate <= BP_CONSTANTS.MINIMUM_INFLATION_RATE) {
           index = maxLoop + 1;

@@ -46,7 +46,8 @@ class BlockProduction {
 
       // calculate rewards parameters
       const totalRewards = CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY
-        * CONSTANTS.INFLATION_RATE_DECREASING_RATE;
+        * CONSTANTS.INITIAL_INFLATION_RATE
+        / CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR;
       const rewardsPerBlockPerProducer = BlockProduction
         .calculateRewardsPerBlockPerProducer(totalRewards);
 
@@ -82,12 +83,12 @@ class BlockProduction {
       { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
     ).divide(CONSTANTS.NB_BLOCK_PRODUCERS).value;
 
-    const calcultaedRewardsPerBlock = currency(
+    const calculatedRewardsPerBlock = currency(
       rewardsPerBlockPerBP,
       { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
     ).multiply(CONSTANTS.NB_BLOCK_PRODUCERS).value;
 
-    if (calcultaedRewardsPerBlock > rewardsPerBlock) {
+    if (calculatedRewardsPerBlock > rewardsPerBlock) {
       // console.log('adjusting rewardsPerBlockPerBP');
       rewardsPerBlockPerBP = currency(
         rewardsPerBlockPerBP,
@@ -122,7 +123,7 @@ class BlockProduction {
       }
 
       // calculate the new rewards that will be distributed
-      const totalRewards = token.supply * CONSTANTS.INFLATION_RATE_DECREASING_RATE;
+      const totalRewards = token.supply * inflationRate / CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR;
 
       // calculate the rewards per block per producer for the new year
       rewardsParams.rewardsPerBlockPerProducer = BlockProduction
