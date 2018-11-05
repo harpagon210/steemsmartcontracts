@@ -34,6 +34,8 @@ const CONSTANTS = {
   MINIMUM_INFLATION_RATE: 0.01, // 1%
   INFLATION_RATE_DECREASING_RATE: 0.0001, // 0.01%
 
+  PROPOSAL_SYSTEM_REWARD_UNITS: 21, // meaning that the system will consider 21 block producers and 21 more units tor reward (rewards for 1 block will be divided by 21+21=42, so 1/2 of the rewards goes to the proposal system)
+
   // table names used by the library
   BP_PRODUCERS_TABLE: 'producers',
   BP_STAKES_TABLE: 'stakes',
