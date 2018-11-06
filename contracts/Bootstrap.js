@@ -204,6 +204,80 @@ class Bootstrap {
 
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
+    // sscstore contract
+    contractCode = `
+    actions.createSSC = async (payload) => {
+      await db.createTable('params');
+      const params = {};
+      
+      params.priceSBD = 0.001;
+      params.priceSteem = 0.001;
+      params.quantity = 1;
+      params.disabled = false;
+
+      await db.insert('params', params);      
+    }
+
+    actions.updateParams = async (payload) => {
+      if (sender !== owner) return;
+
+      const { priceSBD, priceSteem, quantity, disabled } = payload;
+
+      const params = await db.findOne('params', { });
+
+      params.priceSBD = priceSBD;
+      params.priceSteem = priceSteem;
+      params.quantity = quantity;
+      params.disabled = disabled;
+
+      await db.update('params', params);
+    }
+
+    actions.buy = async (payload) => {
+      const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
+
+      if (recipient !== owner) return;
+
+      if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
+        const params = await db.findOne('params', { });
+
+        if (params.disabled) return;
+
+        const res = amountSTEEMSBD.split(' ');
+  
+        const amount = res[0];
+        const unit = res[1];
+  
+        let quantity = 0;
+        let quantityToSend = 0;
+        // STEEM
+        if (unit === 'STEEM') {
+          quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSteem);
+        } 
+        // SBD
+        else {
+          quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSBD);
+        }
+  
+        quantityToSend = currency(quantity, { precision: 8 }).multiply(params.quantity);
+  
+        if (quantityToSend.value > 0) {
+          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "SSC", quantity: quantityToSend.value, to: sender })
+        }
+      }
+    }
+    `;
+
+    base64ContractCode = Base64.encode(contractCode);
+
+    contractPayload = {
+      name: 'sscstore',
+      params: '',
+      code: base64ContractCode,
+    };
+
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
 
     // bootstrap transactions
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'accounts', 'register'));

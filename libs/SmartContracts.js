@@ -75,29 +75,25 @@ class SmartContracts {
         // prepare the db object that will be available in the VM
         const db = {
           // createTable is only available during the smart contract deployment
-          createTable: (tableName, indexes = []) => this.createTable(
+          createTable: (tableName, indexes = []) => SmartContracts.createTable(
             ipc, tables, name, tableName, indexes,
           ),
           // perform a query find on a table of the smart contract
-          find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+          find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
             ipc, name, table, query, limit, offset, index, descending,
           ),
           // perform a query find on a table of an other smart contract
-          findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+          findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
             ipc, contractName, table, query, limit, offset, index, descending,
           ),
           // perform a query findOne on a table of the smart contract
-          findOne: (table, query) => this.findOne(ipc, name, table, query),
+          findOne: (table, query) => SmartContracts.findOne(ipc, name, table, query),
           // perform a query findOne on a table of an other smart contract
-          findOneInTable: (contractName, table, query) => this.findOne(
+          findOneInTable: (contractName, table, query) => SmartContracts.findOne(
             ipc, contractName, table, query,
           ),
           // insert a record in the table of the smart contract
-          insert: (table, record) => this.insert(ipc, name, table, record),
-          // insert a record in the table of the smart contract
-          remove: (table, record) => this.remove(ipc, name, table, record),
-          // insert a record in the table of the smart contract
-          update: (table, record) => this.update(ipc, name, table, record),
+          insert: (table, record) => SmartContracts.dinsert(ipc, name, table, record),
         };
 
         // logs used to store events or errors
@@ -199,25 +195,25 @@ class SmartContracts {
       // prepare the db object that will be available in the VM
       const db = {
         // perform a query find on a table of the smart contract
-        find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+        find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
           ipc, contract, table, query, limit, offset, index, descending,
         ),
         // perform a query find on a table of an other smart contract
-        findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => this.find(
+        findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
           ipc, contractName, table, query, limit, offset, index, descending,
         ),
         // perform a query findOne on a table of the smart contract
-        findOne: (table, query) => this.findOne(ipc, contract, table, query),
+        findOne: (table, query) => SmartContracts.findOne(ipc, contract, table, query),
         // perform a query findOne on a table of an other smart contract
-        findOneInTable: (contractName, table, query) => this.findOne(
+        findOneInTable: (contractName, table, query) => SmartContracts.findOne(
           ipc, contractName, table, query,
         ),
         // insert a record in the table of the smart contract
-        insert: (table, record) => this.insert(ipc, contract, table, record),
+        insert: (table, record) => SmartContracts.insert(ipc, contract, table, record),
         // insert a record in the table of the smart contract
-        remove: (table, record) => this.remove(ipc, contract, table, record),
+        remove: (table, record) => SmartContracts.remove(ipc, contract, table, record),
         // insert a record in the table of the smart contract
-        update: (table, record) => this.update(ipc, contract, table, record),
+        update: (table, record) => SmartContracts.update(ipc, contract, table, record),
       };
 
       // logs used to store events or errors
@@ -440,6 +436,19 @@ class SmartContracts {
       payload: {
         contract: contractName,
         table,
+        record,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async dinsert(ipc, contractName, table, record) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.DINSERT,
+      payload: {
+        table: `${contractName}_${table}`,
         record,
       },
     });
