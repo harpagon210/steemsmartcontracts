@@ -186,7 +186,14 @@ class BlockProduction {
       }
       // add the rewards to the proposal system balance (hold by the 'null' account)
       await this.addBalance('null', tokenToAddProposalSystem); // eslint-disable-line
-      rewardsParams.proposalSystemBalance = BlockProduction.calculateBalance(rewardsParams.proposalSystemBalance, tokenToAddProposalSystem);
+      rewardsParams.proposalSystemBalance = BlockProduction.calculateBalance(
+        rewardsParams.proposalSystemBalance, tokenToAddProposalSystem
+      ).value;
+
+      totalDistributedTokens = BlockProduction.calculateBalance(
+        totalDistributedTokens, tokenToAddProposalSystem,
+      ).value;
+      
       await this.update(
         CONSTANTS.CONTRACT_NAME,
         CONSTANTS.BP_REWARDS_TABLE,
