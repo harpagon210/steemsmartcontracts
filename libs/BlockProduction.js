@@ -55,6 +55,7 @@ class BlockProduction {
         lastInflationCalculation: genesisSteemBlock,
         inflationRate: CONSTANTS.INITIAL_INFLATION_RATE,
         rewardsPerBlockPerProducer,
+        proposalSystemBalance: 0,
       };
 
       rewardsTable.insert(rewardsParams);
@@ -78,15 +79,17 @@ class BlockProduction {
 
   static calculateRewardsPerBlockPerProducer(totalRewards) {
     const rewardsPerBlock = totalRewards / CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE;
+    const nbUnitsToReward = CONSTANTS.NB_BLOCK_PRODUCERS + CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS;
+
     let rewardsPerBlockPerBP = currency(
       rewardsPerBlock,
       { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
-    ).divide(CONSTANTS.NB_BLOCK_PRODUCERS).value;
+    ).divide(nbUnitsToReward).value;
 
     const calculatedRewardsPerBlock = currency(
       rewardsPerBlockPerBP,
       { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
-    ).multiply(CONSTANTS.NB_BLOCK_PRODUCERS).value;
+    ).multiply(nbUnitsToReward).value;
 
     if (calculatedRewardsPerBlock > rewardsPerBlock) {
       // console.log('adjusting rewardsPerBlockPerBP');
@@ -163,6 +166,7 @@ class BlockProduction {
 
       let totalDistributedTokens = 0;
 
+      // reward the producers
       for (let index = 0; index < producers.length; index += 1) {
         const producer = producers[index];
 
@@ -174,6 +178,20 @@ class BlockProduction {
           totalDistributedTokens, rewardsParams.rewardsPerBlockPerProducer,
         ).value;
       }
+
+      // "reward" the proposal system
+      let tokenToAddProposalSystem = 0;
+      for (let index = 0; index < CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS; index += 1) {
+        tokenToAddProposalSystem = BlockProduction.calculateBalance(tokenToAddProposalSystem, rewardsParams.rewardsPerBlockPerProducer);
+      }
+      // add the rewards to the proposal system balance (hold by the 'null' account)
+      await this.addBalance('null', tokenToAddProposalSystem); // eslint-disable-line
+      rewardsParams.proposalSystemBalance = BlockProduction.calculateBalance(rewardsParams.proposalSystemBalance, tokenToAddProposalSystem);
+      await this.update(
+        CONSTANTS.CONTRACT_NAME,
+        CONSTANTS.BP_REWARDS_TABLE,
+        rewardsParams,
+      );
 
       // get current supply of the token
       const token = await this.findOne(

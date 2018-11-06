@@ -600,7 +600,7 @@ describe('Voting', () => {
       assert.equal(rewardsParams.inflationRate, BP_CONSTANTS.INITIAL_INFLATION_RATE);
 
       // the rewardsPerBlockPerProducer should be (0.01% of the total supply) / (the number of blocks * the number of block producers)
-      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.10788236);
+      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.05394118);
 
       resolve();
     })
@@ -762,10 +762,77 @@ describe('Voting', () => {
 
       for (let index = 0; index < balances.length; index++) {
         const balance = balances[index];
-        if (balance.account !== 'steemsc') {
+        if (balance.account !== 'steemsc' && balance.account !== 'null') {
           assert.equal(balance.balance, rewardsParams.rewardsPerBlockPerProducer);
         }
       }
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should allocate tokens to the proposal system after a block is produced', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
+
+      // register block producers
+      for (let index = 0; index < 50; index++) {
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));        
+      }
+
+      // stake
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'stake', '{ "quantity": 100 }'));
+
+      // vote
+      for (let index = 0; index < 30; index++) {
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));        
+      }
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: { symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL, account: 'null' }
+        }
+      });
+
+      let balance = res.payload;
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: BP_CONSTANTS.CONTRACT_NAME,
+          table: BP_CONSTANTS.BP_REWARDS_TABLE,
+          query: {
+          },
+        } 
+      });
+
+      let rewardsParams = res.payload;
+
+      assert.equal(balance.balance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
+      assert.equal(rewardsParams.proposalSystemBalance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
 
       resolve();
     })
