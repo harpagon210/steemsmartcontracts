@@ -41,12 +41,36 @@ class Bootstrap {
       actions.createSSC = async (payload) => {
         await db.createTable('tokens', ['symbol']);
         await db.createTable('balances', ['account']);
+        await db.createTable('params');
+
+        const params = {};
+        params.tokenCreationFee = 0;
+        await db.insert('params', params);  
+      }
+
+      actions.updateParams = async (payload) => {
+        if (sender !== owner) return;
+
+        const { tokenCreationFee } = payload;
+
+        const params = await db.findOne('params', { });
+
+        params.tokenCreationFee = tokenCreationFee;
+
+        await db.update('params', params);
       }
 
       actions.create = async (payload) => {
         const { symbol, precision, maxSupply } = payload;
 
-        if (symbol && typeof symbol === 'string'
+        // get contract params
+        const params = await db.findOne('params', { });
+        const { tokenCreationFee } = params;
+
+        const authorizedCreation = tokenCreationFee <= 0 ? true : await subBalance(sender, 'SSC', tokenCreationFee);
+
+        if (assert(authorizedCreation, 'you must have enough SSC tokens to cover the creation fees')
+          && symbol && typeof symbol === 'string'
           && (precision && typeof precision === 'number' || precision === 0)
           && maxSupply && typeof maxSupply === 'number') {
 
@@ -202,7 +226,7 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // sscstore contract
     contractCode = `

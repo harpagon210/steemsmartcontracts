@@ -221,6 +221,9 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
 
       let block = {
