@@ -96,7 +96,7 @@ ipc.onReceiveMessage((message) => {
       console.log('successfully initialized'); // eslint-disable-line no-console
       break;
     case 'stop':
-      ipc.reply(message, getCurrentSteemBlock());
+      ipc.reply(message, getCurrentSteemBlock() + 1);
       console.log('successfully stopped'); // eslint-disable-line no-console
       break;
     case PLUGIN_ACTIONS.REPLAY_FILE:
