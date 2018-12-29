@@ -15,7 +15,7 @@ class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
   static async deploySmartContract(ipc, transaction, jsVMTimeout) {
     try {
-      const { refSteemBlockNumber, sender } = transaction;
+      const { transactionId, refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
       const { name, params, code } = payload;
 
@@ -79,8 +79,8 @@ class SmartContracts {
             ipc, tables, name, tableName, indexes,
           ),
           // perform a query find on a table of the smart contract
-          find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
-            ipc, name, table, query, limit, offset, index, descending,
+          find: (table, query, limit = 1000, offset = 0, indexes = []) => SmartContracts.find(
+            ipc, name, table, query, limit, offset, indexes,
           ),
           // perform a query find on a table of an other smart contract
           findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
@@ -106,6 +106,7 @@ class SmartContracts {
         const vmState = {
           action: 'createSSC',
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
+          transactionId,
           refSteemBlockNumber,
           db,
           currency,
@@ -165,6 +166,7 @@ class SmartContracts {
   static async executeSmartContract(ipc, transaction, jsVMTimeout) {
     try {
       const {
+        transactionId,
         sender,
         contract,
         action,
@@ -195,8 +197,8 @@ class SmartContracts {
       // prepare the db object that will be available in the VM
       const db = {
         // perform a query find on a table of the smart contract
-        find: (table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
-          ipc, contract, table, query, limit, offset, index, descending,
+        find: (table, query, limit = 1000, offset = 0, indexes = []) => SmartContracts.find(
+          ipc, contract, table, query, limit, offset, indexes,
         ),
         // perform a query find on a table of an other smart contract
         findInTable: (contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) => SmartContracts.find(
@@ -230,6 +232,7 @@ class SmartContracts {
         sender,
         owner: contractOwner,
         refSteemBlockNumber,
+        transactionId,
         action,
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
@@ -397,7 +400,7 @@ class SmartContracts {
     }
   }
 
-  static async find(ipc, contractName, table, query, limit = 1000, offset = 0, index = '', descending = false) {
+  static async find(ipc, contractName, table, query, limit = 1000, offset = 0, indexes = []) {
     const res = await ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.FIND,
@@ -407,8 +410,7 @@ class SmartContracts {
         query,
         limit,
         offset,
-        index,
-        descending,
+        indexes,
       },
     });
 

@@ -16,7 +16,7 @@ class Streamer {
     this.currentBlock = currentBlock;
     this.pollingTime = pollingTime;
     this.headBlockNumber = 0;
-    this.client = process.env.NODE_ENV === 'test' ? dsteem.Client.testnet() : new dsteem.Client(nodeUrl);
+    this.client = process.env.NODE_ENV === 'test' ? new dsteem.Client('https://testnet.steemitdev.com', { addressPrefix: 'TST', chainId: '46d82ab7d8db682eb1959aed0ada039a6d49afa1602491f93dde9cac3e8e6c32' }) : new dsteem.Client(nodeUrl);
 
     this.updaterGlobalProps = null;
     this.poller = null;

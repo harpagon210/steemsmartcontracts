@@ -205,8 +205,7 @@ actions.createTable = (payload) => { // eslint-disable-line no-unused-vars
  * @param {JSON} query query to perform on the table
  * @param {Integer} limit limit the number of records to retrieve
  * @param {Integer} offset offset applied to the records set
- * @param {String} index name of the index to use for the query
- * @param {Boolean} descending the records set is sorted ascending if false, descending if true
+ * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
  * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
  */
 actions.find = (payload) => { // eslint-disable-line no-unused-vars
@@ -216,20 +215,21 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
     query,
     limit,
     offset,
-    index,
-    descending,
+    indexes,
   } = payload;
 
   const lim = limit || 1000;
   const off = offset || 0;
-  const ind = index || '';
-  const des = descending || false;
+  const ind = indexes || [];
 
   if (contract && typeof contract === 'string'
     && table && typeof table === 'string'
     && query && typeof query === 'object'
-    && typeof ind === 'string'
-    && typeof des === 'boolean'
+    && Array.isArray(ind)
+    && (ind.length === 0
+      || (ind.length > 0
+        && ind.every(el => el.index && typeof el.index === 'string'
+                            && el.descending !== undefined && typeof el.descending === 'boolean')))
     && Number.isInteger(lim)
     && Number.isInteger(off)
     && lim > 0 && lim <= 1000
@@ -239,10 +239,10 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
 
     if (tableData) {
       // if there is an index passed, check if it exists
-      if (ind !== '' && tableData.binaryIndices[ind] !== undefined) {
+      if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined)) {
         return tableData.chain()
           .find(query)
-          .simplesort(ind, des)
+          .compoundsort(ind.map(el => [el.index, el.descending]))
           .offset(off)
           .limit(lim)
           .data();
@@ -366,8 +366,7 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
  * @param {JSON} query query to perform on the table
  * @param {Integer} limit limit the number of records to retrieve
  * @param {Integer} offset offset applied to the records set
- * @param {String} index name of the index to use for the query
- * @param {Boolean} descending the records set is sorted ascending if false, descending if true
+ * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
  * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
  */
 actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
@@ -376,23 +375,21 @@ actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
     query,
     limit,
     offset,
-    index,
-    descending,
+    indexes,
   } = payload;
 
   const lim = limit || 1000;
   const off = offset || 0;
-  const ind = index || '';
-  const des = descending || false;
+  const ind = indexes || [];
 
   const tableData = database.getCollection(table);
 
   if (tableData) {
     // if there is an index passed, check if it exists
-    if (ind !== '') {
+    if (ind.length > 0) {
       return tableData.chain()
         .find(query)
-        .simplesort(ind, des)
+        .compoundsort(ind.map(el => [el.index, el.descending]))
         .offset(off)
         .limit(lim)
         .data();

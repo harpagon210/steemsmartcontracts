@@ -153,8 +153,7 @@ class BlockProduction {
       {},
       CONSTANTS.NB_BLOCK_PRODUCERS,
       0,
-      'power',
-      true,
+      [{ index: 'power', descending: true }],
     );
 
     // if there are producers
@@ -187,7 +186,7 @@ class BlockProduction {
       // add the rewards to the proposal system balance (hold by the 'null' account)
       await this.addBalance('null', tokenToAddProposalSystem); // eslint-disable-line
       rewardsParams.proposalSystemBalance = BlockProduction.calculateBalance(
-        rewardsParams.proposalSystemBalance, tokenToAddProposalSystem
+        rewardsParams.proposalSystemBalance, tokenToAddProposalSystem,
       ).value;
 
       totalDistributedTokens = BlockProduction.calculateBalance(
@@ -446,7 +445,7 @@ class BlockProduction {
   }
 
   // DB utils
-  async find(contract, table, query, limit = 1000, offset = 0, index = '', descending = false) {
+  async find(contract, table, query, limit = 1000, offset = 0, indexes = []) {
     const res = await this.ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.DFIND,
@@ -455,8 +454,7 @@ class BlockProduction {
         query,
         limit,
         offset,
-        index,
-        descending,
+        indexes,
       },
     });
 

@@ -96,8 +96,7 @@ function contractsRPC() {
         query,
         limit,
         offset,
-        index,
-        descending,
+        indexes,
       } = args;
 
       if (contract && typeof contract === 'string'
@@ -105,9 +104,7 @@ function contractsRPC() {
         && query && typeof query === 'object') {
         const lim = limit || 1000;
         const off = offset || 0;
-        const ind = index || '';
-        const desc = descending || false;
-
+        const ind = indexes || [];
         const res = await ipc.send(
           {
             to: DB_PLUGIN_NAME,
@@ -118,8 +115,7 @@ function contractsRPC() {
               query,
               limit: lim,
               offset: off,
-              index: ind,
-              descending: desc,
+              indexes: ind,
             },
           },
         );

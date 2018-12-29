@@ -60,6 +60,7 @@ function parseTransactions(refBlockNumber, block) {
             }
             sscTransaction = JSON.parse(operation[1].json); // eslint-disable-line
           } else if (operation[0] === 'transfer') {
+            isSignedWithActiveKey = true;
             sender = operation[1].from;
             recipient = operation[1].to;
             amount = operation[1].amount; // eslint-disable-line prefer-destructuring

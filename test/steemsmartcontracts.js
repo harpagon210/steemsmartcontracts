@@ -662,7 +662,8 @@ describe('Smart Contracts', () => {
         table: 'users',
         query: { },
         limit: 5,
-        index: 'age',
+        offset: 0,
+        indexes: [{ index: 'age', descending: false }],
       };
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
@@ -677,7 +678,7 @@ describe('Smart Contracts', () => {
         query: { },
         limit: 5,
         offset: 5,
-        index: 'age',
+        indexes: [{ index: 'age', descending: false }],
       };
 
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
@@ -692,7 +693,7 @@ describe('Smart Contracts', () => {
         query: { },
         limit: 5,
         offset: 10,
-        index: 'age',
+        indexes: [{ index: 'age', descending: false }],
       };
 
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
@@ -769,8 +770,7 @@ describe('Smart Contracts', () => {
         table: 'users',
         query: { },
         limit: 5,
-        index: 'age',
-        descending: true,
+        indexes: [{ index: 'age', descending: true }],
       };
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
@@ -785,8 +785,7 @@ describe('Smart Contracts', () => {
         query: { },
         limit: 5,
         offset: 5,
-        index: 'age',
-        descending: true,
+        indexes: [{ index: 'age', descending: true }],
       };
 
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
@@ -801,8 +800,7 @@ describe('Smart Contracts', () => {
         query: { },
         limit: 5,
         offset: 10,
-        index: 'age',
-        descending: true,
+        indexes: [{ index: 'age', descending: true }],
       };
 
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });

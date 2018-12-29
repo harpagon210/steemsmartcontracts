@@ -60,8 +60,25 @@ class Bootstrap {
         await db.update('params', params);
       }
 
+      actions.updateUrl = async (payload) => {
+        const { url, symbol } = payload;
+
+        if (assert(symbol && typeof url === 'string'
+            && url && typeof url === 'string', 'invalid params')) {
+          // check if the token exists
+          let token = await db.findOne('tokens', { symbol });
+  
+          if (token) {
+            if(assert(token.issuer === sender, 'must be the issuer')) {
+              token.url = url;
+              await db.update('tokens', token);
+            }
+          }
+        }
+      }
+
       actions.create = async (payload) => {
-        const { symbol, precision, maxSupply } = payload;
+        const { name, symbol, url, precision, maxSupply } = payload;
 
         // get contract params
         const params = await db.findOne('params', { });
@@ -70,16 +87,19 @@ class Bootstrap {
         const authorizedCreation = tokenCreationFee <= 0 ? true : await subBalance(sender, 'SSC', tokenCreationFee);
 
         if (assert(authorizedCreation, 'you must have enough SSC tokens to cover the creation fees')
+          && assert(name && typeof name === 'string'
           && symbol && typeof symbol === 'string'
+          && (url === undefined || (url && typeof url === 'string'))
           && (precision && typeof precision === 'number' || precision === 0)
-          && maxSupply && typeof maxSupply === 'number') {
+          && maxSupply && typeof maxSupply === 'number', 'invalid params')) {
 
-          // the symbol must be made of letters only
           // the precision must be between 0 and 8 and must be an integer
           // the max supply must be positive
-          if (assert(validator.isAlpha(symbol), 'invalid symbol')
+          if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 7, 'invalid symbol: uppercase letters only, max length of 7')
+            && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
             && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
-            && assert(maxSupply > 0, 'maxSupply must be positive')) {
+            && assert(maxSupply > 0, 'maxSupply must be positive')
+            && assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
 
             // check if the token already exists
             let token = await db.findOne('tokens', { symbol });
@@ -88,6 +108,8 @@ class Bootstrap {
               const newToken = {
                 issuer: sender,
                 symbol,
+                name,
+                url,
                 precision,
                 maxSupply,
                 supply: 0
@@ -103,9 +125,9 @@ class Bootstrap {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
 
         if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-          && to && typeof to === 'string'
+          && assert(to && typeof to === 'string'
           && symbol && typeof symbol === 'string'
-          && quantity && typeof quantity === 'number') {
+          && quantity && typeof quantity === 'number', 'invalid params')) {
 
           let token = await db.findOne('tokens', { symbol });
 
@@ -142,9 +164,9 @@ class Bootstrap {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
 
         if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-          && to && typeof to === 'string'
+          && assert(to && typeof to === 'string'
           && symbol && typeof symbol === 'string'
-          && quantity && typeof quantity === 'number') {
+          && quantity && typeof quantity === 'number', 'invalid params')) {
 
           if (assert(to !== sender, 'cannot transfer to self')) {
             let account = await db.findOneInTable('accounts', 'accounts', { 'id': to });
@@ -174,7 +196,6 @@ class Bootstrap {
           assert(balance.balance >= quantity, 'overdrawn balance')) {
 
           balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
-
           if (balance.balance <= 0) {
             await db.remove('balances', balance);
           } else {
@@ -262,7 +283,7 @@ class Bootstrap {
 
       if (recipient !== owner) return;
 
-      if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
+      if (assert(recipient && amountSTEEMSBD && isSignedWithActiveKey, 'invalid params')) {
         const params = await db.findOne('params', { });
 
         if (params.disabled) return;
@@ -302,10 +323,288 @@ class Bootstrap {
 
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
+    // steem-pegged asset contract
+    contractCode = `
+    actions.createSSC = async (payload) => {
+      await db.createTable('withdrawals'); 
+    }
+
+    actions.buy = async (payload) => {
+      const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
+
+      if (recipient !== owner) return;
+
+      if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
+        const res = amountSTEEMSBD.split(' ');
+  
+        const quantity = Number(res[0]);
+        const unit = res[1];
+  
+        // STEEM
+        if (assert(unit === 'STEEM', 'only STEEM can be used')) {
+          if (quantity > 0) {
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "STEEMP", quantity, to: sender })
+          }
+        } 
+        // SBD
+        else {
+          // refund
+          const withdrawal = {};
+      
+          withdrawal.id = transactionId;
+          withdrawal.type = 'SBD';
+          withdrawal.recipient = sender;
+          withdrawal.memo = 'refund tx ' + transactionId + ': only STEEM can be used to purchase STEEMP';
+          withdrawal.quantity = quantity;
+
+          await db.insert('withdrawals', withdrawal); 
+        }
+      }
+    }
+
+    actions.withdraw = async (payload) => {
+      const { quantity, isSignedWithActiveKey } = payload;
+
+      if (assert(quantity && isSignedWithActiveKey, 'invalid params')) {
+
+        const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity: quantity, to: owner });
+
+        if (res.errors === undefined) {
+          // withdrawal
+          const withdrawal = {};
+      
+          withdrawal.id = transactionId;
+          withdrawal.type = 'STEEM';
+          withdrawal.recipient = sender;
+          withdrawal.memo = 'withdrawal tx ' + transactionId;
+          withdrawal.quantity = quantity;
+
+          await db.insert('withdrawals', withdrawal); 
+        }
+      }
+    }
+
+    actions.removeWithdrawal = async (payload) => {
+      const { id, isSignedWithActiveKey } = payload;
+
+      if (sender !== owner) return;
+
+      if (id && isSignedWithActiveKey) {
+        const withdrawal = await db.findOne('withdrawals', { id });
+
+        if (withdrawal) {
+          await db.remove('withdrawals', withdrawal);
+        }
+      }
+    }
+    `;
+
+    base64ContractCode = Base64.encode(contractCode);
+
+    contractPayload = {
+      name: 'steempegged',
+      params: '',
+      code: base64ContractCode,
+    };
+
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
+    contractCode = `
+    actions.createSSC = async (payload) => {
+      await db.createTable('buyBook', ['id', 'symbol', 'account', 'price']);
+      await db.createTable('sellBook', ['id', 'symbol', 'account', 'price']);
+    };
+    
+    actions.buy = async (payload) => {
+      const { symbol, quantity, price, isSignedWithActiveKey } = payload;
+      // buy (quantity) STEEMP at (price)(symbol) per STEEMP
+      if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+        && assert(price && typeof price === 'number'
+        && symbol && typeof symbol === 'string'
+        && quantity && typeof quantity === 'number', 'invalid params')) {
+    
+        // get the token params
+        const token = await db.findOneInTable('tokens', 'tokens', { symbol });
+
+        // perform a few verifications
+        if (token
+          && price > 0
+          && countDecimals(price) <= token.precision
+          && countDecimals(quantity) <= 3) {
+          // initiate a transfer from sender to null account
+          const nbTokensToLock = currency(price, { precision: token.precision }).multiply(quantity).value;
+
+          const res = await executeSmartContract('tokens', 'transfer', { symbol, quantity: nbTokensToLock, to: owner });
+
+          if (res.errors === undefined) {
+            // order
+            const order = {};
+            
+            order.id = transactionId;
+            order.account = sender;
+            order.symbol = symbol;
+            order.quantity = quantity;
+            order.price = price;
+            order.tokensLocked = nbTokensToLock;
+    
+            const orderInDB = await db.insert('buyBook', order);
+
+            await findMatchingSellOrders(orderInDB, token.precision);
+          }
+        }
+      }
+    };
+    
+    actions.sell = async (payload) => {
+      const { symbol, quantity, price, isSignedWithActiveKey } = payload;
+      // sell (quantity) at (price)(symbol) per STEEMP
+      if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+        && price && typeof price === 'number'
+        && symbol && typeof symbol === 'string'
+        && quantity && typeof quantity === 'number') {
+    
+        // get the token params
+        const token = await db.findOneInTable('tokens', 'tokens', { symbol });
+    
+        // perform a few verifications
+        if (token
+          && price > 0
+          && countDecimals(price) <= token.precision
+          && countDecimals(quantity) <= 3) {
+          // initiate a transfer from sender to null account
+          const res = await executeSmartContract('tokens', 'transfer', { symbol: 'STEEMP', quantity, to: owner });
+    
+          if (res.errors === undefined) {
+            // order
+            const order = {};
+    
+            order.id = transactionId;
+            order.account = sender;
+            order.symbol = symbol;
+            order.quantity = quantity;
+            order.price = price;
+    
+            const orderInDB = await db.insert('sellBook', order);
+          }
+        }
+      }
+    };
+    
+    const findMatchingSellOrders = async (order, tokenPrecision) => {
+      const { id, account, symbol, quantity, price } = order;
+      const buyOrder = order;
+      let offset = 0;
+      
+      // get the orders that match the symbol and the price
+      let sellOrderBook = await db.find('sellBook', {
+        symbol,
+        price: {
+          $lte: price,
+        },
+      }, 1000, offset,
+      [
+        { index: 'price', descending: false },
+        { index: 'id', descending: false },
+      ]);
+
+      do {
+        const nbOrders = sellOrderBook.length;
+        let inc = 0;
+        debug(sellOrderBook)
+        while (inc < nbOrders && buyOrder.quantity > 0) {
+          const sellOrder = sellOrderBook[inc];
+          if (buyOrder.quantity <= sellOrder.quantity) {
+
+            // transfer the tokens to the accounts
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: 'STEEMP', quantity: buyOrder.quantity, to: account });
+
+            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
+            
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: sellOrder.account });
+
+            // update the sell order
+            const qtyLeftSellOrder = currency(sellOrder.quantity, { tokenPrecision }).subtract(buyOrder.quantity).value;
+            
+            if (qtyLeftSellOrder > 0) {
+              sellOrder.quantity = qtyLeftSellOrder;
+
+              await db.update('sellBook', sellOrder);
+            } else {
+              await db.remove('sellBook', sellOrder);
+            }
+    
+            // unlock remaining tokens, update the quantity to get and remove the buy order
+            const tokensToUnlock = currency(buyOrder.tokensLocked, { tokenPrecision }).subtract(qtyTokensToSend).value;
+
+            if (tokensToUnlock > 0) {
+              await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: tokensToUnlock, to: account });
+            }
+            
+            buyOrder.quantity = 0;
+            await db.remove('buyBook', buyOrder);
+          } else {
+            // transfer the tokens to the account
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: 'STEEMP', quantity: sellOrder.quantity, to: account });
+            
+            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: sellOrder.account });
+
+            // remove the sell order
+            await db.remove('sellBook', sellOrder);
+    
+            // update tokensLocked and the quantity to get
+            buyOrder.tokensLocked = currency(buyOrder.tokensLocked, { tokenPrecision }).subtract(qtyTokensToSend).value;
+            buyOrder.quantity = currency(buyOrder.quantity, { tokenPrecision }).subtract(sellOrder.quantity).value;
+          }
+    
+          inc += 1;
+        }
+    
+        offset += 1000;
+    
+        if (buyOrder.quantity > 0) {
+          // get the orders that match the symbol and the price
+          sellOrderBook = await db.find('sellBook', {
+            symbol,
+            price: {
+              $lte: price,
+            },
+          }, 1000, offset,
+          [
+            { index: 'price', descending: false },
+            { index: 'id', descending: false },
+          ]);
+        }
+      } while (sellOrderBook.length > 0 && buyOrder.quantity > 0);
+
+      // update the buy order if partially filled
+      if (buyOrder.quantity > 0) {
+        await db.update('buyBook', buyOrder);
+      }
+    };
+    
+    const countDecimals = (value) => {
+      if (Math.floor(value) === value) return 0;
+      return value.toString().split('.')[1].length || 0;
+    };
+    `;
+
+    base64ContractCode = Base64.encode(contractCode);
+
+    contractPayload = {
+      name: 'market',
+      params: '',
+      code: base64ContractCode,
+    };
+
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
 
     // bootstrap transactions
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'accounts', 'register'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'accounts', 'register'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steemsc", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
 
     return transactions;
   }

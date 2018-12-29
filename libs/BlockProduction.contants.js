@@ -34,7 +34,10 @@ const CONSTANTS = {
   MINIMUM_INFLATION_RATE: 0.01, // 1%
   INFLATION_RATE_DECREASING_RATE: 0.0001, // 0.01%
 
-  PROPOSAL_SYSTEM_REWARD_UNITS: 21, // meaning that the system will consider 21 block producers and 21 more units tor reward (rewards for 1 block will be divided by 21+21=42, so 1/2 of the rewards goes to the proposal system)
+  // meaning that the system will consider 21 block producers and 21 more units tor reward
+  // (rewards for 1 block will be divided by 21+21=42
+  // so 1/2 of the rewards goes to the proposal system)
+  PROPOSAL_SYSTEM_REWARD_UNITS: 21,
 
   // table names used by the library
   BP_PRODUCERS_TABLE: 'producers',
@@ -54,7 +57,7 @@ const CONSTANTS = {
     issuer: 'null', // by setting the issuer to 'null', nobody can issue UTILITY_TOKENs (except for the tool itself)
     symbol: UTILITY_TOKEN_SYMBOL,
     precision: UTILITY_TOKEN_PRECISION,
-    maxSupply: Number.MAX_SAFE_INTEGER,
+    maxSupply: 1000000000000,
     supply: UTILITY_TOKEN_INITIAL_SUPPLY,
   },
 

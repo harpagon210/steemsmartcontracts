@@ -1,5 +1,5 @@
 {
-    "chainId": "00000000000000000001",
+    "chainId": "0000000000000000002",
     "rpcNodePort": 5000,
     "dataDirectory": "./data/",
     "databaseFileName": "database.db",
@@ -12,8 +12,8 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 529110,
-    "genesisSteemBlock": 526086,
+    "startSteemBlock": 29000956,
+    "genesisSteemBlock": 29000956,
     "keyCertificate": "",
     "certificate": "",
     "chainCertificate": ""

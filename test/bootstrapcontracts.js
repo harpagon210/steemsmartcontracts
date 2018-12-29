@@ -224,7 +224,7 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -248,6 +248,8 @@ describe('Tokens smart contract', () => {
 
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'Harpagon');
+      assert.equal(token.name, 'token');
+      assert.equal(token.url, 'https://token.com');
       assert.equal(token.maxSupply, 1000);
       assert.equal(token.supply, 0);
 
@@ -270,12 +272,15 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "T.KN", "precision": 3, "maxSupply": 1000 }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 3.3, "maxSupply": 1000 }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": -1, "maxSupply": 1000 }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 9, "maxSupply": 1000 }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 8, "maxSupply": -2 }'));
-
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "T.KN", "precision": 3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKNNNNNN", "precision": 3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 3.3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": -1, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 9, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": -2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "&é", "symbol": "TKN", "precision": 8, "maxSupply": -2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "qsdqsdqsdqsqsdqsdqsdqsdqsdsdqsdqsdqsdqsdqsdqsdqsdqsd", "symbol": "TKN", "precision": 8, "maxSupply": -2 }'));
+      
       let block = {
         timestamp: '2018-06-01T00:00:00',
         transactions,
@@ -291,11 +296,136 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[0].logs).errors[0], 'invalid symbol');
-      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'invalid precision');
+      assert.equal(JSON.parse(transactionsBlock1[0].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 7');
+      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 7');
       assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'invalid precision');
       assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'invalid precision');
-      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'maxSupply must be positive');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'invalid precision');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'maxSupply must be positive');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'invalid name: letters, numbers, whitespaces only, max length of 50');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'invalid name: letters, numbers, whitespaces only, max length of 50');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('updates the url of a token', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'updateUrl', '{ "symbol": "TKN", "url": "https://new.token.com" }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const token = res.payload;
+
+      assert.equal(token.url, 'https://new.token.com');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not update the url of a token', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'tokens', 'updateUrl', '{ "symbol": "TKN", "url": "https://new.token.com" }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const token = res.payload;
+
+      assert.equal(token.url, 'https://token.com');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[0].logs).errors[0], 'must be the issuer');
 
       resolve();
     })
@@ -317,7 +447,7 @@ describe('Tokens smart contract', () => {
       
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -341,7 +471,7 @@ describe('Tokens smart contract', () => {
 
       const token = res.payload;
 
-      assert.equal(JSON.parse(token.supply), 100);
+      assert.equal(token.supply, 100);
 
       // check if the "to" received the tokens
       res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -358,7 +488,7 @@ describe('Tokens smart contract', () => {
 
       const balance = res.payload;
 
-      assert.equal(JSON.parse(balance.balance), 100);
+      assert.equal(balance.balance, 100);
 
       resolve();
     })
@@ -380,7 +510,7 @@ describe('Tokens smart contract', () => {
       
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi" }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "NTK", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
@@ -433,7 +563,7 @@ describe('Tokens smart contract', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
@@ -458,7 +588,7 @@ describe('Tokens smart contract', () => {
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(JSON.parse(balanceSatoshi.balance), 92.00000001);
+      assert.equal(balanceSatoshi.balance, 92.00000001);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -474,7 +604,7 @@ describe('Tokens smart contract', () => {
 
       const balanceVitalik = res.payload;
 
-      assert.equal(JSON.parse(balanceVitalik.balance), 7.99999999);
+      assert.equal(balanceVitalik.balance, 7.99999999);
 
       resolve();
     })
@@ -496,7 +626,7 @@ describe('Tokens smart contract', () => {
       
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik" }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Satoshi", "isSignedWithActiveKey": true }'));
@@ -750,4 +880,321 @@ describe('sscstore smart contract', () => {
         done();
       });
   });
+});
+
+// steem-pegged asset
+describe('steem-pegged smart contract', () => {
+
+  it('should buy tokens', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'Satoshi',
+            symbol: "STEEMP"
+          }
+        }
+      });
+
+      const balanceSatoshi = res.payload;
+
+      assert.equal(balanceSatoshi.balance, 0.001);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should not buy tokens', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 SBD", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'Satoshi',
+            symbol: "STEEMP"
+          }
+        }
+      });
+
+      assert.equal(res.payload, null);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            id: 'TXID1236',
+          }
+        }
+      });
+
+      const rec = res.payload;
+
+      assert.equal(rec.id, 'TXID1236');
+      assert.equal(rec.type, 'SBD');
+      assert.equal(rec.quantity, 0.001);
+      assert.equal(rec.memo, 'refund tx TXID1236: only STEEM can be used to purchase STEEMP');
+      assert.equal(rec.recipient, 'Satoshi');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should withdraw', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'withdraw', '{ "quantity": 0.001, "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'Satoshi',
+            symbol: "STEEMP"
+          }
+        }
+      });
+
+      assert.equal(res.payload, null);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            id: 'TXID1236',
+          }
+        }
+      });
+
+      const rec = res.payload;
+
+      assert.equal(rec.id, 'TXID1236');
+      assert.equal(rec.type, 'STEEM');
+      assert.equal(rec.quantity, 0.001);
+      assert.equal(rec.memo, 'withdrawal tx TXID1236');
+      assert.equal(rec.recipient, 'Satoshi');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should not withdraw', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'withdraw', '{ "quantity": 0.001, "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            id: 'TXID1236',
+          }
+        }
+      });
+
+      assert.equal(res.payload, null);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should remove a withdrawal request', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'withdraw', '{ "quantity": 0.001, "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            id: 'TXID1236',
+          }
+        }
+      });
+
+      let rec = res.payload;
+
+      assert.equal(rec.id, 'TXID1236');
+      assert.equal(rec.type, 'STEEM');
+      assert.equal(rec.quantity, 0.001);
+      assert.equal(rec.memo, 'withdrawal tx TXID1236');
+      assert.equal(rec.recipient, 'Satoshi');
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc', 'steempegged', 'removeWithdrawal', '{ "id": "TXID1236", "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            id: 'TXID1236',
+          }
+        }
+      });
+
+      assert.equal(res.payload, null);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
 });

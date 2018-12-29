@@ -541,8 +541,7 @@ describe('Voting', () => {
               '$in' : ['harpagon', 'vitalik', 'satoshi']
             }
           },
-          index: 'power',
-          descending: true,
+          indexes: [{ index: 'power', descending: true }],
         } 
       });
 
