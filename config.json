@@ -12,8 +12,8 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 29000956,
-    "genesisSteemBlock": 29000956,
+    "startSteemBlock": 29056257,
+    "genesisSteemBlock": 29056257,
     "keyCertificate": "",
     "certificate": "",
     "chainCertificate": ""
