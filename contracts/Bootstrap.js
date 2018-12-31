@@ -63,8 +63,9 @@ class Bootstrap {
       actions.updateUrl = async (payload) => {
         const { url, symbol } = payload;
 
-        if (assert(symbol && typeof url === 'string'
-            && url && typeof url === 'string', 'invalid params')) {
+        if (assert(symbol && typeof symbol === 'string'
+            && url && typeof url === 'string', 'invalid params')
+            && assert(url.length <= 255, 'invalid url: max length of 255')) {
           // check if the token exists
           let token = await db.findOne('tokens', { symbol });
   
@@ -97,6 +98,7 @@ class Bootstrap {
           // the max supply must be positive
           if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 7, 'invalid symbol: uppercase letters only, max length of 7')
             && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+            && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
             && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
             && assert(maxSupply > 0, 'maxSupply must be positive')
             && assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
