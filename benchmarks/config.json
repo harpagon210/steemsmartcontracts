@@ -1,0 +1,20 @@
+{
+    "chainId": "00000000000000000002",
+    "rpcNodePort": 5000,
+    "dataDirectory": "./data/",
+    "databaseFileName": "database.db",
+    "blocksLogFilePath": "./blocks.log",
+    "autosaveInterval": 1800000,
+    "javascriptVMTimeout": 10000,
+    "streamNodes": [
+        "https://api.steemit.com",
+        "https://rpc.buildteam.io",
+        "https://rpc.steemviz.com",
+        "https://steemd.minnowsupportproject.org"
+    ],
+    "startSteemBlock": 29056257,
+    "genesisSteemBlock": 29056257,
+    "keyCertificate": "",
+    "certificate": "",
+    "chainCertificate": ""
+}

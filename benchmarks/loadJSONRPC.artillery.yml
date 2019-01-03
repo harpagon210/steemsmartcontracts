@@ -1,0 +1,26 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 300
+  defaults:
+    header:
+      Content-Type: "application/json"
+scenarios:
+  - flow:
+      - post:
+          url: "/blockchain"
+          json:
+            jsonrpc: "2.0"
+            id: "1"
+            method: "getLatestBlockInfo"
+      - post:
+          url: "/contracts"
+          json:
+            jsonrpc: "2.0"
+            id: "1"
+            method: "find"
+            params:
+              contract: "accounts"
+              table: "accounts"
+              query: ""
