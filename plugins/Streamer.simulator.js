@@ -28,8 +28,10 @@ function sendBlock(block) {
 }
 
 // get a block from the Steem blockchain
-async function generateBlock() {
+async function generateBlock(startSteemBlock) {
   if (stopGeneration) return;
+
+  if (startSteemBlock) blockNumber = startSteemBlock;
 
   blockNumber += 1;
   const block = {
@@ -57,8 +59,12 @@ async function generateBlock() {
 }
 
 // stream the Steem blockchain to find transactions related to the sidechain
-function init() {
-  generateBlock();
+function init(conf) {
+  const {
+    startSteemBlock,
+  } = conf;
+
+  generateBlock(startSteemBlock);
 }
 
 ipc.onReceiveMessage((message) => {
