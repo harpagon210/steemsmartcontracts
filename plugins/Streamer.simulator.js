@@ -12,8 +12,13 @@ let blockNumber = 2000000;
 let transactionId = 0;
 let stopGeneration = false;
 
+function getCurrentBlock() {
+  return blockNumber;
+}
+
 function stop() {
   stopGeneration = true;
+  return getCurrentBlock();
 }
 
 function sendBlock(block) {
@@ -70,7 +75,7 @@ ipc.onReceiveMessage((message) => {
       console.log('successfully initialized'); // eslint-disable-line no-console
       break;
     case 'stop':
-      stop();
+      ipc.reply(message, stop());
       ipc.reply(message);
       console.log('successfully stopped'); // eslint-disable-line no-console
       break;

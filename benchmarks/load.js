@@ -1,5 +1,6 @@
 require('dotenv').config();
 const nodeCleanup = require('node-cleanup');
+const fs = require('fs-extra');
 const { fork } = require('child_process');
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -113,14 +114,21 @@ async function start() {
 
 async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
-  await unloadPlugin(streamer);
+  const res = await unloadPlugin(streamer);
   await unloadPlugin(blockchain);
   await unloadPlugin(database);
-  callback();
+  callback(res.payload);
+}
+
+function saveConfig(lastBlockParsed) {
+  const config = fs.readJSONSync('./config.json');
+  config.startSteemBlock = lastBlockParsed;
+  fs.writeJSONSync('./config.json', config);
 }
 
 function stopApp(signal = 0) {
-  stop(() => {
+  stop((lastBlockParsed) => {
+    saveConfig(lastBlockParsed);
     // calling process.exit() won't inform parent process of signal
     process.kill(process.pid, signal);
   });
