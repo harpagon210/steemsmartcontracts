@@ -68,9 +68,15 @@ class Block {
 
       if (sender && contract && action) {
         if (contract === 'contract' && action === 'deploy' && payload) {
-          results = await SmartContracts.deploySmartContract(// eslint-disable-line no-await-in-loop
-            ipc, transaction, jsVMTimeout,
-          );
+          const authorizedAccountContractDeployment = ['null', 'steemsc'];
+
+          if (authorizedAccountContractDeployment.includes(sender)) {
+            results = await SmartContracts.deploySmartContract( // eslint-disable-line
+              ipc, transaction, jsVMTimeout,
+            );
+          } else {
+            results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
+          }
         } else if (contract === 'blockProduction' && payload) {
           results = await bp.processTransaction(transaction); // eslint-disable-line
         } else {
