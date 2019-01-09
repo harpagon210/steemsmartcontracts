@@ -301,7 +301,7 @@ describe('Market', () => {
       assert.equal(sellOrders[0].quantity, 100000);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'market', 'cancel', '{ "txId": "TXID1235", "type": "buy", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'market', 'cancel', '{ "id": 1, "type": "buy", "isSignedWithActiveKey": true }'));
 
       block = {
         timestamp: '2018-06-01T00:00:00',
@@ -417,7 +417,7 @@ describe('Market', () => {
       assert.equal(sellOrders[0].quantity, 100);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'market', 'cancel', '{ "txId": "TXID1235", "type": "sell", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'market', 'cancel', '{ "id": 1, "type": "sell", "isSignedWithActiveKey": true }'));
 
       block = {
         timestamp: '2018-06-01T00:00:00',

@@ -415,21 +415,21 @@ class Bootstrap {
     const STEEM_PEGGED_SYMBOL = 'STEEMP';
 
     actions.createSSC = async (payload) => {
-      await db.createTable('buyBook', ['txId', 'symbol', 'account', 'price']);
-      await db.createTable('sellBook', ['txId', 'symbol', 'account', 'price']);
+      await db.createTable('buyBook', ['symbol', 'account', 'price']);
+      await db.createTable('sellBook', ['symbol', 'account', 'price']);
     };
     
     actions.cancel = async (payload) => {
-      const { type, txId, isSignedWithActiveKey } = payload;
+      const { type, id, isSignedWithActiveKey } = payload;
 
       const types = ['buy', 'sell'];
 
       if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
         && assert(type && types.includes(type)
-        && txId && typeof txId === 'string', 'invalid params')) {
+        && id && Number.isInteger(id), 'invalid params')) {
           const table = type === 'buy' ? 'buyBook' : 'sellBook';
           // get order
-          const order = await db.findOne(table, { txId });
+          const order = await db.findOne(table, { $loki: id });
 
           if (assert(order, 'order does not exist')
               && order.account === sender) {
