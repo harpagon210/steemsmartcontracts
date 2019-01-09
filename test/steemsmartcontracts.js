@@ -245,7 +245,7 @@ describe('Smart Contracts', () => {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
       
-      assert.equal(contract.tables.includes('testContract_testTable'), true);
+      assert.notEqual(contract.tables.testContract_testTable, undefined);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable'} });
       

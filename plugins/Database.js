@@ -3,6 +3,7 @@ const Loki = require('lokijs');
 const validator = require('validator');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
+const { sizeof } = require('../libs/sizeof');
 const { BlockProduction } = require('../libs/BlockProduction');
 
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
@@ -11,6 +12,8 @@ const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Database.constants');
 
 const PLUGIN_PATH = require.resolve(__filename);
+
+const METERED_ACTIONS = ['insert', 'update', 'remove'];
 
 const actions = {};
 
@@ -96,6 +99,45 @@ async function generateGenesisBlock(conf, callback) {
   callback();
 }
 
+function meterAction(action, contract, tableName, record) {
+  // get the contract infos
+  const contracts = database.getCollection('contracts');
+  const contractInDb = contracts.findOne({ name: contract  });
+  const sizeOfNumber = 8; // this is the size of a record in an index
+
+  if(contractInDb) {
+    // get the table infos
+    const finalTableName = `${contract}_${tableName}`;
+    const table = contractInDb.tables[finalTableName];
+
+    if (table != undefined) {
+      // insert case
+      if (action === 'insert') {
+        table.size += sizeof(record) + table.nbIndexes * sizeOfNumber;
+      }
+      // remove case
+      else if (action === 'remove') {
+        table.size -= sizeof(record) + table.nbIndexes * sizeOfNumber;
+      }
+      // update case
+      else if (action === 'update') {
+        // get the old record
+        const tableInDb = database.getCollection(finalTableName);
+
+        if (tableInDb) {
+          // get the record via the $loki key
+          const oldRecord = tableInDb.get(record['$loki']);
+          if (oldRecord) {
+            table.size += sizeof(record) - sizeof(oldRecord);
+          }
+        }
+      }
+
+      contracts.update(contractInDb);
+    }
+  }
+}
+
 // save the blockchain as well as the database on the filesystem
 actions.save = (callback) => {
   saving = true;
@@ -151,7 +193,7 @@ actions.findContract = (payload) => {
  * @param {String} name name of the contract
  * @param {String} owner owner of the contract
  * @param {String} code code of the contract
- * @param {String} tables tables linked to the contract
+ * @param {Object} tables tables linked to the contract
  */
 actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
   const {
@@ -164,7 +206,7 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
   if (name && typeof name === 'string'
     && owner && typeof owner === 'string'
     && code && typeof code === 'string'
-    && tables && Array.isArray(tables)) {
+    && tables && typeof tables === 'object') {
     const contracts = database.getCollection('contracts');
     contracts.insert(payload);
   }
@@ -292,10 +334,13 @@ actions.insert = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
-      return tableInDb.insert(record);
+      const insertedRecord = tableInDb.insert(record);
+
+      meterAction('insert', contract, table, insertedRecord);
+      return insertedRecord;
     }
   }
   return null;
@@ -312,10 +357,11 @@ actions.remove = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
       tableInDb.remove(record);
+      meterAction('remove', contract, table, record);
     }
   }
 };
@@ -331,10 +377,11 @@ actions.update = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
       tableInDb.update(record);
+      meterAction('update', contract, table, record);
     }
   }
 };
@@ -350,7 +397,7 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
   const { contract, table } = payload;
   const finalTableName = `${contract}_${table}`;
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
       return { ...tableInDb, data: [] };
@@ -431,9 +478,16 @@ actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} record record to save in the table
  */
 actions.dinsert = (payload) => { // eslint-disable-line no-unused-vars
-  const { table, record } = payload;
+  const { table, record, metered } = payload;
+
   const tableInDb = database.getCollection(table);
-  return tableInDb.insert(record);
+  const insertedRecord = tableInDb.insert(record);
+
+  if (metered === true) {
+    meterAction('insert', table.split('_')[0], table.split('_')[1], insertedRecord);
+  }
+
+  return insertedRecord;
 };
 
 /**

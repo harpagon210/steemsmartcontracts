@@ -120,7 +120,6 @@ describe('Voting', () => {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      const result = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" }} });
       const stake = res.payload;

@@ -70,7 +70,7 @@ class SmartContracts {
         // compile the code for faster executions later on
         const script = new VMScript(codeTemplate).compile();
 
-        const tables = [];
+        const tables = {};
 
         // prepare the db object that will be available in the VM
         const db = {
@@ -393,7 +393,12 @@ class SmartContracts {
     if (res.payload === true) {
       // add the table name to the list of table available for this contract
       const finalTableName = `${contractName}_${tableName}`;
-      if (!tables.includes(finalTableName)) tables.push(finalTableName);
+      if (tables[finalTableName] === undefined) {
+        tables[finalTableName] = {
+          size: 0,
+          nbIndexes: indexes.length,
+        };
+      }
     }
   }
 
@@ -450,6 +455,7 @@ class SmartContracts {
       payload: {
         table: `${contractName}_${table}`,
         record,
+        metered: true,
       },
     });
 
