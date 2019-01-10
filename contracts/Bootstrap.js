@@ -41,6 +41,7 @@ class Bootstrap {
       actions.createSSC = async (payload) => {
         await db.createTable('tokens', ['symbol']);
         await db.createTable('balances', ['account']);
+        await db.createTable('contractsBalances', ['account']);
         await db.createTable('params');
 
         const params = {};
@@ -85,7 +86,7 @@ class Bootstrap {
         const params = await db.findOne('params', { });
         const { tokenCreationFee } = params;
 
-        const authorizedCreation = tokenCreationFee <= 0 ? true : await subBalance(sender, 'SSC', tokenCreationFee);
+        const authorizedCreation = tokenCreationFee <= 0 ? true : await subBalance(sender, 'SSC', tokenCreationFee, 'balances');
 
         if (assert(authorizedCreation, 'you must have enough SSC tokens to cover the creation fees')
           && assert(name && typeof name === 'string'
@@ -152,7 +153,7 @@ class Bootstrap {
               
               await db.update('tokens', token);
 
-              await addBalance(token.issuer, token, quantity);
+              await addBalance(token.issuer, token, quantity, 'balances');
 
               if (to !== token.issuer) {
                 await actions.transfer(payload);
@@ -183,8 +184,8 @@ class Bootstrap {
                 && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
                 && assert(quantity > 0, 'must transfer positive quantity')) {
 
-                if (await subBalance(sender, token, quantity)) {
-                  await addBalance(to, token, quantity);
+                if (await subBalance(sender, token, quantity, 'balances')) {
+                  await addBalance(to, token, quantity, 'balances');
                 }
               }
             }
@@ -192,16 +193,84 @@ class Bootstrap {
         }
       }
 
-      const subBalance = async (account, token, quantity) => {
-        let balance = await db.findOne('balances', { account, 'symbol': token.symbol });
+      actions.transferToContract = async (payload) => {
+        const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+
+        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+          && assert(to && typeof to === 'string'
+          && symbol && typeof symbol === 'string'
+          && quantity && typeof quantity === 'number', 'invalid params')) {
+
+          if (assert(to !== sender, 'cannot transfer to self')) {
+            let contract = await db.findContract(to);
+      
+            // the contract must exist
+            if (assert(contract !== null, 'to contract does not exist')) {
+              let token = await db.findOne('tokens', { symbol });
+
+              // the symbol must exist
+              // then we need to check that the quantity is correct
+              if (assert(token !== null, 'symbol does not exist')
+                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                && assert(quantity > 0, 'must transfer positive quantity')) {
+
+                if (await subBalance(sender, token, quantity, 'balances')) {
+                  await addBalance(to, token, quantity, 'contractsBalances');
+                }
+              }
+            }
+          }
+        }
+      }
+
+      actions.transferFromContract = async (payload) => {
+        // this action can only be called by the 'null' account which only the core code can use
+        if (assert(sender === 'null', 'not authorized')) {
+          const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
+          const types = ['user', 'contract'];
+
+          if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && assert(to && typeof to === 'string'
+            && from && typeof from === 'string'
+            && symbol && typeof symbol === 'string'
+            && type && (types.includes(type))
+            && quantity && typeof quantity === 'number', 'invalid params')) {
+
+            const table = type === 'user' ? 'balances' : 'contractsBalances';
+
+            if (assert(type === 'user' || ( type === 'contract' && to !== from), 'cannot transfer to self')) {
+              let acct = type === 'user' ? await db.findOneInTable('accounts', 'accounts', { 'id': to }) : await db.findContract(to);
+        
+              // the account must exist
+              if (assert(acct !== null, 'to does not exist')) {
+                let token = await db.findOne('tokens', { symbol });
+
+                // the symbol must exist
+                // then we need to check that the quantity is correct
+                if (assert(token !== null, 'symbol does not exist')
+                  && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                  && assert(quantity > 0, 'must transfer positive quantity')) {
+
+                  if (await subBalance(from, token, quantity, 'contractsBalances')) {
+                    await addBalance(to, token, quantity, table);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const subBalance = async (account, token, quantity, table) => {
+        let balance = await db.findOne(table, { account, 'symbol': token.symbol });
         if (assert(balance !== null, 'balance does not exist') &&
           assert(balance.balance >= quantity, 'overdrawn balance')) {
 
           balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
           if (balance.balance <= 0) {
-            await db.remove('balances', balance);
+            await db.remove(table, balance);
           } else {
-            await db.update('balances', balance);
+            await db.update(table, balance);
           }
 
           return true;
@@ -210,8 +279,8 @@ class Bootstrap {
         return false;
       }
 
-      const addBalance = async (account, token, quantity) => {
-        let balance = await db.findOne('balances', { account, 'symbol': token.symbol });
+      const addBalance = async (account, token, quantity, table) => {
+        let balance = await db.findOne(table, { account, 'symbol': token.symbol });
         if (balance === null) {
           balance = {
             account,
@@ -219,11 +288,11 @@ class Bootstrap {
             'balance': quantity
           }
           
-          await db.insert('balances', balance);
+          await db.insert(table, balance);
         } else {
           balance.balance = calculateBalance(balance.balance, quantity, token.precision, true);
 
-          await db.update('balances', balance);
+          await db.update(table, balance);
         }
       }
 

@@ -92,6 +92,8 @@ class SmartContracts {
           findOneInTable: (contractName, table, query) => SmartContracts.findOne(
             ipc, contractName, table, query,
           ),
+          // find the information of a contract
+          findContract: contractName => SmartContracts.findContract(ipc, contractName),
           // insert a record in the table of the smart contract
           insert: (table, record) => SmartContracts.dinsert(ipc, name, table, record),
         };
@@ -210,6 +212,8 @@ class SmartContracts {
         findOneInTable: (contractName, table, query) => SmartContracts.findOne(
           ipc, contractName, table, query,
         ),
+        // find the information of a contract
+        findContract: contractName => SmartContracts.findContract(ipc, contractName),
         // insert a record in the table of the smart contract
         insert: (table, record) => SmartContracts.insert(ipc, contract, table, record),
         // insert a record in the table of the smart contract
@@ -253,6 +257,19 @@ class SmartContracts {
         ) => SmartContracts.executeSmartContractFromSmartContract(
           ipc, results, contractOwner, payloadObj, contractName, actionName,
           JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
+        ),
+        // execute a token transfer from the contract balance
+        transferTokens: async (
+          to, symbol, quantity, type,
+        ) => SmartContracts.executeSmartContractFromSmartContract(
+          ipc, results, 'null', payloadObj, 'tokens', 'transferFromContract',
+          JSON.stringify({
+            from: contract,
+            to,
+            quantity,
+            symbol,
+            type,
+          }), refSteemBlockNumber, jsVMTimeout,
         ),
         // emit an event that will be stored in the logs
         emit: (event, data) => typeof event === 'string' && results.logs.events.push({ event, data }),
@@ -425,6 +442,18 @@ class SmartContracts {
         contract: contractName,
         table,
         query,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async findContract(ipc, contractName) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.FIND_CONTRACT,
+      payload: {
+        name: contractName,
       },
     });
 
