@@ -482,6 +482,7 @@ class Bootstrap {
 
     contractCode = `
     const STEEM_PEGGED_SYMBOL = 'STEEMP';
+    const CONTRACT_NAME = 'market';
 
     actions.createSSC = async (payload) => {
       await db.createTable('buyBook', ['symbol', 'account', 'price']);
@@ -505,15 +506,16 @@ class Bootstrap {
               let quantity;
               let symbol;
     
-              if (type === 'buy') {
-                symbol = order.symbol;
-                quantity = order.tokensLocked;
-              } else {
-                symbol = STEEM_PEGGED_SYMBOL;
-                quantity = order.quantity;
-              }
+            if (type === 'buy') {
+              symbol = order.symbol;
+              quantity = order.tokensLocked;
+            } else {
+              symbol = STEEM_PEGGED_SYMBOL;
+              quantity = order.quantity;
+            }
 
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity, to: sender });
+            await transferTokens(sender, symbol, quantity, 'user');
+
             await db.remove(table, order);
           }
       }
@@ -538,7 +540,7 @@ class Bootstrap {
           // initiate a transfer from sender to null account
           const nbTokensToLock = currency(price, { precision: token.precision }).multiply(quantity).value;
 
-          const res = await executeSmartContract('tokens', 'transfer', { symbol, quantity: nbTokensToLock, to: owner });
+          const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
           if (res.errors === undefined) {
             // order
@@ -576,7 +578,7 @@ class Bootstrap {
           && countDecimals(price) <= token.precision
           && countDecimals(quantity) <= 3) {
           // initiate a transfer from sender to null account
-          const res = await executeSmartContract('tokens', 'transfer', { symbol: STEEM_PEGGED_SYMBOL, quantity, to: owner });
+          const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity, to: CONTRACT_NAME });
 
           if (res.errors === undefined) {
             // order
@@ -622,11 +624,10 @@ class Bootstrap {
           if (buyOrder.quantity <= sellOrder.quantity) {
 
             // transfer the tokens to the accounts
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: STEEM_PEGGED_SYMBOL, quantity: buyOrder.quantity, to: account });
+            await transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.quantity, 'user');
 
-            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
-            
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: sellOrder.account });
+            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;            
+            await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
 
             // update the sell order
             const qtyLeftSellOrder = currency(sellOrder.quantity, { precision: tokenPrecision }).subtract(buyOrder.quantity).value;
@@ -643,17 +644,17 @@ class Bootstrap {
             const tokensToUnlock = currency(buyOrder.tokensLocked, { precision: tokenPrecision }).subtract(qtyTokensToSend).value;
 
             if (tokensToUnlock > 0) {
-              await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: tokensToUnlock, to: account });
+              await transferTokens(account, symbol, tokensToUnlock, 'user');
             }
             
             buyOrder.quantity = 0;
             await db.remove('buyBook', buyOrder);
           } else {
             // transfer the tokens to the account
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: STEEM_PEGGED_SYMBOL, quantity: sellOrder.quantity, to: account });
+            await transferTokens(account, STEEM_PEGGED_SYMBOL, sellOrder.quantity, 'user');
             
             const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: sellOrder.account });
+            await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user')
 
             // remove the sell order
             await db.remove('sellBook', sellOrder);
@@ -715,11 +716,11 @@ class Bootstrap {
           if (sellOrder.quantity <= buyOrder.quantity) {
 
             // transfer the tokens to the accounts
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: STEEM_PEGGED_SYMBOL, quantity: sellOrder.quantity, to: buyOrder.account });
+            await transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, sellOrder.quantity, 'user');
 
             const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
             
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: account });
+            await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
             // update the buy order
             const qtyLeftBuyOrder = currency(buyOrder.quantity, { precision: tokenPrecision }).subtract(sellOrder.quantity).value;
@@ -733,7 +734,7 @@ class Bootstrap {
               await db.update('buyBook', buyOrder);
             } else {
               if (buyOrdertokensLocked > 0) {
-                await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: buyOrdertokensLocked, to: buyOrder.account });
+                await transferTokens(buyOrder.account, symbol, buyOrdertokensLocked, 'user');
               }
               await db.remove('buyBook', buyOrder);
             }
@@ -742,10 +743,10 @@ class Bootstrap {
             await db.remove('sellBook', sellOrder);
           } else {
             // transfer the tokens to the account
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: STEEM_PEGGED_SYMBOL, quantity: buyOrder.quantity, to: buyOrder.account });
+            await transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, buyOrder.quantity, 'user');
             
             const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol, quantity: qtyTokensToSend, to: account });
+            await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
             // remove the buy order
             await db.remove('buyBook', buyOrder);

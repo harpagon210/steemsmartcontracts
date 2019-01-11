@@ -130,12 +130,26 @@ describe('Market', () => {
         }
       });
       
-      const balances = res.payload;
+      let balances = res.payload;
 
       assert.equal(balances[0].balance, 122.456);
       assert.equal(balances[0].account, 'satoshi');
-      assert.equal(balances[1].balance, 1);
-      assert.equal(balances[1].account, 'null');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 1);
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -196,19 +210,31 @@ describe('Market', () => {
           table: 'balances',
           query: {
             symbol: 'STEEMP',
-            account : {
-              $in : ['null', 'satoshi']
-            }
+            account : 'satoshi',
           }
         }
       });
 
-      const balances = res.payload;
+      let balances = res.payload;
 
       assert.equal(balances[0].balance, 23.456);
       assert.equal(balances[0].account, 'satoshi');
-      assert.equal(balances[1].balance, 100);
-      assert.equal(balances[1].account, 'null');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 100);
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -277,8 +303,22 @@ describe('Market', () => {
 
       assert.equal(balances[0].balance, 122.456);
       assert.equal(balances[0].account, 'satoshi');
-      assert.equal(balances[1].balance, 1);
-      assert.equal(balances[1].account, 'null');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 1);
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -393,8 +433,22 @@ describe('Market', () => {
 
       assert.equal(balances[0].balance, 23.456);
       assert.equal(balances[0].account, 'satoshi');
-      assert.equal(balances[1].balance, 100);
-      assert.equal(balances[1].account, 'null');
+      
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 100);
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -501,12 +555,12 @@ describe('Market', () => {
           table: 'balances',
           query: {
             symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['null', 'satoshi', 'vitalik'] }
+            account: { $in: ['satoshi', 'vitalik'] }
           }
         }
       });
 
-      const balances = res.payload;
+      let balances = res.payload;
 
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'TKN');
@@ -516,17 +570,30 @@ describe('Market', () => {
       assert.equal(balances[1].symbol, 'STEEMP');
       assert.equal(balances[1].balance, 356.789);
 
-      assert.equal(balances[2].account, 'null');
+      assert.equal(balances[2].account, 'satoshi');
       assert.equal(balances[2].symbol, 'STEEMP');
-      assert.equal(balances[2].balance, 90);
+      assert.equal(balances[2].balance, 10);
 
-      assert.equal(balances[3].account, 'satoshi');
-      assert.equal(balances[3].symbol, 'STEEMP');
-      assert.equal(balances[3].balance, 10);
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'TKN');
+      assert.equal(balances[3].balance, 2.34);
 
-      assert.equal(balances[4].account, 'vitalik');
-      assert.equal(balances[4].symbol, 'TKN');
-      assert.equal(balances[4].balance, 2.34);
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 90);
+      assert.equal(balances[0].symbol, 'STEEMP');
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -595,7 +662,7 @@ describe('Market', () => {
           table: 'balances',
           query: {
             symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['null', 'satoshi', 'vitalik', 'dan', 'harpagon'] }
+            account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
           }
         }
       });
@@ -693,7 +760,7 @@ describe('Market', () => {
         }
       });
 
-      const balances = res.payload;
+      let balances = res.payload;
       //console.log(balances)
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'TKN');
@@ -711,26 +778,39 @@ describe('Market', () => {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, 295);
 
-      assert.equal(balances[4].account, 'null');
-      assert.equal(balances[4].symbol, 'TKN');
-      assert.equal(balances[4].balance, 22);
+      assert.equal(balances[4].account, 'harpagon');
+      assert.equal(balances[4].symbol, 'STEEMP');
+      assert.equal(balances[4].balance, 10);
 
-      assert.equal(balances[5].account, 'harpagon');
-      assert.equal(balances[5].symbol, 'STEEMP');
-      assert.equal(balances[5].balance, 10);
+      assert.equal(balances[5].account, 'dan');
+      assert.equal(balances[5].symbol, 'TKN');
+      assert.equal(balances[5].balance, 15);
 
-      assert.equal(balances[6].account, 'dan');
+      assert.equal(balances[6].account, 'vitalik');
       assert.equal(balances[6].symbol, 'TKN');
-      assert.equal(balances[6].balance, 15);
-
-      assert.equal(balances[7].account, 'vitalik');
-      assert.equal(balances[7].symbol, 'TKN');
-      assert.equal(balances[7].balance, 6);
+      assert.equal(balances[6].balance, 6);
 
       
-      assert.equal(balances[8].account, 'satoshi');
-      assert.equal(balances[8].symbol, 'TKN');
-      assert.equal(balances[8].balance, 2);
+      assert.equal(balances[7].account, 'satoshi');
+      assert.equal(balances[7].symbol, 'TKN');
+      assert.equal(balances[7].balance, 2);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 22);
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -802,12 +882,12 @@ describe('Market', () => {
           table: 'balances',
           query: {
             symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['null', 'satoshi', 'vitalik'] }
+            account: { $in: ['satoshi', 'vitalik'] }
           }
         }
       });
 
-      const balances = res.payload;
+      let balances = res.payload;
 
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'TKN');
@@ -817,17 +897,30 @@ describe('Market', () => {
       assert.equal(balances[1].symbol, 'STEEMP');
       assert.equal(balances[1].balance, 356.789);
 
-      assert.equal(balances[2].account, 'null');
+      assert.equal(balances[2].account, 'satoshi');
       assert.equal(balances[2].symbol, 'STEEMP');
-      assert.equal(balances[2].balance, 90);
+      assert.equal(balances[2].balance, 10);
 
-      assert.equal(balances[3].account, 'satoshi');
-      assert.equal(balances[3].symbol, 'STEEMP');
-      assert.equal(balances[3].balance, 10);
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'TKN');
+      assert.equal(balances[3].balance, 2.34);
 
-      assert.equal(balances[4].account, 'vitalik');
-      assert.equal(balances[4].symbol, 'TKN');
-      assert.equal(balances[4].balance, 2.34);
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 90);
+      assert.equal(balances[0].symbol, 'STEEMP');
+      assert.equal(balances[0].account, 'market');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -896,7 +989,7 @@ describe('Market', () => {
           table: 'balances',
           query: {
             symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['null', 'satoshi', 'vitalik', 'dan', 'harpagon'] }
+            account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
           }
         }
       });
