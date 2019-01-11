@@ -26,8 +26,9 @@ class Transaction {
       delete finalLogs.events;
     }
 
+    // TODO: add storage cost on logs
     // the logs can only store a total of 255 characters
-    this.logs = JSON.stringify(finalLogs).substring(0, 255);
+    this.logs = JSON.stringify(finalLogs); // .substring(0, 255);
   }
 
   // calculate the hash of the transaction

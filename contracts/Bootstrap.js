@@ -629,6 +629,8 @@ class Bootstrap {
             const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;            
             await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
 
+            emit('filled', { to: sellOrder.account, qty: sellOrder.quantity, cost: qtyTokensToSend, symbol });
+
             // update the sell order
             const qtyLeftSellOrder = currency(sellOrder.quantity, { precision: tokenPrecision }).subtract(buyOrder.quantity).value;
             
@@ -654,7 +656,9 @@ class Bootstrap {
             await transferTokens(account, STEEM_PEGGED_SYMBOL, sellOrder.quantity, 'user');
             
             const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
-            await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user')
+            await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
+
+            emit('filled', { to: sellOrder.account, qty: sellOrder.quantity, cost: qtyTokensToSend, symbol });
 
             // remove the sell order
             await db.remove('sellBook', sellOrder);
@@ -722,6 +726,8 @@ class Bootstrap {
             
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
+            emit('filled', { to: buyOrder.account, qty: sellOrder.quantity, cost: qtyTokensToSend, symbol});
+
             // update the buy order
             const qtyLeftBuyOrder = currency(buyOrder.quantity, { precision: tokenPrecision }).subtract(sellOrder.quantity).value;
 
@@ -747,6 +753,8 @@ class Bootstrap {
             
             const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
+
+            emit('filled', { to: buyOrder.account, qty: sellOrder.quantity, cost: qtyTokensToSend, symbol});
 
             // remove the buy order
             await db.remove('buyBook', buyOrder);
