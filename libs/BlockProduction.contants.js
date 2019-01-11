@@ -46,6 +46,7 @@ const CONSTANTS = {
   BP_REWARDS_TABLE: 'rewards',
   TOKENS_TABLE: 'tokens',
   BALANCES_TABLE: 'balances',
+  CONTRACTS_BALANCES_TABLE: 'contractsBalances',
 
   // utility token definition
   UTILITY_TOKEN_SYMBOL,

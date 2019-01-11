@@ -170,7 +170,7 @@ class BlockProduction {
         const producer = producers[index];
 
         // add the rewards to the producer's tokens balances
-        await this.addBalance(producer.account, rewardsParams.rewardsPerBlockPerProducer); // eslint-disable-line
+        await this.addBalance(producer.account, rewardsParams.rewardsPerBlockPerProducer, CONSTANTS.BALANCES_TABLE); // eslint-disable-line
 
         // update the total od distributed tokens
         totalDistributedTokens = BlockProduction.calculateBalance(
@@ -181,10 +181,13 @@ class BlockProduction {
       // "reward" the proposal system
       let tokenToAddProposalSystem = 0;
       for (let index = 0; index < CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS; index += 1) {
-        tokenToAddProposalSystem = BlockProduction.calculateBalance(tokenToAddProposalSystem, rewardsParams.rewardsPerBlockPerProducer);
+        tokenToAddProposalSystem = BlockProduction.calculateBalance(
+          tokenToAddProposalSystem,
+          rewardsParams.rewardsPerBlockPerProducer,
+        );
       }
-      // add the rewards to the proposal system balance (hold by the 'null' account)
-      await this.addBalance('null', tokenToAddProposalSystem); // eslint-disable-line
+      // add the rewards to the proposal system balance (held by the 'blockProduction' contract)
+      await this.addBalance(CONSTANTS.CONTRACT_NAME, tokenToAddProposalSystem, CONSTANTS.CONTRACTS_BALANCES_TABLE); // eslint-disable-line
       rewardsParams.proposalSystemBalance = BlockProduction.calculateBalance(
         rewardsParams.proposalSystemBalance, tokenToAddProposalSystem,
       ).value;
@@ -192,7 +195,7 @@ class BlockProduction {
       totalDistributedTokens = BlockProduction.calculateBalance(
         totalDistributedTokens, tokenToAddProposalSystem,
       ).value;
-      
+
       await this.update(
         CONSTANTS.CONTRACT_NAME,
         CONSTANTS.BP_REWARDS_TABLE,
@@ -266,7 +269,7 @@ class BlockProduction {
     const { quantity } = payloadObj;
 
     if (quantity && typeof quantity === 'number') {
-      if (await this.subBalance(sender, quantity)) {
+      if (await this.subBalance(sender, quantity, CONSTANTS.BALANCES_TABLE)) {
         await this.addStake(sender, quantity, refSteemBlockNumber);
         await this.updateVotes(sender, quantity);
       }
@@ -285,7 +288,7 @@ class BlockProduction {
 
     if (quantity && typeof quantity === 'number') {
       if (await this.subStake(sender, quantity, refSteemBlockNumber)) {
-        await this.addBalance(sender, quantity);
+        await this.addBalance(sender, quantity, CONSTANTS.BALANCES_TABLE);
         await this.updateVotes(sender, -quantity);
       }
     }
@@ -557,8 +560,8 @@ class BlockProduction {
     }
   }
 
-  async subBalance(account, quantity) {
-    const balance = await this.findOne(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE,
+  async subBalance(account, quantity, table) {
+    const balance = await this.findOne(CONSTANTS.TOKENS_CONTRACT_NAME, table,
       { account, symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL });
 
     if (this.assert(balance !== null, 'balance does not exist')
@@ -566,9 +569,9 @@ class BlockProduction {
       balance.balance = BlockProduction.calculateBalance(balance.balance, -quantity);
 
       if (balance.balance <= 0) {
-        await this.remove(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
+        await this.remove(CONSTANTS.TOKENS_CONTRACT_NAME, table, balance);
       } else {
-        await this.update(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
+        await this.update(CONSTANTS.TOKENS_CONTRACT_NAME, table, balance);
       }
 
       return true;
@@ -577,8 +580,8 @@ class BlockProduction {
     return false;
   }
 
-  async addBalance(account, quantity) {
-    let balance = await this.findOne(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE,
+  async addBalance(account, quantity, table) {
+    let balance = await this.findOne(CONSTANTS.TOKENS_CONTRACT_NAME, table,
       { account, symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL });
     if (balance === null) {
       balance = {
@@ -587,11 +590,11 @@ class BlockProduction {
         balance: quantity,
       };
 
-      await this.insert(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
+      await this.insert(CONSTANTS.TOKENS_CONTRACT_NAME, table, balance);
     } else {
       balance.balance = BlockProduction.calculateBalance(balance.balance, quantity);
 
-      await this.update(CONSTANTS.TOKENS_CONTRACT_NAME, CONSTANTS.BALANCES_TABLE, balance);
+      await this.update(CONSTANTS.TOKENS_CONTRACT_NAME, table, balance);
     }
   }
 

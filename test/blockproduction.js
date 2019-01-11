@@ -811,8 +811,8 @@ describe('Voting', () => {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
         payload: {
           contract: 'tokens',
-          table: 'balances',
-          query: { symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL, account: 'null' }
+          table: 'contractsBalances',
+          query: { symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL, account: 'blockProduction' }
         }
       });
 
