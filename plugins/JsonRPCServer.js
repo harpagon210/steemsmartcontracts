@@ -66,6 +66,8 @@ function contractsRPC() {
     findOne: async (args, callback) => {
       const { contract, table, query } = args;
 
+      console.log('###RPC_FIND_ONE:', args);
+
       if (contract && typeof contract === 'string'
         && table && typeof table === 'string'
         && query && typeof query === 'object') {
@@ -98,6 +100,8 @@ function contractsRPC() {
         offset,
         indexes,
       } = args;
+
+      console.log('###RPC_FIND:', args);
 
       if (contract && typeof contract === 'string'
         && table && typeof table === 'string'
