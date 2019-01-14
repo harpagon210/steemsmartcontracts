@@ -125,7 +125,7 @@ class SmartContracts {
             JSON.stringify(parameters), jsVMTimeout,
           ),
           // emit an event that will be stored in the logs
-          emit: (event, data) => typeof event === 'string' && logs.events.push({ event, data }),
+          emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
           // add an error that will be stored in the logs
           assert: (condition, error) => {
             if (!condition && typeof error === 'string') {
@@ -275,7 +275,7 @@ class SmartContracts {
           }), refSteemBlockNumber, jsVMTimeout,
         ),
         // emit an event that will be stored in the logs
-        emit: (event, data) => typeof event === 'string' && results.logs.events.push({ event, data }),
+        emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
         // add an error that will be stored in the logs
         assert: (condition, error) => {
           if (!condition && typeof error === 'string') {
