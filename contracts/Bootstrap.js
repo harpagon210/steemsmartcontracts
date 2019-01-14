@@ -188,7 +188,7 @@ class Bootstrap {
                 if (await subBalance(sender, token, quantity, 'balances')) {
                   await addBalance(to, token, quantity, 'contractsBalances');
 
-                  emit('transfer', { from: sender, to, symbol, quantity });
+                  emit('transferToContract', { from: sender, to, symbol, quantity });
                 }
               }
             }
@@ -228,7 +228,7 @@ class Bootstrap {
                   if (await subBalance(from, token, quantity, 'contractsBalances')) {
                     await addBalance(to, token, quantity, table);
 
-                    emit('transfer', { from, to, symbol, quantity });
+                    emit('transferFromContract', { from, to, symbol, quantity });
                   }
                 }
               }
