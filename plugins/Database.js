@@ -209,54 +209,58 @@ actions.createTable = (payload) => { // eslint-disable-line no-unused-vars
  * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
  */
 actions.find = (payload) => { // eslint-disable-line no-unused-vars
-  const {
-    contract,
-    table,
-    query,
-    limit,
-    offset,
-    indexes,
-  } = payload;
+  try {
+    const {
+      contract,
+      table,
+      query,
+      limit,
+      offset,
+      indexes,
+    } = payload;
 
-  const lim = limit || 1000;
-  const off = offset || 0;
-  const ind = indexes || [];
+    const lim = limit || 1000;
+    const off = offset || 0;
+    const ind = indexes || [];
 
-  if (contract && typeof contract === 'string'
-    && table && typeof table === 'string'
-    && query && typeof query === 'object'
-    && Array.isArray(ind)
-    && (ind.length === 0
-      || (ind.length > 0
-        && ind.every(el => el.index && typeof el.index === 'string'
-                            && el.descending !== undefined && typeof el.descending === 'boolean')))
-    && Number.isInteger(lim)
-    && Number.isInteger(off)
-    && lim > 0 && lim <= 1000
-    && off >= 0) {
-    const finalTableName = `${contract}_${table}`;
-    const tableData = database.getCollection(finalTableName);
+    if (contract && typeof contract === 'string'
+      && table && typeof table === 'string'
+      && query && typeof query === 'object'
+      && Array.isArray(ind)
+      && (ind.length === 0
+        || (ind.length > 0
+          && ind.every(el => el.index && typeof el.index === 'string'
+                              && el.descending !== undefined && typeof el.descending === 'boolean')))
+      && Number.isInteger(lim)
+      && Number.isInteger(off)
+      && lim > 0 && lim <= 1000
+      && off >= 0) {
+      const finalTableName = `${contract}_${table}`;
+      const tableData = database.getCollection(finalTableName);
 
-    if (tableData) {
-      // if there is an index passed, check if it exists
-      if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined)) {
+      if (tableData) {
+        // if there is an index passed, check if it exists
+        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined)) {
+          return tableData.chain()
+            .find(query)
+            .compoundsort(ind.map(el => [el.index, el.descending]))
+            .offset(off)
+            .limit(lim)
+            .data();
+        }
+
         return tableData.chain()
           .find(query)
-          .compoundsort(ind.map(el => [el.index, el.descending]))
           .offset(off)
           .limit(lim)
           .data();
       }
-
-      return tableData.chain()
-        .find(query)
-        .offset(off)
-        .limit(lim)
-        .data();
     }
-  }
 
-  return null;
+    return null;
+  } catch (error) {
+    return null;
+  }
 };
 
 /**
@@ -267,18 +271,22 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
  * @returns {Object} returns a record if it exists, null otherwise
  */
 actions.findOne = (payload) => { // eslint-disable-line no-unused-vars
-  const { contract, table, query } = payload;
+  try {
+    const { contract, table, query } = payload;
 
-  if (contract && typeof contract === 'string'
-    && table && typeof table === 'string'
-    && query && typeof query === 'object') {
-    const finalTableName = `${contract}_${table}`;
+    if (contract && typeof contract === 'string'
+      && table && typeof table === 'string'
+      && query && typeof query === 'object') {
+      const finalTableName = `${contract}_${table}`;
 
-    const tableData = database.getCollection(finalTableName);
-    return tableData ? tableData.findOne(query) : null;
+      const tableData = database.getCollection(finalTableName);
+      return tableData ? tableData.findOne(query) : null;
+    }
+
+    return null;
+  } catch (error) {
+    return null;
   }
-
-  return null;
 };
 
 /**
