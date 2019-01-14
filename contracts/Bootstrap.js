@@ -155,6 +155,8 @@ class Bootstrap {
 
                 if (await subBalance(sender, token, quantity, 'balances')) {
                   await addBalance(to, token, quantity, 'balances');
+
+                  emit('transfer', { from: sender, to, symbol, quantity });
                 }
               }
             }
@@ -185,6 +187,8 @@ class Bootstrap {
 
                 if (await subBalance(sender, token, quantity, 'balances')) {
                   await addBalance(to, token, quantity, 'contractsBalances');
+
+                  emit('transfer', { from: sender, to, symbol, quantity });
                 }
               }
             }
@@ -223,6 +227,8 @@ class Bootstrap {
 
                   if (await subBalance(from, token, quantity, 'contractsBalances')) {
                     await addBalance(to, token, quantity, table);
+
+                    emit('transfer', { from, to, symbol, quantity });
                   }
                 }
               }
@@ -599,8 +605,6 @@ class Bootstrap {
             const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;            
             await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
 
-            emit('filled', { qty: sellOrder.quantity, cost: qtyTokensToSend });
-
             // update the sell order
             const qtyLeftSellOrder = currency(sellOrder.quantity, { precision: tokenPrecision }).subtract(buyOrder.quantity).value;
             
@@ -617,7 +621,6 @@ class Bootstrap {
 
             if (tokensToUnlock > 0) {
               await transferTokens(account, symbol, tokensToUnlock, 'user');
-              emit('unlock', { qty: tokensToUnlock });
             }
             
             buyOrder.quantity = 0;
@@ -628,8 +631,6 @@ class Bootstrap {
             
             const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
             await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
-
-            emit('filled', { qty: sellOrder.quantity, cost: qtyTokensToSend });
 
             // remove the sell order
             await db.remove('sellBook', sellOrder);
@@ -697,8 +698,6 @@ class Bootstrap {
             
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
-            emit('filled', { qty: sellOrder.quantity, cost: qtyTokensToSend });
-
             // update the buy order
             const qtyLeftBuyOrder = currency(buyOrder.quantity, { precision: tokenPrecision }).subtract(sellOrder.quantity).value;
 
@@ -712,7 +711,6 @@ class Bootstrap {
             } else {
               if (buyOrdertokensLocked > 0) {
                 await transferTokens(buyOrder.account, symbol, buyOrdertokensLocked, 'user');
-                emit('unlock', { acct: buyOrder.account, qty: buyOrdertokensLocked });
               }
               await db.remove('buyBook', buyOrder);
             }
@@ -725,8 +723,6 @@ class Bootstrap {
             
             const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
-
-            emit('filled', { qty: sellOrder.quantity, cost: qtyTokensToSend });
 
             // remove the buy order
             await db.remove('buyBook', buyOrder);
