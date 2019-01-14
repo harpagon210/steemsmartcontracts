@@ -22,7 +22,10 @@ class SmartContracts {
       if (name && typeof name === 'string'
         && code && typeof code === 'string') {
         // the contract name has to be a string made of letters and numbers
-        if (!validator.isAlphanumeric(name) || RESERVED_CONTRACT_NAMES.includes(name)) {
+        if (!validator.isAlphanumeric(name)
+          || RESERVED_CONTRACT_NAMES.includes(name)
+          || name.length < 3
+          || name.length > 50) {
           return { logs: { errors: ['invalid contract name'] } };
         }
 

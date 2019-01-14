@@ -5,36 +5,9 @@ class Bootstrap {
   static getBootstrapTransactions(genesisSteemBlock) {
     const transactions = [];
 
-    // accounts contract
-    let contractCode = `
-    actions.createSSC = async (payload) => {
-      await db.createTable('accounts', ['id']);
-    }
-
-    // register an account helps other contracts to know 
-    // if an account exists on the Steem blockchain
-    actions.register = async (payload) => {
-      const account = await db.findOne('accounts', { 'id': sender });
-
-      if (account === null) {
-        const newAccount = {
-          'id': sender
-        };
-
-        await db.insert('accounts', newAccount);
-      } 
-    }
-    `;
-
-    let base64ContractCode = Base64.encode(contractCode);
-
-    let contractPayload = {
-      name: 'accounts',
-      params: '',
-      code: base64ContractCode,
-    };
-
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    let contractCode;
+    let base64ContractCode;
+    let contractPayload;
 
     // tokens contract
     contractCode = `
@@ -143,10 +116,8 @@ class Bootstrap {
             && assert(quantity > 0, 'must issue positive quantity')
             && assert(quantity <= (token.maxSupply - token.supply), 'quantity exceeds available supply')) {
 
-            let account = await db.findOneInTable('accounts', 'accounts', { 'id': to });
-
-            // the account must have been registered before
-            if (assert(account !== null, 'to account does not exist')) {
+            // a valid steem account is between 3 and 16 characters in length
+            if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
               // we made all the required verification, let's now issue the tokens
 
               token.supply = calculateBalance(token.supply, quantity, token.precision, true);
@@ -172,10 +143,8 @@ class Bootstrap {
           && quantity && typeof quantity === 'number', 'invalid params')) {
 
           if (assert(to !== sender, 'cannot transfer to self')) {
-            let account = await db.findOneInTable('accounts', 'accounts', { 'id': to });
-      
-            // the account must have been registered before
-            if (assert(account !== null, 'to account does not exist')) {
+            // a valid steem account is between 3 and 16 characters in length
+            if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
               let token = await db.findOne('tokens', { symbol });
 
               // the symbol must exist
@@ -204,8 +173,8 @@ class Bootstrap {
           if (assert(to !== sender, 'cannot transfer to self')) {
             let contract = await db.findContract(to);
       
-            // the contract must exist
-            if (assert(contract !== null, 'to contract does not exist')) {
+            // a valid contract account is between 3 and 50 characters in length
+            if (assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
               let token = await db.findOne('tokens', { symbol });
 
               // the symbol must exist
@@ -239,10 +208,11 @@ class Bootstrap {
             const table = type === 'user' ? 'balances' : 'contractsBalances';
 
             if (assert(type === 'user' || ( type === 'contract' && to !== from), 'cannot transfer to self')) {
-              let acct = type === 'user' ? await db.findOneInTable('accounts', 'accounts', { 'id': to }) : await db.findContract(to);
-        
+              // validate the "to"
+              let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
+
               // the account must exist
-              if (assert(acct !== null, 'to does not exist')) {
+              if (assert(toValid === true, 'invalid to')) {
                 let token = await db.findOne('tokens', { symbol });
 
                 // the symbol must exist
@@ -809,8 +779,6 @@ class Bootstrap {
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'accounts', 'register'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'accounts', 'register'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steemsc", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
 

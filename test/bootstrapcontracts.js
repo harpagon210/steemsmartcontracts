@@ -94,121 +94,6 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-// Accounts
-describe('Accounts smart contract', () => {
-  it('deploys the contract from bootstrap', (done) => {
-    new Promise(async (resolve) => {
-      cleanDataFolder();
-
-      await loadPlugin(database);
-      await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'accounts'}});
-      const contract = res.payload;
-
-      assert.equal(contract.name, 'accounts');
-      assert.equal(contract.owner, 'null');
-
-      resolve();
-    })
-      .then(() => {
-        unloadPlugin(blockchain);
-        unloadPlugin(database);
-        done();
-      });
-  });
-
-  it('adds an account', (done) => {
-    new Promise(async (resolve) => {
-      cleanDataFolder();
-
-      await loadPlugin(database);
-      await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
-      let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
-
-      let block = {
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-      
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'accounts',
-          table: 'accounts',
-          query: {
-            id: 'Harpagon'
-          }
-        }
-      });
-
-      const account = res.payload;
-
-      assert.equal(account.id, 'Harpagon');
-
-      resolve();
-    })
-      .then(() => {
-        unloadPlugin(blockchain);
-        unloadPlugin(database);
-        done();
-      });
-  });
-
-  it('adds an account once', (done) => {
-    new Promise(async (resolve) => {
-      cleanDataFolder();
-
-      await loadPlugin(database);
-      await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
-      let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'accounts', 'register', ''));
-
-      let block = {
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-      
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'accounts',
-          table: 'accounts',
-          query: {
-            id: 'Harpagon'
-          }
-        }
-      });
-
-      const accounts = res.payload;
-
-      assert.equal(accounts.length, 1);
-      assert.equal(accounts[0].id, 'Harpagon');
-
-      resolve();
-    })
-      .then(() => {
-        unloadPlugin(blockchain);
-        unloadPlugin(database);
-        done();
-      });
-  });
-});
-
 // tokens
 describe('Tokens smart contract', () => {
   it('creates a token', (done) => {
@@ -221,7 +106,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
@@ -324,7 +208,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
@@ -380,7 +263,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
@@ -446,7 +328,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
 
@@ -509,7 +390,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi" }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "NTK", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
@@ -517,7 +397,7 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100.1, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": -100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 1001, "to": "Satoshi", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 1000, "to": "Vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 1000, "to": "az", "isSignedWithActiveKey": true }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -534,13 +414,13 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'you must use a custom_json signed with your active key');
-      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'not allowed to issue tokens');
-      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'symbol precision mismatch');
-      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'must issue positive quantity');
-      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'quantity exceeds available supply');
-      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'to account does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'not allowed to issue tokens');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'must issue positive quantity');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'quantity exceeds available supply');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'invalid to');
 
       resolve();
     })
@@ -561,8 +441,6 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
@@ -625,13 +503,11 @@ describe('Tokens smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik" }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Satoshi", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "aa", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TNK", "quantity": 7.99999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.999999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": -1, "to": "Vitalik", "isSignedWithActiveKey": true }'));
@@ -653,14 +529,14 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'you must use a custom_json signed with your active key');
-      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'cannot transfer to self');
-      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'to account does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'symbol precision mismatch');
-      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'must transfer positive quantity');
-      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'balance does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'overdrawn balance');
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'cannot transfer to self');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'must transfer positive quantity');
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'balance does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'overdrawn balance');
 
       resolve();
     })
@@ -705,8 +581,6 @@ describe('Tokens smart contract', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1237', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "testContract", "isSignedWithActiveKey": true }'));
@@ -767,29 +641,13 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
-      const smartContractCode = `
-        actions.createSSC = function (payload) {
-          // Initialize the smart contract via the create action
-        }
-      `;
-
-      const base64SmartContractCode = Base64.encode(smartContractCode);
-
-      const contractPayload = {
-        name: 'testContract',
-        params: '',
-        code: base64SmartContractCode,
-      };
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "testContract" }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Satoshi", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "testContract", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "ah", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TNK", "quantity": 7.99999999, "to": "testContract", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.999999999, "to": "testContract", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": -1, "to": "testContract", "isSignedWithActiveKey": true }'));
@@ -811,14 +669,14 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'you must use a custom_json signed with your active key');
-      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'cannot transfer to self');
-      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'to contract does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'symbol precision mismatch');
-      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'must transfer positive quantity');
-      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'balance does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'overdrawn balance');
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'cannot transfer to self');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'must transfer positive quantity');
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'balance does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'overdrawn balance');
 
       resolve();
     })
@@ -868,8 +726,6 @@ describe('Tokens smart contract', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1237', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "testContract", "isSignedWithActiveKey": true }'));
@@ -943,7 +799,7 @@ describe('Tokens smart contract', () => {
         }
 
         actions.toNotExist = async function (payload) {
-          await transferTokens('Vitalik', 'TKN', 2.02, 'user');
+          await transferTokens('df', 'TKN', 2.02, 'user');
         }
 
         actions.symbolNotExist = async function (payload) {
@@ -977,7 +833,6 @@ describe('Tokens smart contract', () => {
       
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'testContract', 'notSigned', '{ }'));
@@ -1004,13 +859,13 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'you must use a custom_json signed with your active key');
-      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'to does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'symbol precision mismatch');
-      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'must transfer positive quantity');
-      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'balance does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'overdrawn balance');
+      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'must transfer positive quantity');
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'balance does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'overdrawn balance');
 
       resolve();
     })
@@ -1075,8 +930,6 @@ describe('Tokens smart contract', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'Satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Vitalik', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1237', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "testContract", "isSignedWithActiveKey": true }'));
@@ -1153,7 +1006,7 @@ describe('Tokens smart contract', () => {
         }
 
         actions.toNotExist = async function (payload) {
-          await transferTokens('contract404', 'TKN', 2.02, 'contract');
+          await transferTokens('sd', 'TKN', 2.02, 'contract');
         }
 
         actions.symbolNotExist = async function (payload) {
@@ -1206,7 +1059,6 @@ describe('Tokens smart contract', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload2)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'testContract', 'notSigned', '{ }'));
@@ -1235,15 +1087,15 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'you must use a custom_json signed with your active key');
-      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'cannot transfer to self');
-      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'to does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'symbol precision mismatch');
-      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'must transfer positive quantity');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'balance does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'overdrawn balance');
-      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'cannot transfer to self');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'must transfer positive quantity');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'balance does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'overdrawn balance');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'invalid params');
 
       resolve();
     })
@@ -1268,7 +1120,6 @@ describe('sscstore smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -1313,7 +1164,6 @@ describe('sscstore smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "Satoshi", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -1340,7 +1190,6 @@ describe('sscstore smart contract', () => {
       assert.equal(balanceSatoshi, null);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1, "disabled": true }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
@@ -1482,7 +1331,6 @@ describe('steem-pegged smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -1527,7 +1375,6 @@ describe('steem-pegged smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 SBD", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -1589,7 +1436,6 @@ describe('steem-pegged smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
@@ -1660,20 +1506,11 @@ describe('steem-pegged smart contract', () => {
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
+
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
-
-      let block = {
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-      
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'steempegged', 'withdraw', '{ "quantity": 0.001, "isSignedWithActiveKey": true }'));
 
-      block = {
+      let block = {
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1712,7 +1549,6 @@ describe('steem-pegged smart contract', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
 
