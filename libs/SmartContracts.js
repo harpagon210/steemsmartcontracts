@@ -8,7 +8,7 @@ const validator = require('validator');
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
 
-const RESERVED_CONTRACT_NAMES = ['contract', 'blockProduction'];
+const RESERVED_CONTRACT_NAMES = ['contract', 'blockProduction', 'null'];
 const RESERVED_ACTIONS = ['createSSC'];
 
 class SmartContracts {
