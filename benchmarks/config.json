@@ -13,8 +13,5 @@
         "https://steemd.minnowsupportproject.org"
     ],
     "startSteemBlock": 29056257,
-    "genesisSteemBlock": 29056257,
-    "keyCertificate": "",
-    "certificate": "",
-    "chainCertificate": ""
+    "genesisSteemBlock": 29056257
 }

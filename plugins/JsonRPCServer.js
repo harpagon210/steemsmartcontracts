@@ -1,10 +1,8 @@
 const jayson = require('jayson');
-const https = require('https');
 const http = require('http');
 const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs-extra');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTION = require('./Database.constants').PLUGIN_ACTIONS;
@@ -133,33 +131,21 @@ function contractsRPC() {
 function init(conf) {
   const {
     rpcNodePort,
-    keyCertificate,
-    certificate,
-    chainCertificate,
   } = conf;
 
   serverRPC = express();
   serverRPC.use(cors({ methods: ['POST'] }));
   serverRPC.use(bodyParser.urlencoded({ extended: true }));
   serverRPC.use(bodyParser.json());
+  serverRPC.set('trust proxy', true);
+  serverRPC.set('trust proxy', 'loopback');
   serverRPC.post('/blockchain', jayson.server(blockchainRPC()).middleware());
   serverRPC.post('/contracts', jayson.server(contractsRPC()).middleware());
 
-  if (keyCertificate === '' || certificate === '' || chainCertificate === '') {
-    http.createServer(serverRPC)
-      .listen(rpcNodePort, () => {
-        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
-      });
-  } else {
-    https.createServer({
-      key: fs.readFileSync(keyCertificate),
-      cert: fs.readFileSync(certificate),
-      ca: fs.readFileSync(chainCertificate),
-    }, serverRPC)
-      .listen(rpcNodePort, () => {
-        console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line no-console
-      });
-  }
+  http.createServer(serverRPC)
+    .listen(rpcNodePort, () => {
+      console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
+    });
 }
 
 ipc.onReceiveMessage((message) => {
