@@ -180,7 +180,7 @@ function init(conf) {
   currentBlock = startSteemBlock;
   chainIdentifier = chainId;
   const node = streamNodes[0];
-  streamer = new Streamer(node, getCurrentBlock());
+  streamer = new Streamer(node, startSteemBlock);
   streamer.init();
 
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
