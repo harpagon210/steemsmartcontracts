@@ -123,7 +123,7 @@ async function stop(callback) {
 function saveConfig(lastBlockParsed) {
   const config = fs.readJSONSync('./config.json');
   config.startSteemBlock = lastBlockParsed;
-  fs.writeJSONSync('./config.json', config);
+  fs.writeJSONSync('./config.json', config, { spaces: 4 });
 }
 
 function stopApp(signal = 0) {
