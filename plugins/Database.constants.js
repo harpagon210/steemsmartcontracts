@@ -4,6 +4,7 @@ const PLUGIN_ACTIONS = {
   ADD_BLOCK: 'addBlock',
   GET_LATEST_BLOCK_INFO: 'getLatestBlockInfo',
   GET_BLOCK_INFO: 'getBlockInfo',
+  GET_TRANSACTION_INFO: 'getTransactionInfo',
   FIND_CONTRACT: 'findContract',
   ADD_CONTRACT: 'addContract',
   CREATE_TABLE: 'createTable',

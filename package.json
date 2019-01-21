@@ -13,28 +13,28 @@
   "dependencies": {
     "body-parser": "^1.18.3",
     "commander": "^2.19.0",
-    "cors": "^2.8.4",
+    "cors": "^2.8.5",
     "crypto-js": "^3.1.9-1",
     "currency.js": "^1.2.1",
-    "dotenv": "^6.1.0",
+    "dotenv": "^6.2.0",
     "dsteem": "^0.10.1",
     "express": "^4.16.4",
     "fs-extra": "^6.0.1",
-    "jayson": "^2.1.0",
-    "js-base64": "^2.4.9",
+    "jayson": "^2.1.1",
+    "js-base64": "^2.5.1",
     "line-by-line": "^0.1.6",
-    "lokijs": "^1.5.5",
+    "lokijs": "^1.5.6",
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
-    "validator": "^10.8.0",
-    "vm2": "^3.6.4"
+    "validator": "^10.11.0",
+    "vm2": "^3.6.6"
   },
   "devDependencies": {
-    "eslint": "^5.7.0",
+    "eslint": "^5.12.1",
     "eslint-config-airbnb": "^17.1.0",
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.2",
-    "eslint-plugin-react": "^7.11.1",
+    "eslint-plugin-react": "^7.12.4",
     "mocha": "^5.2.0"
   }
 }

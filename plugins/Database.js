@@ -60,6 +60,7 @@ async function init(conf, callback) {
 
     // init the main tables
     chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
+    database.addCollection('transactions', { indices: ['txid'], disableMeta: true });
     database.addCollection('contracts', { indices: ['name'], disableMeta: true });
 
     callback(null);
@@ -116,8 +117,44 @@ function stop(callback) {
   actions.save(callback);
 }
 
+function addTransactions(block) {
+  const transactionsTable = database.getCollection('transactions');
+  const { transactions } = block;
+  const nbTransactions = transactions.length;
+
+  for (let index = 0; index < nbTransactions; index += 1) {
+    const transaction = transactions[index];
+    const transactionToSave = {
+      txid: transaction.transactionId,
+      blockNumber: block.blockNumber,
+      index,
+    };
+
+    transactionsTable.insert(transactionToSave);
+  }
+}
+
+actions.getTransactionInfo = (txid) => { // eslint-disable-line no-unused-vars
+  const transactionsTable = database.getCollection('transactions');
+
+  const transaction = transactionsTable.findOne({ txid });
+
+  if (transaction) {
+    const { index, blockNumber } = transaction;
+    const block = actions.getBlockInfo(blockNumber);
+
+    if (block) {
+      return Object.assign({}, { blockNumber }, block.transactions[index]);
+    }
+  }
+
+  return null;
+};
+
+
 actions.addBlock = (block) => { // eslint-disable-line no-unused-vars
   chain.insert(block);
+  addTransactions(block);
 };
 
 actions.getLatestBlockInfo = () => { // eslint-disable-line no-unused-vars

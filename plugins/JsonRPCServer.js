@@ -40,6 +40,21 @@ function blockchainRPC() {
         }, null);
       }
     },
+    getTransactionInfo: async (args, callback) => {
+      const { txid } = args;
+
+      if (txid && typeof txid === 'string') {
+        const res = await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_TRANSACTION_INFO, payload: txid },
+        );
+        callback(null, res.payload);
+      } else {
+        callback({
+          code: 400,
+          message: 'missing or wrong parameters: txid is required',
+        }, null);
+      }
+    },
   };
 }
 
