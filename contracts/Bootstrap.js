@@ -53,13 +53,13 @@ class Bootstrap {
       }
 
       actions.create = async (payload) => {
-        const { name, symbol, url, precision, maxSupply } = payload;
+        const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
 
         // get contract params
         const params = await db.findOne('params', { });
         const { tokenCreationFee } = params;
 
-        const authorizedCreation = tokenCreationFee <= 0 ? true : await subBalance(sender, 'SSC', tokenCreationFee, 'balances');
+        const authorizedCreation = tokenCreationFee <= 0 ? true : await actions.transfer({ to: 'null', symbol: 'SSC', quantity: tokenCreationFee, isSignedWithActiveKey });
 
         if (assert(authorizedCreation, 'you must have enough SSC tokens to cover the creation fees')
           && assert(name && typeof name === 'string'
@@ -128,6 +128,8 @@ class Bootstrap {
 
               if (to !== token.issuer) {
                 await actions.transfer(payload);
+              } else {
+                emit('transfer', { from: to, to, symbol, quantity });
               }
             }
           }
@@ -157,11 +159,15 @@ class Bootstrap {
                   await addBalance(to, token, quantity, 'balances');
 
                   emit('transfer', { from: sender, to, symbol, quantity });
+
+                  return true;
                 }
               }
             }
           }
         }
+
+        return false;
       }
 
       actions.transferToContract = async (payload) => {
@@ -243,6 +249,7 @@ class Bootstrap {
           assert(balance.balance >= quantity, 'overdrawn balance')) {
 
           balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
+
           if (balance.balance <= 0) {
             await db.remove(table, balance);
           } else {
