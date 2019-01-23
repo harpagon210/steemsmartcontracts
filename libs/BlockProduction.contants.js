@@ -8,6 +8,8 @@ const VOTE = 'vote'; // vote for a block producer
 const UNVOTE = 'unvote'; // unvote for a block producer
 
 const UTILITY_TOKEN_SYMBOL = 'SSC';
+const UTILITY_TOKEN_NAME = 'Steem Smart Contracts Token';
+const UTILITY_TOKEN_URL = 'https://steemsmartcontracts.com';
 const UTILITY_TOKEN_PRECISION = 8;
 const MINIMUM_TOKEN_VALUE = 0.00000001;
 const UTILITY_TOKEN_INITIAL_SUPPLY = 250000000;
@@ -57,6 +59,8 @@ const CONSTANTS = {
   UTILITY_TOKEN: {
     issuer: 'null', // by setting the issuer to 'null', nobody can issue UTILITY_TOKENs (except for the tool itself)
     symbol: UTILITY_TOKEN_SYMBOL,
+    name: UTILITY_TOKEN_NAME,
+    url: UTILITY_TOKEN_URL,
     precision: UTILITY_TOKEN_PRECISION,
     maxSupply: 1000000000000,
     supply: UTILITY_TOKEN_INITIAL_SUPPLY,
