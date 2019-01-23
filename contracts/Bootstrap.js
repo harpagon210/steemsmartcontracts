@@ -1,5 +1,6 @@
 const { Base64 } = require('js-base64');
 const { Transaction } = require('../libs/Transaction');
+const BP_CONSTANTS = require('../libs/BlockProduction.contants').CONSTANTS;
 
 class Bootstrap {
   static getBootstrapTransactions(genesisSteemBlock) {
@@ -59,9 +60,9 @@ class Bootstrap {
         const params = await db.findOne('params', { });
         const { tokenCreationFee } = params;
 
-        const authorizedCreation = tokenCreationFee <= 0 ? true : await actions.transfer({ to: 'null', symbol: 'SSC', quantity: tokenCreationFee, isSignedWithActiveKey });
+        const authorizedCreation = tokenCreationFee <= 0 ? true : await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
 
-        if (assert(authorizedCreation, 'you must have enough SSC tokens to cover the creation fees')
+        if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
           && assert(name && typeof name === 'string'
           && symbol && typeof symbol === 'string'
           && (url === undefined || (url && typeof url === 'string'))
@@ -361,7 +362,7 @@ class Bootstrap {
         quantityToSend = currency(quantity, { precision: 8 }).multiply(params.quantity);
   
         if (quantityToSend.value > 0) {
-          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "SSC", quantity: quantityToSend.value, to: sender })
+          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: quantityToSend.value, to: sender })
         }
       }
     }

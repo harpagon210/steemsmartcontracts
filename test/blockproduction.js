@@ -111,7 +111,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
 
       let block = {
@@ -156,7 +156,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
 
       let block = {
@@ -235,7 +235,7 @@ describe('Voting', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 150 }'));
 
 
@@ -277,7 +277,7 @@ describe('Voting', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unstake', '{ "quantity": 30.0001 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 100 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unstake', '{ "quantity": 200 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unstake', '{ "quantity": 100 }'));
@@ -355,7 +355,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
 
@@ -415,7 +415,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'registerNode', '{ "url": "https://mynode2.com"}'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
@@ -508,9 +508,9 @@ describe('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1234', 'vitalik', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "vitalik", "isSignedWithActiveKey": true }`));
 
       transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'registerNode', '{ "url": "https://eth.com"}'));
@@ -641,7 +641,7 @@ describe('Voting', () => {
 
         totalSupply = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).add(totalRewards);
         transactions = [];
-        transactions.push(new Transaction(lastBlockNumber, 'TXID1234', 'null', 'tokens', 'issue', `{ "symbol": "SSC", "quantity": ${totalRewards}, "to": "satoshi", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(lastBlockNumber, 'TXID1234', 'null', 'tokens', 'issue', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": ${totalRewards}, "to": "satoshi", "isSignedWithActiveKey": true }`));
   
         block = {
           timestamp: '2018-06-01T00:00:00',
@@ -689,7 +689,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }`));
 
       // register block producers
       for (let index = 0; index < 50; index++) {
@@ -785,7 +785,7 @@ describe('Voting', () => {
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'harpagon', 'accounts', 'register', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "SSC", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "harpagon", "isSignedWithActiveKey": true }`));
 
       // register block producers
       for (let index = 0; index < 50; index++) {

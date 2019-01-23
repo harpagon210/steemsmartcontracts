@@ -8,6 +8,8 @@ const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
+const BP_CONSTANTS = require('../libs/BlockProduction.contants').CONSTANTS;
+
 //process.env.NODE_ENV = 'test';
 
 const conf = {
@@ -1136,7 +1138,7 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: "SSC"
+            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
@@ -1180,7 +1182,7 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: "SSC"
+            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
@@ -1207,7 +1209,7 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: "SSC"
+            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
