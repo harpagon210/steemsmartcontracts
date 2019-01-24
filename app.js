@@ -3,6 +3,7 @@ const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
 const program = require('commander');
 const { fork } = require('child_process');
+const { createLogger, format, transports } = require('winston');
 const packagejson = require('./package.json');
 const database = require('./plugins/Database');
 const blockchain = require('./plugins/Blockchain');
@@ -11,6 +12,30 @@ const streamer = require('./plugins/Streamer');
 const replay = require('./plugins/Replay');
 
 const conf = require('./config');
+
+const logger = createLogger({
+  format: format.combine(
+    format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  ),
+  transports: [
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.printf(
+          info => `${info.timestamp} ${info.level}: ${info.message}`,
+        ),
+      ),
+    }),
+    new transports.File({
+      filename: 'node_app.log',
+      format: format.combine(
+        format.printf(
+          info => `${info.timestamp} ${info.level}: ${info.message}`,
+        ),
+      ),
+    }),
+  ],
+});
 
 const plugins = {};
 
@@ -59,7 +84,8 @@ const route = (message) => {
     } else if (plugins[to]) {
       plugins[to].cp.send(message);
     } else {
-      console.error('ROUTING ERROR: ', message);
+      //console.error('ROUTING ERROR: ', message);
+      logger.error(`ROUTING ERROR: ${message}`);
     }
   }
 };
@@ -77,8 +103,14 @@ const loadPlugin = (newPlugin) => {
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
   plugin.cp.on('message', msg => route(msg));
-  plugin.cp.stdout.on('data', data => console.log(`[${newPlugin.PLUGIN_NAME}]`, data.toString()));
-  plugin.cp.stderr.on('data', data => console.error(`[${newPlugin.PLUGIN_NAME}]`, data.toString()));
+  plugin.cp.stdout.on('data', (data) => {
+    //console.log(`[${newPlugin.PLUGIN_NAME}]`, data.toString());
+    logger.info(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
+  });
+  plugin.cp.stderr.on('data', (data) => {
+    //console.error(`[${newPlugin.PLUGIN_NAME}]`, data.toString());
+    logger.error(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
+  });
 
   plugins[newPlugin.PLUGIN_NAME] = plugin;
 
@@ -176,7 +208,8 @@ if (program.replay !== undefined) {
 // graceful app closing
 nodeCleanup((exitCode, signal) => {
   if (signal) {
-    console.log('Closing App... ', exitCode, signal); // eslint-disable-line
+    //console.log('Closing App... ', exitCode, signal); // eslint-disable-line
+    logger.info(`Closing App...  exitCode: ${exitCode} signal: ${signal}`);
 
     stopApp();
 

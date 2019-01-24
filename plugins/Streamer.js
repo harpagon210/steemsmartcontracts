@@ -193,7 +193,7 @@ function init(conf) {
     streamer.stop();
     console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
     streamNodes.push(streamNodes.shift());
-    init(conf);
+    init(Object.assign({}, conf, { startSteemBlock: getCurrentBlock() }));
   });
 }
 

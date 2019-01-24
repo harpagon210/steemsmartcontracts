@@ -27,7 +27,8 @@
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
     "validator": "^10.11.0",
-    "vm2": "^3.6.6"
+    "vm2": "^3.6.6",
+    "winston": "^3.1.0"
   },
   "devDependencies": {
     "eslint": "^5.12.1",
