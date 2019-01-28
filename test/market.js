@@ -132,8 +132,8 @@ describe('Market', () => {
       
       let balances = res.payload;
 
-      assert.equal(balances[0].balance, 122.456);
-      assert.equal(balances[0].account, 'satoshi');
+      assert.equal(balances[1].balance, 122.456);
+      assert.equal(balances[1].account, 'satoshi');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -301,8 +301,8 @@ describe('Market', () => {
       
       let balances = res.payload;
 
-      assert.equal(balances[0].balance, 122.456);
-      assert.equal(balances[0].account, 'satoshi');
+      assert.equal(balances[1].balance, 122.456);
+      assert.equal(balances[1].account, 'satoshi');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -995,30 +995,30 @@ describe('Market', () => {
       });
 
       const balances = res.payload;
-      //console.log(balances)
+      // console.log(balances)
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].balance, 490);
 
-      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].account, 'harpagon');
       assert.equal(balances[1].symbol, 'TKN');
-      assert.equal(balances[1].balance, 194);
+      assert.equal(balances[1].balance, 33);
 
-      assert.equal(balances[2].account, 'vitalik');
+      assert.equal(balances[2].account, 'satoshi');
       assert.equal(balances[2].symbol, 'TKN');
-      assert.equal(balances[2].balance, 88);
+      assert.equal(balances[2].balance, 194);
 
-      assert.equal(balances[3].account, 'dan');
+      assert.equal(balances[3].account, 'vitalik');
       assert.equal(balances[3].symbol, 'TKN');
-      assert.equal(balances[3].balance, 285);
+      assert.equal(balances[3].balance, 88);
 
       assert.equal(balances[4].account, 'dan');
-      assert.equal(balances[4].symbol, 'STEEMP');
-      assert.equal(balances[4].balance, 5);
+      assert.equal(balances[4].symbol, 'TKN');
+      assert.equal(balances[4].balance, 285);
 
-      assert.equal(balances[5].account, 'harpagon');
-      assert.equal(balances[5].symbol, 'TKN');
-      assert.equal(balances[5].balance, 33);
+      assert.equal(balances[5].account, 'dan');
+      assert.equal(balances[5].symbol, 'STEEMP');
+      assert.equal(balances[5].balance, 5);
 
       assert.equal(balances[6].account, 'vitalik');
       assert.equal(balances[6].symbol, 'STEEMP');

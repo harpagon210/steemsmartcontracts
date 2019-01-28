@@ -251,11 +251,7 @@ class Bootstrap {
 
           balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
 
-          if (balance.balance <= 0) {
-            await db.remove(table, balance);
-          } else {
-            await db.update(table, balance);
-          }
+          await db.update(table, balance);
 
           return true;
         }

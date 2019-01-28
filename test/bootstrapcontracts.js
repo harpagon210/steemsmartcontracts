@@ -1468,8 +1468,10 @@ describe('steem-pegged smart contract', () => {
           }
         }
       });
-
-      assert.equal(res.payload, null);
+      const balance = res.payload;
+      assert.equal(balance.account, 'Satoshi');
+      assert.equal(balance.balance, 0);
+      assert.equal(balance.symbol, 'STEEMP');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
