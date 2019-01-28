@@ -19,7 +19,7 @@ class Bootstrap {
         await db.createTable('params');
 
         const params = {};
-        params.tokenCreationFee = 0;
+        params.tokenCreationFee = 100;
         await db.insert('params', params);  
       }
 
