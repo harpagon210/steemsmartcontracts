@@ -458,7 +458,7 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    // transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     contractCode = `
     const STEEM_PEGGED_SYMBOL = 'STEEMP';
@@ -775,12 +775,12 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    // transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steemsc", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
+    // transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "null", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
 
     return transactions;
   }

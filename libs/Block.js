@@ -95,7 +95,7 @@ class Block {
     }
 
     // reward block producers
-    await bp.rewardBlockProducers(); // eslint-disable-line
+    // await bp.rewardBlockProducers(); // eslint-disable-line
 
     this.hash = this.calculateHash();
     this.merkleRoot = this.calculateMerkleRoot(this.transactions);

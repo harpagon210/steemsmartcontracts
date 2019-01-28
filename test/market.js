@@ -95,7 +95,7 @@ const unloadPlugin = (plugin) => {
 }
 
 // Market
-describe('Market', () => {
+describe.skip('Market', () => {
   it('creates a buy order', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();

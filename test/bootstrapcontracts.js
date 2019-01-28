@@ -1321,7 +1321,7 @@ describe('sscstore smart contract', () => {
 });
 
 // steem-pegged asset
-describe('steem-pegged smart contract', () => {
+describe.skip('steem-pegged smart contract', () => {
 
   it('should buy tokens', (done) => {
     new Promise(async (resolve) => {
