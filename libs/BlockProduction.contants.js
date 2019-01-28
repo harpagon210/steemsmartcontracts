@@ -7,12 +7,12 @@ const REGISTER_NODE_ACTION = 'registerNode'; // action to register a block produ
 const VOTE = 'vote'; // vote for a block producer
 const UNVOTE = 'unvote'; // unvote for a block producer
 
-const UTILITY_TOKEN_SYMBOL = 'SSC';
-const UTILITY_TOKEN_NAME = 'Steem Smart Contracts Token';
-const UTILITY_TOKEN_URL = 'https://steemsmartcontracts.com';
+const UTILITY_TOKEN_SYMBOL = 'ENG';
+const UTILITY_TOKEN_NAME = 'Steem Engine Token';
+const UTILITY_TOKEN_URL = 'https://steem-engine.com';
 const UTILITY_TOKEN_PRECISION = 8;
 const MINIMUM_TOKEN_VALUE = 0.00000001;
-const UTILITY_TOKEN_INITIAL_SUPPLY = 250000000;
+const UTILITY_TOKEN_INITIAL_SUPPLY = 4000000;
 
 const CONSTANTS = {
   CONTRACT_NAME,
@@ -71,7 +71,17 @@ const CONSTANTS = {
     {
       account: 'steemsc',
       symbol: UTILITY_TOKEN_SYMBOL,
-      balance: UTILITY_TOKEN_INITIAL_SUPPLY,
+      balance: 2000000,
+    },
+    {
+      account: 'harpagon',
+      symbol: UTILITY_TOKEN_SYMBOL,
+      balance: 1000000,
+    },
+    {
+      account: 'steemmonsters',
+      symbol: UTILITY_TOKEN_SYMBOL,
+      balance: 1000000,
     },
   ],
 };
