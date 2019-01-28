@@ -100,7 +100,7 @@ const unloadPlugin = (plugin) => {
 }
 
 // voting
-describe.skip('Voting', () => {
+describe('Voting', () => {
   it('should stake tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
