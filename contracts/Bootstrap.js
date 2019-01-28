@@ -60,7 +60,10 @@ class Bootstrap {
         const params = await db.findOne('params', { });
         const { tokenCreationFee } = params;
 
-        const authorizedCreation = tokenCreationFee <= 0 ? true : await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
+        // get sender's UTILITY_TOKEN_SYMBOL balance
+        const utilityTokenBalance = await db.findOne('balances', { account: sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
+
+        const authorizedCreation = tokenCreationFee <= 0 ? true : utilityTokenBalance && utilityTokenBalance.balance >= tokenCreationFee;
 
         if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
           && assert(name && typeof name === 'string'
@@ -93,6 +96,9 @@ class Bootstrap {
               };
               
               await db.insert('tokens', newToken);
+
+              // burn the token creation fees
+              await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
             }
           }
         }
