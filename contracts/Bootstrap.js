@@ -314,7 +314,7 @@ class Bootstrap {
       
       params.priceSBD = 1000000;
       params.priceSteem = 0.001;
-      params.quantity = 0.001;
+      params.quantity = 1;
       params.disabled = false;
 
       await db.insert('params', params);      
