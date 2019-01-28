@@ -1145,7 +1145,7 @@ describe('sscstore smart contract', () => {
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(balanceSatoshi.balance, 1);
+      assert.equal(balanceSatoshi.balance, 0.001);
 
       resolve();
     })

@@ -306,9 +306,9 @@ class Bootstrap {
       await db.createTable('params');
       const params = {};
       
-      params.priceSBD = 0.001;
+      params.priceSBD = 1000000;
       params.priceSteem = 0.001;
-      params.quantity = 1;
+      params.quantity = 0.001;
       params.disabled = false;
 
       await db.insert('params', params);      
@@ -350,9 +350,9 @@ class Bootstrap {
         if (unit === 'STEEM') {
           quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSteem);
         } 
-        // SBD
+        // SBD (disabled)
         else {
-          quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSBD);
+          // quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSBD);
         }
   
         quantityToSend = currency(quantity, { precision: 8 }).multiply(params.quantity);
