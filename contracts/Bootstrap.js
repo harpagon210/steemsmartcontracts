@@ -134,10 +134,12 @@ class Bootstrap {
               await addBalance(token.issuer, token, quantity, 'balances');
 
               if (to !== token.issuer) {
-                await actions.transfer(payload);
-              } else {
-                emit('transfer', { from: to, to, symbol, quantity });
+                if (await subBalance(token.issuer, token, quantity, 'balances')) {
+                  await addBalance(to, token, quantity, 'balances');
+                }
               }
+
+              emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
             }
           }
         }
