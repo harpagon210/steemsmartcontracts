@@ -11,6 +11,7 @@
   "author": "Harpagon210 <harpagon210@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "bignumber.js": "^8.0.2",
     "body-parser": "^1.18.3",
     "commander": "^2.19.0",
     "cors": "^2.8.5",
