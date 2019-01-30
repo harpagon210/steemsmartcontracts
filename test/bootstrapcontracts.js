@@ -160,7 +160,7 @@ describe('Tokens smart contract', () => {
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "T.KN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKNNNNNN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKNNNNNNNNN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 3.3, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": -1, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 9, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
@@ -183,8 +183,8 @@ describe('Tokens smart contract', () => {
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
 
-      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 7');
-      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 7');
+      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 10');
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 10');
       assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'invalid precision');
       assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'invalid precision');
       assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'invalid precision');
