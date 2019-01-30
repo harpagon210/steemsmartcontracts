@@ -2,7 +2,7 @@ const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
-const currency = require('currency.js');
+const BigNumber = require('bignumber.js');
 const validator = require('validator');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
@@ -114,7 +114,7 @@ class SmartContracts {
           transactionId,
           refSteemBlockNumber,
           db,
-          currency,
+          BigNumber,
           validator,
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
@@ -243,7 +243,7 @@ class SmartContracts {
         action,
         payload: JSON.parse(JSON.stringify(payloadObj)),
         db,
-        currency,
+        BigNumber,
         validator,
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract

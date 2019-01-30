@@ -449,7 +449,8 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 7.99999999, "to": "Vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 3e-8, "to": "Vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 0.1, "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       let block = {
         timestamp: '2018-06-01T00:00:00',
@@ -472,7 +473,7 @@ describe('Tokens smart contract', () => {
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(balanceSatoshi.balance, 92.00000001);
+      assert.equal(balanceSatoshi.balance, 99.89999997);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -488,7 +489,7 @@ describe('Tokens smart contract', () => {
 
       const balanceVitalik = res.payload;
 
-      assert.equal(balanceVitalik.balance, 7.99999999);
+      assert.equal(balanceVitalik.balance, 0.10000003);
 
       resolve();
     })
@@ -1156,7 +1157,7 @@ describe('sscstore smart contract', () => {
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(balanceSatoshi.balance, 0.001);
+      assert.equal(balanceSatoshi.balance, 1);
 
       resolve();
     })

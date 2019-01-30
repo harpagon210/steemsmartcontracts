@@ -289,12 +289,12 @@ class Bootstrap {
           return add ? balance + quantity : balance - quantity
         }
 
-        return add ? currency(balance, { precision }).add(quantity) : currency(balance, { precision }).subtract(quantity);
+        BigNumber.set({ DECIMAL_PLACES: precision })
+        return add ? BigNumber(balance).plus(quantity).toNumber() : BigNumber(balance).minus(quantity).toNumber()
       }
 
       const countDecimals = function (value) {
-        if (Math.floor(value) === value) return 0;
-        return value.toString().split('.')[1].length || 0;
+        return BigNumber(value).dp();
       }
     `;
 
@@ -354,19 +354,22 @@ class Bootstrap {
   
         let quantity = 0;
         let quantityToSend = 0;
+        BigNumber.set({ DECIMAL_PLACES: 3 });
+
         // STEEM
         if (unit === 'STEEM') {
-          quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSteem);
+          quantity = BigNumber(amount).dividedBy(params.priceSteem);
         } 
         // SBD (disabled)
         else {
-          // quantity = currency(Number(amount), { precision: 3 }).divide(params.priceSBD);
+          // quantity = BigNumber(amount).dividedBy(params.priceSBD);
         }
   
-        quantityToSend = currency(quantity, { precision: 8 }).multiply(params.quantity);
+        BigNumber.set({ DECIMAL_PLACES: 8 });
+        quantityToSend = BigNumber(quantity).multipliedBy(params.quantity);
   
-        if (quantityToSend.value > 0) {
-          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: quantityToSend.value, to: sender })
+        if (quantityToSend > 0) {
+          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: quantityToSend.toNumber(), to: sender })
         }
       }
     }
@@ -526,7 +529,9 @@ class Bootstrap {
           && countDecimals(price) <= token.precision
           && countDecimals(quantity) <= 3) {
           // initiate a transfer from sender to null account
-          const nbTokensToLock = currency(price, { precision: token.precision }).multiply(quantity).value;
+          BigNumber.set({ DECIMAL_PLACES: token.precision });
+
+          const nbTokensToLock = BigNumber(price).multipliedBy(quantity).toNumber();
 
           const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
@@ -588,6 +593,8 @@ class Bootstrap {
 
     const findMatchingSellOrders = async (order, tokenPrecision) => {
       const { txId, account, symbol, quantity, price } = order;
+      BigNumber.set({ DECIMAL_PLACES: tokenPrecision });
+
       const buyOrder = order;
       let offset = 0;
       
@@ -614,11 +621,11 @@ class Bootstrap {
             // transfer the tokens to the accounts
             await transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.quantity, 'user');
 
-            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;            
+            const qtyTokensToSend = BigNumber(sellOrder.price).multipliedBy(buyOrder.quantity).toNumber();            
             await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
 
             // update the sell order
-            const qtyLeftSellOrder = currency(sellOrder.quantity, { precision: tokenPrecision }).subtract(buyOrder.quantity).value;
+            const qtyLeftSellOrder = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toNumber();
             
             if (qtyLeftSellOrder > 0) {
               sellOrder.quantity = qtyLeftSellOrder;
@@ -629,7 +636,7 @@ class Bootstrap {
             }
 
             // unlock remaining tokens, update the quantity to get and remove the buy order
-            const tokensToUnlock = currency(buyOrder.tokensLocked, { precision: tokenPrecision }).subtract(qtyTokensToSend).value;
+            const tokensToUnlock = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toNumber();            
 
             if (tokensToUnlock > 0) {
               await transferTokens(account, symbol, tokensToUnlock, 'user');
@@ -641,15 +648,17 @@ class Bootstrap {
             // transfer the tokens to the account
             await transferTokens(account, STEEM_PEGGED_SYMBOL, sellOrder.quantity, 'user');
             
-            const qtyTokensToSend = currency(sellOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
+            const qtyTokensToSend = BigNumber(sellOrder.price).multipliedBy(sellOrder.quantity).toNumber();
             await transferTokens(sellOrder.account, symbol, qtyTokensToSend, 'user');
 
             // remove the sell order
             await db.remove('sellBook', sellOrder);
 
             // update tokensLocked and the quantity to get
-            buyOrder.tokensLocked = currency(buyOrder.tokensLocked, { precision: tokenPrecision }).subtract(qtyTokensToSend).value;
-            buyOrder.quantity = currency(buyOrder.quantity, { precision: tokenPrecision }).subtract(sellOrder.quantity).value;
+            buyOrder.tokensLocked = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toNumber();
+            buyOrder.quantity = BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toNumber();
+            
+
           }
 
           inc += 1;
@@ -680,6 +689,8 @@ class Bootstrap {
 
     const findMatchingBuyOrders = async (order, tokenPrecision) => {
       const { txId, account, symbol, quantity, price } = order;
+      BigNumber.set({ DECIMAL_PLACES: tokenPrecision });
+
       const sellOrder = order;
       let offset = 0;
 
@@ -706,14 +717,14 @@ class Bootstrap {
             // transfer the tokens to the accounts
             await transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, sellOrder.quantity, 'user');
 
-            const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(sellOrder.quantity).value;
+            const qtyTokensToSend = BigNumber(buyOrder.price).multipliedBy(sellOrder.quantity).toNumber();
             
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
             // update the buy order
-            const qtyLeftBuyOrder = currency(buyOrder.quantity, { precision: tokenPrecision }).subtract(sellOrder.quantity).value;
+            const qtyLeftBuyOrder = BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toNumber();
 
-            const buyOrdertokensLocked = currency(buyOrder.tokensLocked, { precision: tokenPrecision }).subtract(qtyTokensToSend).value;
+            const buyOrdertokensLocked = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toNumber();
             
             if (qtyLeftBuyOrder > 0) {
               buyOrder.quantity = qtyLeftBuyOrder;
@@ -733,14 +744,14 @@ class Bootstrap {
             // transfer the tokens to the account
             await transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, buyOrder.quantity, 'user');
             
-            const qtyTokensToSend = currency(buyOrder.price, { precision: tokenPrecision }).multiply(buyOrder.quantity).value;
+            const qtyTokensToSend = BigNumber(buyOrder.price).multipliedBy(buyOrder.quantity).toNumber();
             await transferTokens(account, symbol, qtyTokensToSend, 'user');
 
             // remove the buy order
             await db.remove('buyBook', buyOrder);
 
             // update the quantity to get
-            sellOrder.quantity = currency(sellOrder.quantity, { precision: tokenPrecision }).subtract(buyOrder.quantity).value;
+            sellOrder.quantity = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toNumber();
           }
 
           inc += 1;
@@ -769,9 +780,8 @@ class Bootstrap {
       }
     };
 
-    const countDecimals = (value) => {
-      if (Math.floor(value) === value) return 0;
-      return value.toString().split('.')[1].length || 0;
+    const countDecimals = function (value) {
+      return BigNumber(value).dp();
     };
     `;
 
