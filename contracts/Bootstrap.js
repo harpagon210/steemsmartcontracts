@@ -74,7 +74,7 @@ class Bootstrap {
 
           // the precision must be between 0 and 8 and must be an integer
           // the max supply must be positive
-          if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 7, 'invalid symbol: uppercase letters only, max length of 7')
+          if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
             && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
             && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
             && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
