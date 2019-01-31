@@ -84,7 +84,6 @@ const route = (message) => {
     } else if (plugins[to]) {
       plugins[to].cp.send(message);
     } else {
-      //console.error('ROUTING ERROR: ', message);
       logger.error(`ROUTING ERROR: ${message}`);
     }
   }
@@ -104,11 +103,9 @@ const loadPlugin = (newPlugin) => {
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
   plugin.cp.on('message', msg => route(msg));
   plugin.cp.stdout.on('data', (data) => {
-    //console.log(`[${newPlugin.PLUGIN_NAME}]`, data.toString());
     logger.info(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
   });
   plugin.cp.stderr.on('data', (data) => {
-    //console.error(`[${newPlugin.PLUGIN_NAME}]`, data.toString());
     logger.error(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
   });
 
@@ -169,8 +166,9 @@ function saveConfig(lastBlockParsed) {
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
 }
 
-function stopApp(signal = 0) {
+function stopApp(signal = 'SIGINT') {
   stop((lastBlockParsed) => {
+    logger.info('Saving config');
     saveConfig(lastBlockParsed);
     // calling process.exit() won't inform parent process of signal
     process.kill(process.pid, signal);
@@ -208,10 +206,9 @@ if (program.replay !== undefined) {
 // graceful app closing
 nodeCleanup((exitCode, signal) => {
   if (signal) {
-    //console.log('Closing App... ', exitCode, signal); // eslint-disable-line
     logger.info(`Closing App...  exitCode: ${exitCode} signal: ${signal}`);
 
-    stopApp();
+    stopApp(signal);
 
     nodeCleanup.uninstall(); // don't call cleanup handler again
     return false;
