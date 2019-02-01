@@ -68,8 +68,11 @@ function parseTransactions(refBlockNumber, block) {
             const transferParams = JSON.parse(operation[1].memo);
             id = transferParams.id; // eslint-disable-line prefer-destructuring
             // multi transactions is not supported for the Steem transfers
-            sscTransactions = Array.isArray(transferParams.json)
-              ? [] : [transferParams.json];
+            if (Array.isArray(transferParams.json) && transferParams.json.length === 1) {
+              sscTransactions = transferParams.json;
+            } else if (!Array.isArray(transferParams.json)) {
+              sscTransactions = [transferParams.json];
+            }
           } else if (operation[0] === 'comment') {
             sender = operation[1].author;
             const transferParams = JSON.parse(operation[1].body);
