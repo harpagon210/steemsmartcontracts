@@ -166,7 +166,7 @@ function saveConfig(lastBlockParsed) {
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
 }
 
-function stopApp(signal = 'SIGINT') {
+function stopApp(signal = 0) {
   stop((lastBlockParsed) => {
     logger.info('Saving config');
     saveConfig(lastBlockParsed);
