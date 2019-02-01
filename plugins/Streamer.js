@@ -46,7 +46,7 @@ function parseTransactions(refBlockNumber, block) {
           let sender = null;
           let recipient = null;
           let amount = null;
-          let sscTransaction = null;
+          let sscTransactions = [];
           let isSignedWithActiveKey = null;
 
           if (operation[0] === 'custom_json') {
@@ -58,7 +58,8 @@ function parseTransactions(refBlockNumber, block) {
               sender = operation[1].required_posting_auths[0]; // eslint-disable-line
               isSignedWithActiveKey = false;
             }
-            sscTransaction = JSON.parse(operation[1].json); // eslint-disable-line
+            let jsonObj = JSON.parse(operation[1].json); // eslint-disable-line
+            sscTransactions = Array.isArray(jsonObj) ? jsonObj : [jsonObj];
           } else if (operation[0] === 'transfer') {
             isSignedWithActiveKey = true;
             sender = operation[1].from;
@@ -66,61 +67,76 @@ function parseTransactions(refBlockNumber, block) {
             amount = operation[1].amount; // eslint-disable-line prefer-destructuring
             const transferParams = JSON.parse(operation[1].memo);
             id = transferParams.id; // eslint-disable-line prefer-destructuring
-            sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
+            // multi transactions is not supported for the Steem transfers
+            if (Array.isArray(transferParams.json) && transferParams.json.length === 1) {
+              sscTransactions = transferParams.json;
+            } else if (!Array.isArray(transferParams.json)) {
+              sscTransactions = [transferParams.json];
+            }
           } else if (operation[0] === 'comment') {
             sender = operation[1].author;
             const transferParams = JSON.parse(operation[1].body);
             id = transferParams.id; // eslint-disable-line prefer-destructuring
-            sscTransaction = transferParams.json; // eslint-disable-line prefer-destructuring
+            sscTransactions = Array.isArray(transferParams.json)
+              ? transferParams.json : [transferParams.json];
           }
 
+          if (id && id === `ssc-${chainIdentifier}` && sscTransactions.length > 0) {
+            const nbTransactions = sscTransactions.length;
+            for (let index = 0; index < nbTransactions; index += 1) {
+              const sscTransaction = sscTransactions[index];
 
-          if (id && id === `ssc-${chainIdentifier}` && sscTransaction) {
-            const { contractName, contractAction, contractPayload } = sscTransaction;
-            if (contractName && typeof contractName === 'string'
-              && contractAction && typeof contractAction === 'string'
-              && contractPayload && typeof contractPayload === 'object') {
-              console.log( // eslint-disable-line no-console
-                'sender:',
-                sender,
-                'recipient',
-                recipient,
-                'amount',
-                amount,
-                'contractName:',
-                contractName,
-                'contractAction:',
-                contractAction,
-                'contractPayload:',
-                contractPayload,
-              );
-
-              contractPayload.recipient = recipient;
-              contractPayload.amountSTEEMSBD = amount;
-              contractPayload.isSignedWithActiveKey = isSignedWithActiveKey;
-
-              if (recipient === null) {
-                delete contractPayload.recipient;
-              }
-
-              if (amount === null) {
-                delete contractPayload.amountSTEEMSBD;
-              }
-
-              if (isSignedWithActiveKey === null) {
-                delete contractPayload.isSignedWithActiveKey;
-              }
-
-              newTransactions.push(
-                new Transaction(
-                  refBlockNumber,
-                  block.transaction_ids[i],
+              const { contractName, contractAction, contractPayload } = sscTransaction;
+              if (contractName && typeof contractName === 'string'
+                && contractAction && typeof contractAction === 'string'
+                && contractPayload && typeof contractPayload === 'object') {
+                console.log( // eslint-disable-line no-console
+                  'sender:',
                   sender,
+                  'recipient',
+                  recipient,
+                  'amount',
+                  amount,
+                  'contractName:',
                   contractName,
+                  'contractAction:',
                   contractAction,
-                  JSON.stringify(contractPayload),
-                ),
-              );
+                  'contractPayload:',
+                  contractPayload,
+                );
+
+                contractPayload.recipient = recipient;
+                contractPayload.amountSTEEMSBD = amount;
+                contractPayload.isSignedWithActiveKey = isSignedWithActiveKey;
+
+                if (recipient === null) {
+                  delete contractPayload.recipient;
+                }
+
+                if (amount === null) {
+                  delete contractPayload.amountSTEEMSBD;
+                }
+
+                if (isSignedWithActiveKey === null) {
+                  delete contractPayload.isSignedWithActiveKey;
+                }
+
+                // if multi transactions
+                // append the index of the transaction to the Steem transaction id
+                const SSCtransactionId = nbTransactions > 1
+                  ? `${block.transaction_ids[i]}-${index}` : `${block.transaction_ids[i]}`;
+
+                newTransactions.push(
+                  new Transaction(
+                    refBlockNumber,
+                    SSCtransactionId,
+                    sender,
+                    contractName,
+                    contractAction,
+                    JSON.stringify(contractPayload),
+                  ),
+                );
+              }
             }
           }
         } catch (e) {
