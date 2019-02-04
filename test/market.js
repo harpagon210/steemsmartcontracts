@@ -94,6 +94,140 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+// STEEMP
+describe('Steem Pegged', () => {
+  it('buys STEEMP', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.002 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: 'STEEMP',
+            account : {
+              $in : ['harpagon', 'satoshi']
+            }
+          }
+        }
+      });
+      
+      let balances = res.payload;
+      assert.equal(balances[0].balance, 0.001);
+      assert.equal(balances[0].account, 'harpagon');
+      assert.equal(balances[0].symbol, 'STEEMP');
+
+      assert.equal(balances[1].balance, 0.87);
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('withdraws STEEM', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.003 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'satoshi', 'steempegged', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'harpagon', 'steempegged', 'withdraw', '{ "quantity": 0.002, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'satoshi', 'steempegged', 'withdraw', '{ "quantity": 0.3, "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: 'STEEMP',
+            account : {
+              $in : ['harpagon', 'satoshi']
+            }
+          }
+        }
+      });
+      
+      let balances = res.payload;
+
+      assert.equal(balances[0].balance, 0);
+      assert.equal(balances[0].account, 'harpagon');
+      assert.equal(balances[0].symbol, 'STEEMP');
+
+      assert.equal(balances[1].balance, 0.57);
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+          }
+        }
+      });
+
+      let withdrawals = res.payload;
+      
+      assert.equal(withdrawals[0].id, 'TXID1238');
+      assert.equal(withdrawals[0].type, 'STEEM');
+      assert.equal(withdrawals[0].recipient, 'harpagon');
+      assert.equal(withdrawals[0].memo, 'withdrawal tx TXID1238');
+      assert.equal(withdrawals[0].quantity, 0.001);
+
+      assert.equal(withdrawals[1].id, 'TXID1239');
+      assert.equal(withdrawals[1].type, 'STEEM');
+      assert.equal(withdrawals[1].recipient, 'satoshi');
+      assert.equal(withdrawals[1].memo, 'withdrawal tx TXID1239');
+      assert.equal(withdrawals[1].quantity, 0.297);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+});
+
 // Market
 describe('Market', () => {
   it('creates a buy order', (done) => {

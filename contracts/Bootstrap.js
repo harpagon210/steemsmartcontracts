@@ -399,19 +399,29 @@ class Bootstrap {
       if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
         const res = amountSTEEMSBD.split(' ');
   
-        const quantity = Number(res[0]);
         const unit = res[1];
   
         // STEEM
         if (assert(unit === 'STEEM', 'only STEEM can be used')) {
-          if (quantity > 0) {
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "STEEMP", quantity, to: sender })
+          let quantityToSend = Number(res[0]);
+
+          // calculate the 1% fee (with a min of 0.001 STEEM)
+          let fee = Number(BigNumber(quantityToSend).multipliedBy(0.01).toFixed(3));
+
+          if (fee < 0.001) {
+            fee = 0.001;
+          }
+
+          quantityToSend = BigNumber(quantityToSend).minus(fee).toNumber();
+
+          if (quantityToSend > 0) {
+            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "STEEMP", quantity: quantityToSend, to: sender })
           }
         } 
         // SBD
         else {
           // refund
-          const withdrawal = {};
+          /*const withdrawal = {};
       
           withdrawal.id = transactionId;
           withdrawal.type = 'SBD';
@@ -419,7 +429,7 @@ class Bootstrap {
           withdrawal.memo = 'refund tx ' + transactionId + ': only STEEM can be used to purchase STEEMP';
           withdrawal.quantity = quantity;
 
-          await db.insert('withdrawals', withdrawal); 
+          await db.insert('withdrawals', withdrawal); */
         }
       }
     }
@@ -427,21 +437,34 @@ class Bootstrap {
     actions.withdraw = async (payload) => {
       const { quantity, isSignedWithActiveKey } = payload;
 
-      if (assert(quantity && isSignedWithActiveKey, 'invalid params')) {
+      if (assert(
+          quantity && typeof quantity === 'number' && quantity > 0
+          && isSignedWithActiveKey, 'invalid params')) {
 
-        const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity: quantity, to: owner });
+        // calculate the 1% fee (with a min of 0.001 STEEM)
+        let fee = Number(BigNumber(quantity).multipliedBy(0.01).toFixed(3));
 
-        if (res.errors === undefined) {
-          // withdrawal
-          const withdrawal = {};
-      
-          withdrawal.id = transactionId;
-          withdrawal.type = 'STEEM';
-          withdrawal.recipient = sender;
-          withdrawal.memo = 'withdrawal tx ' + transactionId;
-          withdrawal.quantity = quantity;
+        if (fee < 0.001) {
+          fee = 0.001;
+        }
 
-          await db.insert('withdrawals', withdrawal); 
+        const quantityToSend = BigNumber(quantity).minus(fee).toNumber();
+
+        if (quantityToSend > 0) {
+          const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity, to: owner });
+  
+          if (res.errors === undefined) {
+            // withdrawal
+            const withdrawal = {};
+        
+            withdrawal.id = transactionId;
+            withdrawal.type = 'STEEM';
+            withdrawal.recipient = sender;
+            withdrawal.memo = 'withdrawal tx ' + transactionId;
+            withdrawal.quantity = quantityToSend;
+  
+            await db.insert('withdrawals', withdrawal); 
+          }
         }
       }
     }
