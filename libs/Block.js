@@ -72,7 +72,7 @@ class Block {
 
           if (authorizedAccountContractDeployment.includes(sender)) {
             results = await SmartContracts.deploySmartContract( // eslint-disable-line
-              ipc, transaction, jsVMTimeout,
+              ipc, transaction, this.timestamp, jsVMTimeout,
             );
           } else {
             results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
@@ -81,7 +81,7 @@ class Block {
           results = await bp.processTransaction(transaction); // eslint-disable-line
         } else {
           results = await SmartContracts.executeSmartContract(// eslint-disable-line
-            ipc, transaction, jsVMTimeout,
+            ipc, transaction, this.timestamp, jsVMTimeout,
           );
         }
       } else {
