@@ -570,10 +570,15 @@ actions.buy = async (payload) => {
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
       if (res.errors === undefined) {
+        const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+          .dividedBy(1000)
+          .toNumber();
+
         // order
         const order = {};
 
         order.txId = transactionId;
+        order.timestamp = timestampSec;
         order.account = sender;
         order.symbol = symbol;
         order.quantity = quantity;
@@ -609,10 +614,15 @@ actions.sell = async (payload) => {
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
 
       if (res.errors === undefined) {
+        const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+          .dividedBy(1000)
+          .toNumber();
+
         // order
         const order = {};
 
         order.txId = transactionId;
+        order.timestamp = timestampSec;
         order.account = sender;
         order.symbol = symbol;
         order.quantity = quantity;
