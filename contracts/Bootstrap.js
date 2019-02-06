@@ -508,8 +508,8 @@ class Bootstrap {
 const CONTRACT_NAME = 'market';
 
 actions.createSSC = async (payload) => {
-  await db.createTable('buyBook', ['symbol', 'account', 'price']);
-  await db.createTable('sellBook', ['symbol', 'account', 'price']);
+  await db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration']);
+  await db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration']);
   await db.createTable('tradesHistory', ['symbol']);
 };
 
@@ -547,12 +547,13 @@ actions.cancel = async (payload) => {
 }
 
 actions.buy = async (payload) => {
-  const { symbol, quantity, price, isSignedWithActiveKey } = payload;
+  const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
   // buy (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && assert(price && typeof price === 'number'
       && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
-      && quantity && typeof quantity === 'number', 'invalid params')) {
+      && quantity && typeof quantity === 'number'
+      && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
@@ -584,6 +585,7 @@ actions.buy = async (payload) => {
         order.quantity = quantity;
         order.price = price;
         order.tokensLocked = nbTokensToLock;
+        order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
         const orderInDB = await db.insert('buyBook', order);
 
@@ -594,12 +596,13 @@ actions.buy = async (payload) => {
 };
 
 actions.sell = async (payload) => {
-  const { symbol, quantity, price, isSignedWithActiveKey } = payload;
+  const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
   // sell (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && assert(price && typeof price === 'number'
     && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
-    && quantity && typeof quantity === 'number', 'invalid params')) {
+    && quantity && typeof quantity === 'number'
+    && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
@@ -627,6 +630,7 @@ actions.sell = async (payload) => {
         order.symbol = symbol;
         order.quantity = quantity;
         order.price = price;
+        order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
         const orderInDB = await db.insert('sellBook', order);
 
@@ -641,6 +645,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 
   const buyOrder = order;
   let offset = 0;
+
+  await removeExpiredOrders('sellBook');
 
   // get the orders that match the symbol and the price
   let sellOrderBook = await db.find('sellBook', {
@@ -761,6 +767,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   const sellOrder = order;
   let offset = 0;
 
+  await removeExpiredOrders('buyBook');
+
   // get the orders that match the symbol and the price
   let buyOrderBook = await db.find('buyBook', {
     symbol,
@@ -871,6 +879,35 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
     await db.update('sellBook', sellOrder);
   }
 };
+
+const removeExpiredOrders = async (table) => {
+  const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+    .dividedBy(1000)
+    .toNumber();
+
+  // clean orders
+  let ordersToDelete = await db.find(
+    table,
+    {
+      expiration: {
+        $lte: timestampSec,
+      },
+    });
+
+  while (ordersToDelete.length > 0) {
+    ordersToDelete.forEach(async (order) => {
+      await db.remove(table, order);
+    });
+
+    ordersToDelete = await db.find(
+      table,
+      {
+        expiration: {
+          $lte: timestampSec,
+        },
+      });
+  }
+}
 
 const updateTradesHistory = async (type, symbol, quantity, price) => {
   const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
