@@ -551,17 +551,17 @@ actions.buy = async (payload) => {
   // buy (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && assert(price && typeof price === 'number'
-      && symbol && typeof symbol === 'string'
+      && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
       && quantity && typeof quantity === 'number', 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
 
     // perform a few verifications
-    if (token
+    if (assert(token
       && price > 0
       && countDecimals(price) <= 3
-      && countDecimals(quantity) <= token.precision) {
+      && countDecimals(quantity) <= token.precision, 'invalid params')) {
       // initiate a transfer from sender to contract balance
 
       const nbTokensToLock = Number(BigNumber(price).multipliedBy(quantity).toFixed(3));
@@ -592,18 +592,18 @@ actions.sell = async (payload) => {
   const { symbol, quantity, price, isSignedWithActiveKey } = payload;
   // sell (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-    && price && typeof price === 'number'
-    && symbol && typeof symbol === 'string'
-    && quantity && typeof quantity === 'number') {
+    && assert(price && typeof price === 'number'
+    && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
+    && quantity && typeof quantity === 'number', 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
 
     // perform a few verifications
-    if (token
+    if (assert(token
       && price > 0
       && countDecimals(price) <= 3
-      && countDecimals(quantity) <= token.precision) {
+      && countDecimals(quantity) <= token.precision, 'invalid params')) {
       // initiate a transfer from sender to contract balance
       // lock STEEM_PEGGED_SYMBOL tokens
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
