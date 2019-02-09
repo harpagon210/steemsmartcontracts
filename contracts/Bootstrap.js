@@ -702,11 +702,11 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           await transferTokens(account, STEEM_PEGGED_SYMBOL, tokensToUnlock, 'user');
         }
 
+        // add the trade to the history
+        await updateTradesHistory('buy', symbol, buyOrder.quantity, sellOrder.price);
+
         buyOrder.quantity = 0;
         await db.remove('buyBook', buyOrder);
-
-        // add the trade to the history
-        await updateTradesHistory('buy', symbol, qtyTokensToSend, sellOrder.price);
       } else {
         // transfer the tokens to the buyer
         await transferTokens(account, symbol, sellOrder.quantity, 'user');
@@ -732,7 +732,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
         buyOrder.quantity = BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toNumber();
 
         // add the trade to the history
-        await updateTradesHistory('buy', symbol, qtyTokensToSend, sellOrder.price);
+        await updateTradesHistory('buy', symbol, sellOrder.quantity, sellOrder.price);
       }
 
       inc += 1;
@@ -822,11 +822,11 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           await db.remove('buyBook', buyOrder);
         }
 
+        // add the trade to the history
+        await updateTradesHistory('sell', symbol, sellOrder.quantity, buyOrder.price);
+
         sellOrder.quantity = 0;
         await db.remove('sellBook', sellOrder);
-
-        // add the trade to the history
-        await updateTradesHistory('sell', symbol, qtyTokensToSend, buyOrder.price);
       } else {
         // transfer the tokens to the buyer
         await transferTokens(buyOrder.account, symbol, buyOrder.quantity, 'user');
@@ -851,7 +851,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
         sellOrder.quantity = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toNumber();
 
         // add the trade to the history
-        await updateTradesHistory('sell', symbol, qtyTokensToSend, buyOrder.price);
+        await updateTradesHistory('sell', symbol, buyOrder.quantity, buyOrder.price);
       }
 
       inc += 1;
@@ -915,7 +915,7 @@ const updateTradesHistory = async (type, symbol, quantity, price) => {
     .toNumber();
 
   const timestampMinus24hrs = BigNumber(timestampSec).minus(86400).toNumber();
-
+  
   // clean history
   let tradesToDelete = await db.find(
     'tradesHistory',
