@@ -1466,19 +1466,19 @@ describe('Market', () => {
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
-      assert.equal(trades[0].quantity, 6);
+      assert.equal(trades[0].quantity, 2);
       assert.equal(trades[0].price, 3);
       assert.equal(trades[0].timestamp, 1527811200);
 
       assert.equal(trades[1].type, 'sell');
       assert.equal(trades[1].symbol, 'TKN');
-      assert.equal(trades[1].quantity, 9);
+      assert.equal(trades[1].quantity, 3);
       assert.equal(trades[1].price, 3);
       assert.equal(trades[1].timestamp, 1527811200);
 
       assert.equal(trades[2].type, 'sell');
       assert.equal(trades[2].symbol, 'TKN');
-      assert.equal(trades[2].quantity, 15);
+      assert.equal(trades[2].quantity, 5);
       assert.equal(trades[2].price, 3);
       assert.equal(trades[2].timestamp, 1527811200);
 
@@ -1514,19 +1514,19 @@ describe('Market', () => {
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
-      assert.equal(trades[0].quantity, 6);
+      assert.equal(trades[0].quantity, 2);
       assert.equal(trades[0].price, 3);
       assert.equal(trades[0].timestamp, 1527811200);
 
       assert.equal(trades[1].type, 'sell');
       assert.equal(trades[1].symbol, 'TKN');
-      assert.equal(trades[1].quantity, 9);
+      assert.equal(trades[1].quantity, 3);
       assert.equal(trades[1].price, 3);
       assert.equal(trades[1].timestamp, 1527811200);
 
       assert.equal(trades[2].type, 'sell');
       assert.equal(trades[2].symbol, 'TKN');
-      assert.equal(trades[2].quantity, 15);
+      assert.equal(trades[2].quantity, 5);
       assert.equal(trades[2].price, 3);
       assert.equal(trades[2].timestamp, 1527811200);
 
@@ -1538,13 +1538,13 @@ describe('Market', () => {
 
       assert.equal(trades[4].type, 'buy');
       assert.equal(trades[4].symbol, 'BTC');
-      assert.equal(trades[4].quantity, 6);
+      assert.equal(trades[4].quantity, 3);
       assert.equal(trades[4].price, 2);
       assert.equal(trades[4].timestamp, 1527814800);
 
       assert.equal(trades[5].type, 'buy');
       assert.equal(trades[5].symbol, 'BTC');
-      assert.equal(trades[5].quantity, 15);
+      assert.equal(trades[5].quantity, 5);
       assert.equal(trades[5].price, 3);
       assert.equal(trades[5].timestamp, 1527814800);
 
@@ -1575,7 +1575,7 @@ describe('Market', () => {
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'BTC');
-      assert.equal(trades[0].quantity, 15);
+      assert.equal(trades[0].quantity, 5);
       assert.equal(trades[0].price, 3);
       assert.equal(trades[0].timestamp, 1527987600);
       
