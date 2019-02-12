@@ -277,7 +277,7 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
 
       if (tableData) {
         // if there is an index passed, check if it exists
-        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined)) {
+        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined || el.index === '$loki')) {
           return tableData.chain()
             .find(query)
             .compoundsort(ind.map(el => [el.index, el.descending]))
