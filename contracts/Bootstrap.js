@@ -481,8 +481,9 @@ class Bootstrap {
 
         if (quantityToSend > 0) {
           const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity, to: owner });
-  
-          if (res.errors === undefined) {
+ 
+          if (res.errors === undefined &&
+              res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === sender && el.data.to === owner && el.data.quantity === quantity && el.data.symbol === "STEEMP") !== undefined) {
             // withdrawal
             const memo = 'withdrawal tx ' + transactionId;
 
