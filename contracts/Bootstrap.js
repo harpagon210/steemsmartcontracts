@@ -92,7 +92,8 @@ class Bootstrap {
               url,
               precision,
               maxSupply,
-              supply: 0
+              supply: 0,
+              circulatingSupply: 0,
             };
             
             await db.insert('tokens', newToken);
@@ -129,10 +130,6 @@ class Bootstrap {
           if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
             // we made all the required verification, let's now issue the tokens
 
-            token.supply = calculateBalance(token.supply, quantity, token.precision, true);
-            
-            await db.update('tokens', token);
-
             let res = await addBalance(token.issuer, token, quantity, 'balances');
 
             if (res === true && to !== token.issuer) {
@@ -145,7 +142,17 @@ class Bootstrap {
               }
             }
 
-            emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+            if (res === true) {
+              token.supply = calculateBalance(token.supply, quantity, token.precision, true);
+
+              if (to !== 'null') {
+                token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, true);
+              }
+            
+              await db.update('tokens', token);
+
+              emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+            }
           }
         }
       }
@@ -177,6 +184,11 @@ class Bootstrap {
                   await addBalance(sender, token, quantity, 'balances');
 
                   return false;
+                }
+
+                if (to === 'null') {
+                  token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                  await db.update('tokens', token);
                 }
 
                 emit('transfer', { from: sender, to, symbol, quantity });

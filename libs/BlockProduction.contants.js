@@ -64,6 +64,7 @@ const CONSTANTS = {
     precision: UTILITY_TOKEN_PRECISION,
     maxSupply: 1000000000000,
     supply: UTILITY_TOKEN_INITIAL_SUPPLY,
+    circulatingSupply: UTILITY_TOKEN_INITIAL_SUPPLY,
   },
 
   // initial balances definition, UTILITY_TOKEN_SYMBOL will be minted and issued to these accounts
