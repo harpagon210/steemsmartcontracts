@@ -25,8 +25,3 @@ see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki/How-to-setup-a
 ## 6. Usage/docs
 
 * see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki
-
- ## 7.  Roadmap
- This project is actually in an early stage, I will consider it more as a Proof Of Concept for now as important features are still missing:
- - implement the P2P layer
- - implement the Consensus layer (PoS? DPoS? other?)
