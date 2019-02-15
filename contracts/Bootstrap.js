@@ -230,6 +230,11 @@ class Bootstrap {
                 if (res === false) {
                   await addBalance(sender, token, quantity, 'balances');
                 } else {
+                  if (to === 'null') {
+                    token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                    await db.update('tokens', token);
+                  }
+
                   emit('transferToContract', { from: sender, to, symbol, quantity });
                 }
               }
@@ -269,14 +274,18 @@ class Bootstrap {
                 && assert(quantity > 0, 'must transfer positive quantity')) {
 
                 if (await subBalance(from, token, quantity, 'contractsBalances')) {
-                  await addBalance(to, token, quantity, table);
+                  const res = await addBalance(to, token, quantity, table);
 
                   if (res === false) {
                     await addBalance(from, token, quantity, 'contractsBalances');  
                   } else {
+                    if (to === 'null') {
+                      token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                      await db.update('tokens', token);
+                    }
+
                     emit('transferFromContract', { from, to, symbol, quantity });
                   }
-
                 }
               }
             }
