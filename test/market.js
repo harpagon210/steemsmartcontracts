@@ -1549,6 +1549,8 @@ describe('Market', () => {
       assert.equal(trades[5].timestamp, 1527814800);
 
       transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": 3, "price": 2, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(123456789, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": 5, "price": 3, "isSignedWithActiveKey": true }'));
 
@@ -1574,10 +1576,185 @@ describe('Market', () => {
       trades = res.payload;
 
       assert.equal(trades[0].type, 'sell');
-      assert.equal(trades[0].symbol, 'BTC');
-      assert.equal(trades[0].quantity, 5);
+      assert.equal(trades[0].symbol, 'TKN');
+      assert.equal(trades[0].quantity, 3);
       assert.equal(trades[0].price, 3);
       assert.equal(trades[0].timestamp, 1527987600);
+
+      assert.equal(trades[1].type, 'sell');
+      assert.equal(trades[1].symbol, 'BTC');
+      assert.equal(trades[1].quantity, 5);
+      assert.equal(trades[1].price, 3);
+      assert.equal(trades[1].timestamp, 1527987600);
+
+      assert.equal(trades.length, 2);
+      
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('maintains the different metrics', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1231', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1232', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1233', 'vitalik', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', 'dan', 'accounts', 'register', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', '{ "symbol": "STEEMP", "to": "harpagon", "quantity": 500, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "satoshi", "quantity": 200, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "vitalik", "quantity": 100, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "dan", "quantity": 300, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": 2, "price": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": 3, "price": 2, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "TKN", "quantity": 5, "price": 3, "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'market',
+          table: 'metrics',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let volume = res.payload;
+
+      assert.equal(volume.symbol, 'TKN');
+      assert.equal(volume.volume, 30);
+      assert.equal(volume.volumeExpiration, 1527811200 + 86400);
+      
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": 1000 }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "satoshi", "quantity": 200, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "vitalik", "quantity": 100, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "dan", "quantity": 300, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "BTC", "quantity": 2, "price": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "BTC", "quantity": 3, "price": 2, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": 5, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1244', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1245', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": 2, "price": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1246', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": 3, "price": 2, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1247', 'dan', 'market', 'sell', '{ "symbol": "TKN", "quantity": 5, "price": 3, "isSignedWithActiveKey": true }'));
+
+
+      block = {
+        timestamp: '2018-06-01T01:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'metrics',
+          query: {
+          }
+        }
+      });
+
+      let metrics = res.payload;
+
+      assert.equal(metrics[0].symbol, 'TKN');
+      assert.equal(metrics[0].volume, 60);
+      assert.equal(metrics[0].volumeExpiration, 1527811200 + 86400);
+
+      assert.equal(metrics[1].symbol, 'BTC');
+      assert.equal(metrics[1].volume, 23);
+      assert.equal(metrics[1].volumeExpiration, 1527814800 + 86400);
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": 3, "price": 2, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": 10, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": 5, "price": 3, "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-03T01:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'metrics',
+          query: {
+          
+          }
+        }
+      });
+
+      metrics = res.payload;
+
+      assert.equal(metrics[0].symbol, 'TKN');
+      assert.equal(metrics[0].volume, 9);
+      assert.equal(metrics[0].volumeExpiration, 1527987600 + 86400);
+
+      assert.equal(metrics[1].symbol, 'BTC');
+      assert.equal(metrics[1].volume, 15);
+      assert.equal(metrics[1].volumeExpiration, 1527987600 + 86400);
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "harpagon", "quantity": 100, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 1, "price": 3, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": 1, "price": 2, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": 1, "price": 5, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(123456789, 'TXID1243', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": 1, "price": 4, "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-03T01:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'market',
+          table: 'metrics',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const metric = res.payload;
+
+      assert.equal(metric.symbol, 'TKN');
+      assert.equal(metric.volume, 9);
+      assert.equal(metric.volumeExpiration, 1527987600 + 86400);
+      assert.equal(metric.lastPrice, 3);
+      assert.equal(metric.highestBid, 3);
+      assert.equal(metric.lowestAsk, 4);
       
       resolve();
     })

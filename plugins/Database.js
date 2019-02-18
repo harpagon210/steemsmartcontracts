@@ -263,6 +263,7 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
     if (contract && typeof contract === 'string'
       && table && typeof table === 'string'
       && query && typeof query === 'object'
+      && JSON.stringify(query).indexOf('$regex') === -1
       && Array.isArray(ind)
       && (ind.length === 0
         || (ind.length > 0
@@ -313,7 +314,8 @@ actions.findOne = (payload) => { // eslint-disable-line no-unused-vars
 
     if (contract && typeof contract === 'string'
       && table && typeof table === 'string'
-      && query && typeof query === 'object') {
+      && query && typeof query === 'object'
+      && JSON.stringify(query).indexOf('$regex') === -1) {
       const finalTableName = `${contract}_${table}`;
 
       const tableData = database.getCollection(finalTableName);

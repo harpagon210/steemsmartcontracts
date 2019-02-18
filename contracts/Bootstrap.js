@@ -12,198 +12,228 @@ class Bootstrap {
 
     // tokens contract
     contractCode = `
-      actions.createSSC = async (payload) => {
-        await db.createTable('tokens', ['symbol']);
-        await db.createTable('balances', ['account']);
-        await db.createTable('contractsBalances', ['account']);
-        await db.createTable('params');
+    actions.createSSC = async (payload) => {
+      await db.createTable('tokens', ['symbol']);
+      await db.createTable('balances', ['account']);
+      await db.createTable('contractsBalances', ['account']);
+      await db.createTable('params');
 
-        const params = {};
-        params.tokenCreationFee = 0;
-        await db.insert('params', params);  
+      const params = {};
+      params.tokenCreationFee = 0;
+      await db.insert('params', params);  
+    }
+
+    actions.updateParams = async (payload) => {
+      if (sender !== owner) return;
+
+      const { tokenCreationFee } = payload;
+
+      const params = await db.findOne('params', { });
+
+      params.tokenCreationFee = tokenCreationFee;
+
+      await db.update('params', params);
+    }
+
+    actions.updateUrl = async (payload) => {
+      const { url, symbol } = payload;
+
+      if (assert(symbol && typeof symbol === 'string'
+          && url && typeof url === 'string', 'invalid params')
+          && assert(url.length <= 255, 'invalid url: max length of 255')) {
+        // check if the token exists
+        let token = await db.findOne('tokens', { symbol });
+
+        if (token) {
+          if(assert(token.issuer === sender, 'must be the issuer')) {
+            token.url = url;
+            await db.update('tokens', token);
+          }
+        }
       }
+    }
 
-      actions.updateParams = async (payload) => {
-        if (sender !== owner) return;
+    actions.create = async (payload) => {
+      const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
 
-        const { tokenCreationFee } = payload;
+      // get contract params
+      const params = await db.findOne('params', { });
+      const { tokenCreationFee } = params;
 
-        const params = await db.findOne('params', { });
+      // get sender's UTILITY_TOKEN_SYMBOL balance
+      const utilityTokenBalance = await db.findOne('balances', { account: sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
 
-        params.tokenCreationFee = tokenCreationFee;
+      const authorizedCreation = tokenCreationFee <= 0 ? true : utilityTokenBalance && utilityTokenBalance.balance >= tokenCreationFee;
 
-        await db.update('params', params);
-      }
+      if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
+        && assert(name && typeof name === 'string'
+        && symbol && typeof symbol === 'string'
+        && (url === undefined || (url && typeof url === 'string'))
+        && (precision && typeof precision === 'number' || precision === 0)
+        && maxSupply && typeof maxSupply === 'number', 'invalid params')) {
 
-      actions.updateUrl = async (payload) => {
-        const { url, symbol } = payload;
+        // the precision must be between 0 and 8 and must be an integer
+        // the max supply must be positive
+        if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
+          && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+          && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
+          && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
+          && assert(maxSupply > 0, 'maxSupply must be positive')
+          && assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
 
-        if (assert(symbol && typeof symbol === 'string'
-            && url && typeof url === 'string', 'invalid params')
-            && assert(url.length <= 255, 'invalid url: max length of 255')) {
-          // check if the token exists
+          // check if the token already exists
           let token = await db.findOne('tokens', { symbol });
-  
-          if (token) {
-            if(assert(token.issuer === sender, 'must be the issuer')) {
-              token.url = url;
-              await db.update('tokens', token);
+
+          if (assert(token === null, 'symbol already exists')) {
+            const newToken = {
+              issuer: sender,
+              symbol,
+              name,
+              url,
+              precision,
+              maxSupply,
+              supply: 0,
+              circulatingSupply: 0,
+            };
+            
+            await db.insert('tokens', newToken);
+
+            // burn the token creation fees
+            if (tokenCreationFee > 0) {
+              await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
             }
           }
         }
       }
+    }
 
-      actions.create = async (payload) => {
-        const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
+    actions.issue = async (payload) => {
+      const { to, symbol, quantity, isSignedWithActiveKey } = payload;
 
-        // get contract params
-        const params = await db.findOne('params', { });
-        const { tokenCreationFee } = params;
+      if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+        && assert(to && typeof to === 'string'
+        && symbol && typeof symbol === 'string'
+        && quantity && typeof quantity === 'number', 'invalid params')) {
 
-        // get sender's UTILITY_TOKEN_SYMBOL balance
-        const utilityTokenBalance = await db.findOne('balances', { account: sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
+        let token = await db.findOne('tokens', { symbol });
 
-        const authorizedCreation = tokenCreationFee <= 0 ? true : utilityTokenBalance && utilityTokenBalance.balance >= tokenCreationFee;
+        // the symbol must exist
+        // the sender must be the issuer
+        // then we need to check that the quantity is correct
+        if (assert(token !== null, 'symbol does not exist')
+          && assert(token.issuer === sender, 'not allowed to issue tokens')
+          && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+          && assert(quantity > 0, 'must issue positive quantity')
+          && assert(quantity <= (BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
 
-        if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-          && assert(name && typeof name === 'string'
-          && symbol && typeof symbol === 'string'
-          && (url === undefined || (url && typeof url === 'string'))
-          && (precision && typeof precision === 'number' || precision === 0)
-          && maxSupply && typeof maxSupply === 'number', 'invalid params')) {
+          // a valid steem account is between 3 and 16 characters in length
+          if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+            // we made all the required verification, let's now issue the tokens
 
-          // the precision must be between 0 and 8 and must be an integer
-          // the max supply must be positive
-          if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
-            && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
-            && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
-            && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
-            && assert(maxSupply > 0, 'maxSupply must be positive')
-            && assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
+            let res = await addBalance(token.issuer, token, quantity, 'balances');
 
-            // check if the token already exists
-            let token = await db.findOne('tokens', { symbol });
+            if (res === true && to !== token.issuer) {
+              if (await subBalance(token.issuer, token, quantity, 'balances')) {
+                res = await addBalance(to, token, quantity, 'balances');
 
-            if (assert(token === null, 'symbol already exists')) {
-              const newToken = {
-                issuer: sender,
-                symbol,
-                name,
-                url,
-                precision,
-                maxSupply,
-                supply: 0
-              };
-              
-              await db.insert('tokens', newToken);
-
-              // burn the token creation fees
-              if (tokenCreationFee > 0) {
-                await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
-              }
-            }
-          }
-        }
-      }
-
-      actions.issue = async (payload) => {
-        const { to, symbol, quantity, isSignedWithActiveKey } = payload;
-
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-          && assert(to && typeof to === 'string'
-          && symbol && typeof symbol === 'string'
-          && quantity && typeof quantity === 'number', 'invalid params')) {
-
-          let token = await db.findOne('tokens', { symbol });
-
-          // the symbol must exist
-          // the sender must be the issuer
-          // then we need to check that the quantity is correct
-          if (assert(token !== null, 'symbol does not exist')
-            && assert(token.issuer === sender, 'not allowed to issue tokens')
-            && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-            && assert(quantity > 0, 'must issue positive quantity')
-            && assert(quantity <= (BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
-
-            // a valid steem account is between 3 and 16 characters in length
-            if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-              // we made all the required verification, let's now issue the tokens
-
-              token.supply = calculateBalance(token.supply, quantity, token.precision, true);
-              
-              await db.update('tokens', token);
-
-              await addBalance(token.issuer, token, quantity, 'balances');
-
-              if (to !== token.issuer) {
-                if (await subBalance(token.issuer, token, quantity, 'balances')) {
-                  await addBalance(to, token, quantity, 'balances');
+                if (res === false) {
+                  await addBalance(token.issuer, token, quantity, 'balances');
                 }
               }
+            }
+
+            if (res === true) {
+              token.supply = calculateBalance(token.supply, quantity, token.precision, true);
+
+              if (to !== 'null') {
+                token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, true);
+              }
+            
+              await db.update('tokens', token);
 
               emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
             }
           }
         }
       }
+    }
 
-      actions.transfer = async (payload) => {
-        const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+    actions.transfer = async (payload) => {
+      const { to, symbol, quantity, isSignedWithActiveKey } = payload;
 
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-          && assert(to && typeof to === 'string'
-          && symbol && typeof symbol === 'string'
-          && quantity && typeof quantity === 'number', 'invalid params')) {
+      if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+        && assert(to && typeof to === 'string'
+        && symbol && typeof symbol === 'string'
+        && quantity && typeof quantity === 'number', 'invalid params')) {
 
-          if (assert(to !== sender, 'cannot transfer to self')) {
-            // a valid steem account is between 3 and 16 characters in length
-            if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-              let token = await db.findOne('tokens', { symbol });
+        if (assert(to !== sender, 'cannot transfer to self')) {
+          // a valid steem account is between 3 and 16 characters in length
+          if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+            let token = await db.findOne('tokens', { symbol });
 
-              // the symbol must exist
-              // then we need to check that the quantity is correct
-              if (assert(token !== null, 'symbol does not exist')
-                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                && assert(quantity > 0, 'must transfer positive quantity')) {
+            // the symbol must exist
+            // then we need to check that the quantity is correct
+            if (assert(token !== null, 'symbol does not exist')
+              && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+              && assert(quantity > 0, 'must transfer positive quantity')) {
 
-                if (await subBalance(sender, token, quantity, 'balances')) {
-                  await addBalance(to, token, quantity, 'balances');
+              if (await subBalance(sender, token, quantity, 'balances')) {
+                const res = await addBalance(to, token, quantity, 'balances');
 
-                  emit('transfer', { from: sender, to, symbol, quantity });
+                if (res === false) {
+                  await addBalance(sender, token, quantity, 'balances');
 
-                  return true;
+                  return false;
                 }
+
+                if (to === 'null') {
+                  token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                  await db.update('tokens', token);
+                }
+
+                emit('transfer', { from: sender, to, symbol, quantity });
+
+                return true;
               }
             }
           }
         }
-
-        return false;
       }
 
-      actions.transferToContract = async (payload) => {
-        const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+      return false;
+    }
 
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-          && assert(to && typeof to === 'string'
-          && symbol && typeof symbol === 'string'
-          && quantity && typeof quantity === 'number', 'invalid params')) {
+    actions.transferToContract = async (payload) => {
+      const { to, symbol, quantity, isSignedWithActiveKey } = payload;
 
-          if (assert(to !== sender, 'cannot transfer to self')) {
-            let contract = await db.findContract(to);
-      
-            // a valid contract account is between 3 and 50 characters in length
-            if (assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
-              let token = await db.findOne('tokens', { symbol });
+      if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+        && assert(to && typeof to === 'string'
+        && symbol && typeof symbol === 'string'
+        && quantity && typeof quantity === 'number', 'invalid params')) {
 
-              // the symbol must exist
-              // then we need to check that the quantity is correct
-              if (assert(token !== null, 'symbol does not exist')
-                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                && assert(quantity > 0, 'must transfer positive quantity')) {
+        if (assert(to !== sender, 'cannot transfer to self')) {
+          let contract = await db.findContract(to);
+    
+          // a valid contract account is between 3 and 50 characters in length
+          if (assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
+            let token = await db.findOne('tokens', { symbol });
 
-                if (await subBalance(sender, token, quantity, 'balances')) {
-                  await addBalance(to, token, quantity, 'contractsBalances');
+            // the symbol must exist
+            // then we need to check that the quantity is correct
+            if (assert(token !== null, 'symbol does not exist')
+              && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+              && assert(quantity > 0, 'must transfer positive quantity')) {
+
+              if (await subBalance(sender, token, quantity, 'balances')) {
+                const res = await addBalance(to, token, quantity, 'contractsBalances');
+
+                if (res === false) {
+                  await addBalance(sender, token, quantity, 'balances');
+                } else {
+                  if (to === 'null') {
+                    token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                    await db.update('tokens', token);
+                  }
 
                   emit('transferToContract', { from: sender, to, symbol, quantity });
                 }
@@ -212,38 +242,47 @@ class Bootstrap {
           }
         }
       }
+    }
 
-      actions.transferFromContract = async (payload) => {
-        // this action can only be called by the 'null' account which only the core code can use
-        if (assert(sender === 'null', 'not authorized')) {
-          const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
-          const types = ['user', 'contract'];
+    actions.transferFromContract = async (payload) => {
+      // this action can only be called by the 'null' account which only the core code can use
+      if (assert(sender === 'null', 'not authorized')) {
+        const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
+        const types = ['user', 'contract'];
 
-          if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
-            && from && typeof from === 'string'
-            && symbol && typeof symbol === 'string'
-            && type && (types.includes(type))
-            && quantity && typeof quantity === 'number', 'invalid params')) {
+        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+          && assert(to && typeof to === 'string'
+          && from && typeof from === 'string'
+          && symbol && typeof symbol === 'string'
+          && type && (types.includes(type))
+          && quantity && typeof quantity === 'number', 'invalid params')) {
 
-            const table = type === 'user' ? 'balances' : 'contractsBalances';
+          const table = type === 'user' ? 'balances' : 'contractsBalances';
 
-            if (assert(type === 'user' || ( type === 'contract' && to !== from), 'cannot transfer to self')) {
-              // validate the "to"
-              let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
+          if (assert(type === 'user' || ( type === 'contract' && to !== from), 'cannot transfer to self')) {
+            // validate the "to"
+            let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
 
-              // the account must exist
-              if (assert(toValid === true, 'invalid to')) {
-                let token = await db.findOne('tokens', { symbol });
+            // the account must exist
+            if (assert(toValid === true, 'invalid to')) {
+              let token = await db.findOne('tokens', { symbol });
 
-                // the symbol must exist
-                // then we need to check that the quantity is correct
-                if (assert(token !== null, 'symbol does not exist')
-                  && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                  && assert(quantity > 0, 'must transfer positive quantity')) {
+              // the symbol must exist
+              // then we need to check that the quantity is correct
+              if (assert(token !== null, 'symbol does not exist')
+                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                && assert(quantity > 0, 'must transfer positive quantity')) {
 
-                  if (await subBalance(from, token, quantity, 'contractsBalances')) {
-                    await addBalance(to, token, quantity, table);
+                if (await subBalance(from, token, quantity, 'contractsBalances')) {
+                  const res = await addBalance(to, token, quantity, table);
+
+                  if (res === false) {
+                    await addBalance(from, token, quantity, 'contractsBalances');  
+                  } else {
+                    if (to === 'null') {
+                      token.circulatingSupply = calculateBalance(token.circulatingSupply, quantity, token.precision, false);
+                      await db.update('tokens', token);
+                    }
 
                     emit('transferFromContract', { from, to, symbol, quantity });
                   }
@@ -253,50 +292,62 @@ class Bootstrap {
           }
         }
       }
+    }
 
-      const subBalance = async (account, token, quantity, table) => {
-        let balance = await db.findOne(table, { account, 'symbol': token.symbol });
-        if (assert(balance !== null, 'balance does not exist') &&
-          assert(balance.balance >= quantity, 'overdrawn balance')) {
+    const subBalance = async (account, token, quantity, table) => {
+      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
+      if (assert(balance !== null, 'balance does not exist') &&
+        assert(balance.balance >= quantity, 'overdrawn balance')) {
+        const originalBalance = balance.balance;
 
-          balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
+        balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
 
+        if (assert(balance.balance < originalBalance, 'cannot subtract')) {
           await db.update(table, balance);
 
+          return true;
+        }          
+      }
+
+      return false;
+    }
+
+    const addBalance = async (account, token, quantity, table) => {
+      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
+      if (balance === null) {
+        balance = {
+          account,
+          'symbol': token.symbol,
+          'balance': quantity
+        }
+        
+        await db.insert(table, balance);
+
+        return true;
+      } else {
+        const originalBalance = balance.balance;
+
+        balance.balance = calculateBalance(balance.balance, quantity, token.precision, true);
+        if (assert(balance.balance > originalBalance, 'cannot add')) {
+          await db.update(table, balance);
           return true;
         }
 
         return false;
       }
+    }
 
-      const addBalance = async (account, token, quantity, table) => {
-        let balance = await db.findOne(table, { account, 'symbol': token.symbol });
-        if (balance === null) {
-          balance = {
-            account,
-            'symbol': token.symbol,
-            'balance': quantity
-          }
-          
-          await db.insert(table, balance);
-        } else {
-          balance.balance = calculateBalance(balance.balance, quantity, token.precision, true);
-
-          await db.update(table, balance);
-        }
+    const calculateBalance = function (balance, quantity, precision, add) {
+      if (precision === 0) {
+        return add ? balance + quantity : balance - quantity
       }
 
-      const calculateBalance = function (balance, quantity, precision, add) {
-        if (precision === 0) {
-          return add ? balance + quantity : balance - quantity
-        }
+      return add ? BigNumber(balance).plus(quantity).toNumber() : BigNumber(balance).minus(quantity).toNumber()
+    }
 
-        return add ? BigNumber(balance).plus(quantity).toNumber() : BigNumber(balance).minus(quantity).toNumber()
-      }
-
-      const countDecimals = function (value) {
-        return BigNumber(value).dp();
-      }
+    const countDecimals = function (value) {
+      return BigNumber(value).dp();
+    }
     `;
 
     base64ContractCode = Base64.encode(contractCode);
@@ -413,7 +464,7 @@ class Bootstrap {
           if (fee < 0.001) {
             fee = 0.001;
           }
-
+  
           quantityToSend = BigNumber(quantityToSend).minus(fee).toNumber();
 
           if (quantityToSend > 0) {
@@ -450,8 +501,9 @@ class Bootstrap {
 
         if (quantityToSend > 0) {
           const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity, to: owner });
-  
-          if (res.errors === undefined) {
+ 
+          if (res.errors === undefined &&
+              res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === sender && el.data.to === owner && el.data.quantity === quantity && el.data.symbol === "STEEMP") !== undefined) {
             // withdrawal
             const memo = 'withdrawal tx ' + transactionId;
 
@@ -511,6 +563,7 @@ actions.createSSC = async (payload) => {
   await db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration']);
   await db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration']);
   await db.createTable('tradesHistory', ['symbol']);
+  await db.createTable('metrics', ['symbol']);
 };
 
 actions.cancel = async (payload) => {
@@ -542,6 +595,12 @@ actions.cancel = async (payload) => {
       await transferTokens(sender, symbol, quantity, 'user');
 
       await db.remove(table, order);
+
+      if (type === 'sell') {
+        await updateAskMetric(order.symbol);
+      } else {
+        await updateBidMetric(order.symbol);
+      }
     }
   }
 }
@@ -570,7 +629,8 @@ actions.buy = async (payload) => {
       // lock STEEM_PEGGED_SYMBOL tokens
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
-      if (res.errors === undefined) {
+      if (res.errors === undefined &&
+          res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
         const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
           .dividedBy(1000)
           .toNumber();
@@ -600,9 +660,9 @@ actions.sell = async (payload) => {
   // sell (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && assert(price && typeof price === 'number'
-    && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
-    && quantity && typeof quantity === 'number'
-    && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
+      && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
+      && quantity && typeof quantity === 'number'
+      && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
@@ -616,7 +676,8 @@ actions.sell = async (payload) => {
       // lock STEEM_PEGGED_SYMBOL tokens
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
 
-      if (res.errors === undefined) {
+      if (res.errors === undefined &&
+          res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
         const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
           .dividedBy(1000)
           .toNumber();
@@ -704,6 +765,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 
         // add the trade to the history
         await updateTradesHistory('buy', symbol, buyOrder.quantity, sellOrder.price);
+        // update the volume
+        await updateVolumeMetric(symbol, qtyTokensToSend);
 
         buyOrder.quantity = 0;
         await db.remove('buyBook', buyOrder);
@@ -733,6 +796,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 
         // add the trade to the history
         await updateTradesHistory('buy', symbol, sellOrder.quantity, sellOrder.price);
+        // update the volume
+        await updateVolumeMetric(symbol, qtyTokensToSend);
       }
 
       inc += 1;
@@ -759,6 +824,9 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   if (buyOrder.quantity > 0) {
     await db.update('buyBook', buyOrder);
   }
+
+  await updateAskMetric(symbol);
+  await updateBidMetric(symbol);
 };
 
 const findMatchingBuyOrders = async (order, tokenPrecision) => {
@@ -824,6 +892,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
 
         // add the trade to the history
         await updateTradesHistory('sell', symbol, sellOrder.quantity, buyOrder.price);
+        // update the volume
+        await updateVolumeMetric(symbol, qtyTokensToSend);
 
         sellOrder.quantity = 0;
         await db.remove('sellBook', sellOrder);
@@ -852,6 +922,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
 
         // add the trade to the history
         await updateTradesHistory('sell', symbol, buyOrder.quantity, buyOrder.price);
+        // update the volume
+        await updateVolumeMetric(symbol, qtyTokensToSend);
       }
 
       inc += 1;
@@ -878,6 +950,9 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   if (sellOrder.quantity > 0) {
     await db.update('sellBook', sellOrder);
   }
+
+  await updateAskMetric(symbol);
+  await updateBidMetric(symbol);
 };
 
 const removeExpiredOrders = async (table) => {
@@ -909,17 +984,104 @@ const removeExpiredOrders = async (table) => {
   }
 }
 
+const getMetric = async (symbol) => {
+  let metric = await db.findOne('metrics', { symbol });
+
+  if (metric === null) {
+    metric = {};
+    metric.symbol = symbol;
+    metric.volume = 0;
+    metric.volumeExpiration = 0;
+    metric.lastPrice = 0;
+    metric.lowestAsk = 0;
+    metric.highestBid = 0;
+
+    return await db.insert('metrics', metric);
+  }
+
+  return metric;
+}
+
+const updateVolumeMetric = async (symbol, quantity) => {
+  const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+    .dividedBy(1000)
+    .toNumber();
+
+  let metric = await getMetric(symbol);
+
+  if (metric.volumeExpiration < timestampSec) {
+    metric.volume = quantity;
+    metric.volumeExpiration = BigNumber(timestampSec).plus(86400).toNumber();
+  } else {
+    metric.volume = BigNumber(metric.volume).plus(quantity).toNumber();
+  }
+
+  await db.update('metrics', metric);
+}
+
+const updateBidMetric = async (symbol) => {
+  let metric = await getMetric(symbol);
+
+  const buyOrderBook = await db.find('buyBook', 
+    {
+      symbol,
+    }, 1, 0,
+    [
+      { index: 'price', descending: true },
+    ]
+  );
+
+
+  if (buyOrderBook.length > 0) {
+    metric.highestBid = buyOrderBook[0].price;
+  } else {
+    metric.highestBid = 0;
+  }
+
+  await db.update('metrics', metric);
+}
+
+const updateAskMetric = async (symbol) => {
+  let metric = await getMetric(symbol);
+
+  const sellOrderBook = await db.find('sellBook', 
+    {
+      symbol,
+    }, 1, 0,
+    [
+      { index: 'price', descending: false },
+    ]
+  );
+
+  if (sellOrderBook.length > 0) {
+    metric.lowestAsk = sellOrderBook[0].price;
+  } else {
+    metric.lowestAsk = 0;
+  }
+
+  await db.update('metrics', metric);
+}
+
+const updateLastPriceMetric = async (symbol, price) => {
+  let metric = await getMetric(symbol);
+
+  metric.lastPrice = price;
+
+  await db.update('metrics', metric);
+}
+
 const updateTradesHistory = async (type, symbol, quantity, price) => {
   const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
     .dividedBy(1000)
     .toNumber();
 
   const timestampMinus24hrs = BigNumber(timestampSec).minus(86400).toNumber();
-  
+
   // clean history
   let tradesToDelete = await db.find(
     'tradesHistory',
     {
+      symbol,
       timestamp: {
         $lt: timestampMinus24hrs,
       },
@@ -933,6 +1095,7 @@ const updateTradesHistory = async (type, symbol, quantity, price) => {
     tradesToDelete = await db.find(
       'tradesHistory',
       {
+        symbol,
         timestamp: {
           $lt: timestampMinus24hrs,
         },
@@ -948,6 +1111,8 @@ const updateTradesHistory = async (type, symbol, quantity, price) => {
   newTrade.timestamp = timestampSec;
 
   await db.insert('tradesHistory', newTrade);
+
+  await updateLastPriceMetric(symbol, price);
 }
 
 const countDecimals = function (value) {
