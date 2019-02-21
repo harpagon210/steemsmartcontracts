@@ -33,7 +33,7 @@ class Bootstrap {
     
         const params = await db.findOne('params', {});
     
-        params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}") : tokenCreationFee;
+        params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}) : tokenCreationFee;
     
         await db.update('params', params);
     }
