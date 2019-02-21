@@ -33,7 +33,7 @@ class Bootstrap {
     
         const params = await db.findOne('params', {});
     
-        params.tokenCreationFee = tokenCreationFee;
+        params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}") : tokenCreationFee;
     
         await db.update('params', params);
     }
@@ -1360,8 +1360,8 @@ const countDecimals = function (value) {
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steemsc", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": "1000000000000" }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steemsc", "quantity": "1000000000000", "isSignedWithActiveKey": true }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": "10000000", "priceSteem": "0.001", "quantity": "1", "disabled": false }'));
 
     return transactions;
