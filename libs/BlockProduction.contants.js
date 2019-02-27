@@ -62,7 +62,7 @@ const CONSTANTS = {
     name: UTILITY_TOKEN_NAME,
     url: UTILITY_TOKEN_URL,
     precision: UTILITY_TOKEN_PRECISION,
-    maxSupply: 1000000000000,
+    maxSupply: Number.MAX_SAFE_INTEGER,
     supply: UTILITY_TOKEN_INITIAL_SUPPLY,
   },
 

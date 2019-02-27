@@ -49,12 +49,47 @@ class Bootstrap {
     
             if (token) {
                 if (assert(token.issuer === sender, 'must be the issuer')) {
-                    token.url = url;
-                    await db.update('tokens', token);
+                  try {
+                    let metadata = JSON.parse(token.metadata);
+
+                    if(assert(metadata && metadata.url, 'an error occured when trying to update the url')) {
+                      metadata.url = url;
+                      token.metadata = JSON.stringify(metadata);
+                      await db.update('tokens', token);
+                    }
+                  } catch(e) {
+                    // error when parsing the metadata
+                  }
                 }
             }
         }
     }
+
+    actions.updateMetadata = async (payload) => {
+      const { metadata, symbol } = payload;
+
+      if (assert(symbol && typeof symbol === 'string'
+          && metadata && typeof metadata === 'object', 'invalid params')) {
+          // check if the token exists
+          let token = await db.findOne('tokens', { symbol });
+  
+          if (token) {
+              if (assert(token.issuer === sender, 'must be the issuer')) {
+
+                try {
+                  const finalMetadata = JSON.stringify(metadata);
+
+                  if (assert(finalMetadata.length <= 1000, 'invalid metadata: max length of 1000')) {
+                    token.metadata = finalMetadata;
+                    await db.update('tokens', token);
+                  }
+                } catch(e) {
+                  // error when stringifying the metadata
+                }
+              }
+          }
+      }
+  }
     
     const createVOne = async (payload) => {
         const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
@@ -86,13 +121,21 @@ class Bootstrap {
     
                 // check if the token already exists
                 let token = await db.findOne('tokens', { symbol });
-    
+                
                 if (assert(token === null, 'symbol already exists')) {
+                    const finalUrl = url === undefined ? '' : url;
+    
+                    let metadata = {
+                      url: finalUrl
+                    }
+    
+                    metadata = JSON.stringify(metadata);
+                    
                     const newToken = {
                         issuer: sender,
                         symbol,
                         name,
-                        url,
+                        metadata,
                         precision,
                         maxSupply,
                         supply: 0,
@@ -142,11 +185,18 @@ class Bootstrap {
                 let token = await db.findOne('tokens', { symbol });
     
                 if (assert(token === null, 'symbol already exists')) {
+                  const finalUrl = url === undefined ? '' : url;
+    
+                  let metadata = {
+                    url: finalUrl
+                  }
+  
+                  metadata = JSON.stringify(metadata);
                     const newToken = {
                         issuer: sender,
                         symbol,
                         name,
-                        url,
+                        metadata,
                         precision,
                         maxSupply: BigNumber(maxSupply).toFixed(precision),
                         supply: "0",
@@ -833,17 +883,18 @@ actions.cancel = async (payload) => {
 
 actions.buy = async (payload) => {
   const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
+
   // buy (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && assert(
       price && typeof price === 'string' && !BigNumber(price).isNaN()
       && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
       && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN()
-      && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
+      && (expiration === undefined || (expiration && Number.isInteger(expiration) && expiration > 0)), 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
-
+ 
     // perform a few verifications
     if (assert(token
       && BigNumber(price).gt(0)
@@ -855,7 +906,7 @@ actions.buy = async (payload) => {
 
       // lock STEEM_PEGGED_SYMBOL tokens
       const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
-
+      
       if (res.errors === undefined &&
           res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
         const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
@@ -890,7 +941,7 @@ actions.sell = async (payload) => {
       price && typeof price === 'string' && !BigNumber(price).isNaN()
       && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
       && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN()
-      && (expiration === undefined || expiration && Number.isInteger(expiration) && expiration > 0), 'invalid params')) {
+      && (expiration === undefined || (expiration && Number.isInteger(expiration) && expiration > 0)), 'invalid params')) {
 
     // get the token params
     const token = await db.findOneInTable('tokens', 'tokens', { symbol });
@@ -1218,11 +1269,15 @@ const getMetric = async (symbol) => {
   if (metric === null) {
     metric = {};
     metric.symbol = symbol;
-    metric.volume = 0;
+    metric.volume = "0";
     metric.volumeExpiration = 0;
-    metric.lastPrice = 0;
-    metric.lowestAsk = 0;
-    metric.highestBid = 0;
+    metric.lastPrice = "0";
+    metric.lowestAsk = "0";
+    metric.highestBid = "0";
+    metric.lastDayPrice = "0";
+    metric.lastDayPriceExpiration = 0;
+    metric.priceChangeSteem = "0";
+    metric.priceChangePercent = "0";
 
     return await db.insert('metrics', metric);
   }
@@ -1263,7 +1318,7 @@ const updateBidMetric = async (symbol) => {
   if (buyOrderBook.length > 0) {
     metric.highestBid = buyOrderBook[0].price;
   } else {
-    metric.highestBid = 0;
+    metric.highestBid = "0";
   }
 
   await db.update('metrics', metric);
@@ -1284,16 +1339,26 @@ const updateAskMetric = async (symbol) => {
   if (sellOrderBook.length > 0) {
     metric.lowestAsk = sellOrderBook[0].price;
   } else {
-    metric.lowestAsk = 0;
+    metric.lowestAsk = "0";
   }
 
   await db.update('metrics', metric);
 }
 
-const updateLastPriceMetric = async (symbol, price) => {
+const updatePriceMetrics = async (symbol, price, timestamp) => {
   let metric = await getMetric(symbol);
 
   metric.lastPrice = price;
+
+  if (metric.lastDayPriceExpiration < timestamp) {
+    metric.lastDayPrice = price;
+    metric.lastDayPriceExpiration = BigNumber(timestamp).plus(86400).toNumber();
+    metric.priceChangeSteem = "0";
+    metric.priceChangePercent = "0%";
+  } else {
+    metric.priceChangeSteem = BigNumber(price).minus(metric.lastDayPrice).toFixed(3);
+    metric.priceChangePercent = BigNumber(metric.priceChangeSteem).dividedBy(metric.lastDayPrice).multipliedBy(100).toFixed(2) + '%';
+  }
 
   await db.update('metrics', metric);
 }
@@ -1340,7 +1405,7 @@ const updateTradesHistory = async (type, symbol, quantity, price) => {
 
   await db.insert('tradesHistory', newTrade);
 
-  await updateLastPriceMetric(symbol, price);
+  await updatePriceMetrics(symbol, price, timestampSec);
 }
 
 const countDecimals = function (value) {

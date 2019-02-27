@@ -138,7 +138,7 @@ describe('Tokens smart contract', () => {
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'Harpagon');
       assert.equal(token.name, 'token');
-      assert.equal(token.url, 'https://token.com');
+      assert.equal(JSON.parse(token.metadata).url, 'https://token.com');
       assert.equal(token.maxSupply, 1000);
       assert.equal(token.supply, 0);
 
@@ -206,7 +206,7 @@ describe('Tokens smart contract', () => {
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'Harpagon');
       assert.equal(token.name, 'token');
-      assert.equal(token.url, 'https://token.com');
+      assert.equal(JSON.parse(token.metadata).url, 'https://token.com');
       assert.equal(token.maxSupply, 1000);
       assert.equal(token.supply, 0);
 
@@ -369,7 +369,7 @@ describe('Tokens smart contract', () => {
 
       const token = res.payload;
 
-      assert.equal(token.url, 'https://new.token.com');
+      assert.equal(JSON.parse(token.metadata).url, 'https://new.token.com');
 
       resolve();
     })
@@ -424,7 +424,7 @@ describe('Tokens smart contract', () => {
 
       const token = res.payload;
 
-      assert.equal(token.url, 'https://token.com');
+      assert.equal(JSON.parse(token.metadata).url, 'https://token.com');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
@@ -435,6 +435,63 @@ describe('Tokens smart contract', () => {
       const transactionsBlock1 = block1.transactions;
 
       assert.equal(JSON.parse(transactionsBlock1[0].logs).errors[0], 'must be the issuer');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('updates the metadata of a token', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true  }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'updateMetadata', '{"symbol":"TKN", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const token = res.payload;
+
+      const metadata = JSON.parse(token.metadata);
+      assert.equal(metadata.url, 'https://url.token.com');
+      assert.equal(metadata.image, 'https://image.token.com');
 
       resolve();
     })
