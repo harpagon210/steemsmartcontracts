@@ -13,7 +13,7 @@ const RESERVED_ACTIONS = ['createSSC'];
 
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
-  static async deploySmartContract(ipc, transaction, jsVMTimeout) {
+  static async deploySmartContract(ipc, transaction, timestamp, jsVMTimeout) {
     try {
       const { transactionId, refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
@@ -113,6 +113,7 @@ class SmartContracts {
           payload: params ? JSON.parse(JSON.stringify(params)) : null,
           transactionId,
           refSteemBlockNumber,
+          steemBlockTimestamp: timestamp,
           db,
           BigNumber,
           validator,
@@ -168,7 +169,7 @@ class SmartContracts {
   }
 
   // execute the smart contract and perform actions on the database if needed
-  static async executeSmartContract(ipc, transaction, jsVMTimeout) {
+  static async executeSmartContract(ipc, transaction, timestamp, jsVMTimeout) {
     try {
       const {
         transactionId,
@@ -239,6 +240,7 @@ class SmartContracts {
         sender,
         owner: contractOwner,
         refSteemBlockNumber,
+        steemBlockTimestamp: timestamp,
         transactionId,
         action,
         payload: JSON.parse(JSON.stringify(payloadObj)),
