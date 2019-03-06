@@ -9,7 +9,7 @@ const UNVOTE = 'unvote'; // unvote for a block producer
 
 const UTILITY_TOKEN_SYMBOL = 'ENG';
 const UTILITY_TOKEN_NAME = 'Steem Engine Token';
-const UTILITY_TOKEN_METADA = '{"url":"https://steem-engine.com"}';
+const UTILITY_TOKEN_METADA = '{"url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform"}';
 const UTILITY_TOKEN_PRECISION = 8;
 const MINIMUM_TOKEN_VALUE = 0.00000001;
 const UTILITY_TOKEN_INITIAL_SUPPLY = 4000000;
