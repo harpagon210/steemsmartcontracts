@@ -662,7 +662,7 @@ describe('Market', () => {
       });
 
       balances = res.payload;
-      // console.log(balances)
+
       assert.equal(balances[0].balance, 123.456);
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -792,7 +792,7 @@ describe('Market', () => {
       });
 
       balances = res.payload;
-      //console.log(balances)
+
       assert.equal(balances[0].balance, 123.456);
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'TKN');
@@ -930,7 +930,7 @@ describe('Market', () => {
       
       let transactions = [];
       
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "TKN", "precision": 3, "maxSupply": "100000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "TKN", "precision": 3, "maxSupply": "100000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'steem-peg', 'tokens', 'transfer', '{ "symbol": "STEEMP", "to": "harpagon", "quantity": "500", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
@@ -1030,13 +1030,6 @@ describe('Market', () => {
       
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const bl = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: { }
-      });
-
-      //console.log(bl.payload.transactions)
-
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
         payload: {
@@ -1050,7 +1043,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
-      //console.log(balances)
+
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].balance, 455);
@@ -1113,7 +1106,7 @@ describe('Market', () => {
       });
 
       const sellOrders = res.payload;
-      // console.log(sellOrders)
+
       assert.equal(sellOrders[0].txId, 'TXID1243');
       assert.equal(sellOrders[0].account, 'harpagon');
       assert.equal(sellOrders[0].symbol, 'TKN');
@@ -1169,7 +1162,6 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
-      //console.log(balances)
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1277,7 +1269,6 @@ describe('Market', () => {
       });
 
       const balances = res.payload;
-      // console.log(balances)
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1365,8 +1356,6 @@ describe('Market', () => {
 
       const balances = res.payload;
       
-      //console.log(balances)
-
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].balance, 470);
