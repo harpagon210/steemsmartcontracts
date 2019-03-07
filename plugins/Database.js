@@ -1,5 +1,7 @@
 const fs = require('fs-extra');
 const Loki = require('lokijs');
+const SHA256 = require('crypto-js/sha256');
+const enchex = require('crypto-js/enc-hex');
 const validator = require('validator');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
@@ -19,6 +21,7 @@ const ipc = new IPC(PLUGIN_NAME);
 let database = null;
 let chain = null;
 let saving = false;
+let databaseHash = '';
 
 // load the database from the filesystem
 async function init(conf, callback) {
@@ -134,6 +137,28 @@ function addTransactions(block) {
   }
 }
 
+function updateTableHash(contract, table, record) {
+  const contracts = database.getCollection('contracts');
+  const contractInDb = contracts.findOne({ name: contract });
+
+  if (contractInDb && contractInDb.tables[table] !== undefined) {
+    const recordHash = SHA256(JSON.stringify(record)).toString(enchex);
+    const tableHash = contractInDb.tables[table].hash;
+
+    contractInDb.tables[table].hash = SHA256(tableHash + recordHash).toString(enchex);
+
+    contracts.update(contractInDb);
+
+    databaseHash = SHA256(databaseHash + contractInDb.tables[table].hash).toString(enchex);
+  }
+}
+
+actions.initDatabaseHash = (previousDatabaseHash) => {
+  databaseHash = previousDatabaseHash;
+};
+
+actions.getDatabaseHash = () => databaseHash;
+
 actions.getTransactionInfo = (txid) => { // eslint-disable-line no-unused-vars
   const transactionsTable = database.getCollection('transactions');
 
@@ -150,7 +175,6 @@ actions.getTransactionInfo = (txid) => { // eslint-disable-line no-unused-vars
 
   return null;
 };
-
 
 actions.addBlock = (block) => { // eslint-disable-line no-unused-vars
   chain.insert(block);
@@ -201,7 +225,7 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
   if (name && typeof name === 'string'
     && owner && typeof owner === 'string'
     && code && typeof code === 'string'
-    && tables && Array.isArray(tables)) {
+    && tables && typeof tables === 'object') {
     const contracts = database.getCollection('contracts');
     contracts.insert(payload);
   }
@@ -339,10 +363,12 @@ actions.insert = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
-      return tableInDb.insert(record);
+      const result = tableInDb.insert(record);
+      updateTableHash(contract, finalTableName, result);
+      return result;
     }
   }
   return null;
@@ -359,9 +385,10 @@ actions.remove = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
+      updateTableHash(contract, finalTableName, record);
       tableInDb.remove(record);
     }
   }
@@ -378,9 +405,10 @@ actions.update = (payload) => { // eslint-disable-line no-unused-vars
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
+      updateTableHash(contract, finalTableName, record);
       tableInDb.update(record);
     }
   }
@@ -397,7 +425,7 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
   const { contract, table } = payload;
   const finalTableName = `${contract}_${table}`;
   const contractInDb = actions.findContract({ name: contract });
-  if (contractInDb && contractInDb.tables.includes(finalTableName)) {
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = database.getCollection(finalTableName);
     if (tableInDb) {
       return { ...tableInDb, data: [] };
@@ -477,6 +505,7 @@ actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
 actions.dinsert = (payload) => { // eslint-disable-line no-unused-vars
   const { table, record } = payload;
   const tableInDb = database.getCollection(table);
+  updateTableHash(table.split('_')[0], table.split('_')[1], record);
   return tableInDb.insert(record);
 };
 
@@ -489,6 +518,7 @@ actions.dupdate = (payload) => { // eslint-disable-line no-unused-vars
   const { table, record } = payload;
 
   const tableInDb = database.getCollection(table);
+  updateTableHash(table.split('_')[0], table.split('_')[1], record);
   tableInDb.update(record);
 };
 
@@ -501,6 +531,7 @@ actions.dremove = (payload) => { // eslint-disable-line no-unused-vars
   const { table, record } = payload;
 
   const tableInDb = database.getCollection(table);
+  updateTableHash(table.split('_')[0], table.split('_')[1], record);
   tableInDb.remove(record);
 };
 

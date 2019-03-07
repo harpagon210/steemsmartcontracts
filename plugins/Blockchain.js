@@ -57,6 +57,7 @@ async function producePendingTransactions(transactions, timestamp) {
       transactions,
       previousBlock.blockNumber,
       previousBlock.hash,
+      previousBlock.databaseHash,
     );
 
     await newBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);

@@ -21,6 +21,8 @@ const PLUGIN_ACTIONS = {
   GET_TABLE_DETAILS: 'getTableDetails',
   SAVE: 'save',
   GENERATE_GENESIS_BLOCK: 'generateGenesisBlock',
+  INIT_DATABASE_HASH: 'initDatabaseHash',
+  GET_DATABASE_HASH: 'getDatabaseHash',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;
