@@ -12,6 +12,9 @@ class Bootstrap {
 
     const FORK_BLOCK_NUMBER = 30896500;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
+    const STEEM_PEGGED_ACCOUNT = 'steemsc';
+    const INITIAL_TOKEN_CREATION_FEE = '0';
+
 
     // tokens contract
     contractCode = `
@@ -829,7 +832,7 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steem-peg', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     contractCode = `
     const STEEM_PEGGED_SYMBOL = 'STEEMP';
@@ -1441,9 +1444,9 @@ const countDecimals = function (value) {
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steem-peg', 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "100" }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steem-peg', 'tokens', 'issue', '{ "symbol": "STEEMP", "to": "steem-peg", "quantity": 1000000000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'updateParams', `{ "tokenCreationFee": "${INITIAL_TOKEN_CREATION_FEE}" }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'issue', `{ "symbol": "STEEMP", "to": "${STEEM_PEGGED_ACCOUNT}", "quantity": 1000000000000, "isSignedWithActiveKey": true }`));
 
     return transactions;
   }
