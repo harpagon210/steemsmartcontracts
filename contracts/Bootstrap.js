@@ -11,6 +11,7 @@ class Bootstrap {
     let contractPayload;
 
     const FORK_BLOCK_NUMBER = 30896500;
+    const FORK_BLOCK_NUMBER_TWO = 30983000;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
     const STEEM_PEGGED_ACCOUNT = 'steemsc';
     const INITIAL_TOKEN_CREATION_FEE = '0';
@@ -907,32 +908,32 @@ class Bootstrap {
 
                 const nbTokensToLock = BigNumber(price).multipliedBy(quantity).toFixed(3);
 
-                if (assert(BigNumber(nbTokensToLock).gte('0.001'), 'order cannot be placed and it cannot be filled')) {
-                // lock STEEM_PEGGED_SYMBOL tokens
-                const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
+                if (assert(refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToLock).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
+                  // lock STEEM_PEGGED_SYMBOL tokens
+                  const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
-                if (res.errors === undefined &&
-                    res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
-                    const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
-                        .dividedBy(1000)
-                        .toNumber();
+                  if (res.errors === undefined &&
+                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
+                      const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+                          .dividedBy(1000)
+                          .toNumber();
 
-                    // order
-                    const order = {};
+                      // order
+                      const order = {};
 
-                    order.txId = transactionId;
-                    order.timestamp = timestampSec;
-                    order.account = sender;
-                    order.symbol = symbol;
-                    order.quantity = quantity;
-                    order.price = price;
-                    order.tokensLocked = nbTokensToLock;
-                    order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
+                      order.txId = transactionId;
+                      order.timestamp = timestampSec;
+                      order.account = sender;
+                      order.symbol = symbol;
+                      order.quantity = quantity;
+                      order.price = price;
+                      order.tokensLocked = nbTokensToLock;
+                      order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
-                    const orderInDB = await db.insert('buyBook', order);
+                      const orderInDB = await db.insert('buyBook', order);
 
-                    await findMatchingSellOrders(orderInDB, token.precision);
-                }
+                      await findMatchingSellOrders(orderInDB, token.precision);
+                  }
                 }
             }
         }
@@ -959,32 +960,32 @@ class Bootstrap {
 
                 const nbTokensToFillOrder = BigNumber(price).multipliedBy(quantity).toFixed(3);
 
-                if (assert(BigNumber(nbTokensToFillOrder).gte('0.001'), 'order cannot be placed and it cannot be filled')) {
-                // initiate a transfer from sender to contract balance
-                // lock symbol tokens
-                const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
+                if (assert(refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
+                  // initiate a transfer from sender to contract balance
+                  // lock symbol tokens
+                  const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
 
-                if (res.errors === undefined &&
-                    res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
-                    const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
-                        .dividedBy(1000)
-                        .toNumber();
+                  if (res.errors === undefined &&
+                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
+                      const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+                          .dividedBy(1000)
+                          .toNumber();
 
-                    // order
-                    const order = {};
+                      // order
+                      const order = {};
 
-                    order.txId = transactionId;
-                    order.timestamp = timestampSec;
-                    order.account = sender;
-                    order.symbol = symbol;
-                    order.quantity = quantity;
-                    order.price = price;
-                    order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
+                      order.txId = transactionId;
+                      order.timestamp = timestampSec;
+                      order.account = sender;
+                      order.symbol = symbol;
+                      order.quantity = quantity;
+                      order.price = price;
+                      order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
-                    const orderInDB = await db.insert('sellBook', order);
+                      const orderInDB = await db.insert('sellBook', order);
 
-                    await findMatchingBuyOrders(orderInDB, token.precision);
-                }
+                      await findMatchingBuyOrders(orderInDB, token.precision);
+                  }
                 }
             }
         }
@@ -1041,15 +1042,17 @@ class Bootstrap {
                         const qtyLeftSellOrder = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
                         const nbTokensToFillOrder = BigNumber(sellOrder.price).multipliedBy(qtyLeftSellOrder).toFixed(3);
 
+                        
+
                         if (BigNumber(qtyLeftSellOrder).gt(0)
-                        && BigNumber(nbTokensToFillOrder).gte('0.001')) {
+                        && (refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'))) {
                             sellOrder.quantity = qtyLeftSellOrder;
 
                             await db.update('sellBook', sellOrder);
                         } else {
-                        if (BigNumber(qtyLeftSellOrder).gt(0)) {
+                          if (BigNumber(qtyLeftSellOrder).gt(0)) {
                             await transferTokens(sellOrder.account, symbol, qtyLeftSellOrder, 'user');
-                        }
+                          }
                             await db.remove('sellBook', sellOrder);
                         }
 
@@ -1098,11 +1101,11 @@ class Bootstrap {
                         // check if the order can still be filled
                         const nbTokensToFillOrder = BigNumber(buyOrder.price).multipliedBy(buyOrder.quantity).toFixed(3);
 
-                        if (BigNumber(nbTokensToFillOrder).lt('0.001')) {
-                        await transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.tokensLocked, 'user');
+                        if (refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && BigNumber(nbTokensToFillOrder).lt('0.001')) {
+                          await transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.tokensLocked, 'user');
 
-                        buyOrder.quantity = "0";
-                        await db.remove('buyBook', buyOrder);
+                          buyOrder.quantity = "0";
+                          await db.remove('buyBook', buyOrder);
                         }
 
                         // add the trade to the history
@@ -1194,7 +1197,7 @@ class Bootstrap {
                         const nbTokensToFillOrder = BigNumber(buyOrder.price).multipliedBy(qtyLeftBuyOrder).toFixed(3);
 
                         if (BigNumber(qtyLeftBuyOrder).gt(0)
-                            && BigNumber(nbTokensToFillOrder).gte('0.001')) {
+                            && (refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'))) {
                             buyOrder.quantity = qtyLeftBuyOrder;
                             buyOrder.tokensLocked = buyOrdertokensLocked;
 
@@ -1242,12 +1245,12 @@ class Bootstrap {
 
                         // check if the order can still be filled
                         const nbTokensToFillOrder = BigNumber(sellOrder.price).multipliedBy(sellOrder.quantity).toFixed(3);
-                        
-                        if (BigNumber(nbTokensToFillOrder).lt('0.001')) {
-                        await transferTokens(account, symbol, sellOrder.quantity, 'user');
+                          
+                        if (refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && BigNumber(nbTokensToFillOrder).lt('0.001')) {
+                          await transferTokens(account, symbol, sellOrder.quantity, 'user');
 
-                        sellOrder.quantity = "0";
-                        await db.remove('sellBook', sellOrder);
+                          sellOrder.quantity = "0";
+                          await db.remove('sellBook', sellOrder);
                         }
 
                         // add the trade to the history
