@@ -410,6 +410,46 @@ describe('Market', () => {
       });
   });
 
+  it('generates error when trying to create a buy order with wrong parameters', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', STEEM_PEGGED_ACCOUNT, 'tokens', 'transfer', '{ "symbol": "STEEMP", "to": "satoshi", "quantity": "123.456", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "0.1", "price": "0.001", "isSignedWithActiveKey": true }'));
+      
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'order cannot be placed and it cannot be filled');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
   it('creates sell orders with expirations', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
@@ -553,6 +593,46 @@ describe('Market', () => {
       assert.equal(sellOrders[0].symbol, 'TKN');
       assert.equal(sellOrders[0].price, 0.234);
       assert.equal(sellOrders[0].quantity, 100.276);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('generates error when trying to create a sell order with wrong parameters', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "satoshi", "quantity": "123.456", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": "0.001", "price": "0.234", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'order cannot be placed and it cannot be filled');
 
       resolve();
     })
@@ -1927,6 +2007,347 @@ describe('Market', () => {
       assert.equal(sellOrders[0].symbol, 'TKN');
       assert.equal(sellOrders[0].price, 0.234);
       assert.equal(sellOrders[0].quantity, 10);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('removes dust sell orders', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "vitalik", "quantity": "101", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', STEEM_PEGGED_ACCOUNT, 'tokens', 'transfer', '{ "symbol": "STEEMP", "to": "satoshi", "quantity": "110", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: { $in: ['TKN', 'STEEMP'] },
+            account: { $in: ['satoshi', 'vitalik'] }
+          }
+        }
+      });
+
+      let balances = res.payload;
+
+      assert.equal(balances[0].account, 'vitalik');
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].balance, 100);
+
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+      assert.equal(balances[1].balance, 109.999);
+
+      assert.equal(balances[2].account, 'satoshi');
+      assert.equal(balances[2].symbol, 'TKN');
+      assert.equal(balances[2].balance, 1);
+
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'STEEMP');
+      assert.equal(balances[3].balance, 0.001); 
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 0);
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].account, 'market');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'sellBook',
+          query: {
+            account: 'vitalik',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let sellOrders = res.payload;
+
+      assert.equal(sellOrders.length, 0);
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: { $in: ['TKN', 'STEEMP'] },
+            account: { $in: ['satoshi', 'vitalik'] }
+          }
+        }
+      });
+
+      balances = res.payload;
+
+      assert.equal(balances[0].account, 'vitalik');
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].balance, 99);
+
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+      assert.equal(balances[1].balance, 109.998);
+
+      assert.equal(balances[2].account, 'satoshi');
+      assert.equal(balances[2].symbol, 'TKN');
+      assert.equal(balances[2].balance, 2);
+
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'STEEMP');
+      assert.equal(balances[3].balance, 0.002); 
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 0);
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].account, 'market');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'sellBook',
+          query: {
+            account: 'vitalik',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      sellOrders = res.payload;
+
+      assert.equal(sellOrders.length, 0);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('removes dust buy orders', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1231', 'harpagon', 'accounts', 'register', ''));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'satoshi', 'accounts', 'register', ''));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', 'vitalik', 'accounts', 'register', ''));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "vitalik", "quantity": "101", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', STEEM_PEGGED_ACCOUNT, 'tokens', 'transfer', '{ "symbol": "STEEMP", "to": "satoshi", "quantity": "110", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: { $in: ['TKN', 'STEEMP'] },
+            account: { $in: ['satoshi', 'vitalik'] }
+          }
+        }
+      });
+
+      let balances = res.payload;
+
+      assert.equal(balances[0].account, 'vitalik');
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].balance, 100);
+
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+      assert.equal(balances[1].balance, 109.999);
+
+      assert.equal(balances[2].account, 'satoshi');
+      assert.equal(balances[2].symbol, 'TKN');
+      assert.equal(balances[2].balance, 1);
+
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'STEEMP');
+      assert.equal(balances[3].balance, 0.001); 
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 0);
+      assert.equal(balances[0].symbol, 'STEEMP');
+      assert.equal(balances[0].account, 'market');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'buyBook',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let buyOrders = res.payload;
+
+      assert.equal(buyOrders.length, 0);
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+
+      block = {
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+      
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: { $in: ['TKN', 'STEEMP'] },
+            account: { $in: ['satoshi', 'vitalik'] }
+          }
+        }
+      });
+
+      balances = res.payload;
+
+      assert.equal(balances[0].account, 'vitalik');
+      assert.equal(balances[0].symbol, 'TKN');
+      assert.equal(balances[0].balance, 99);
+
+      assert.equal(balances[1].account, 'satoshi');
+      assert.equal(balances[1].symbol, 'STEEMP');
+      assert.equal(balances[1].balance, 109.998);
+
+      assert.equal(balances[2].account, 'satoshi');
+      assert.equal(balances[2].symbol, 'TKN');
+      assert.equal(balances[2].balance, 2);
+
+      assert.equal(balances[3].account, 'vitalik');
+      assert.equal(balances[3].symbol, 'STEEMP');
+      assert.equal(balances[3].balance, 0.002); 
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: {
+            symbol: 'STEEMP'
+          }
+        }
+      });
+      
+      balances = res.payload;
+
+      assert.equal(balances[0].balance, 0);
+      assert.equal(balances[0].symbol, 'STEEMP');
+      assert.equal(balances[0].account, 'market');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'buyBook',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      buyOrders = res.payload;
+
+      assert.equal(buyOrders.length, 0);
 
       resolve();
     })

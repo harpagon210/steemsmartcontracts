@@ -1,4 +1,5 @@
 const currency = require('currency.js');
+const BigNumber = require('bignumber.js');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
@@ -66,7 +67,7 @@ class BlockProduction {
       // issue tokens to the initial accounts
       balancesTable.insert(CONSTANTS.INITIAL_BALANCES);
     } else {
-      throw Object.assign({ error: 'MissingContractException', message: 'The tokens and accounts contracts are missing, you need to bootstrap them.' });
+      throw Object.assign({ error: 'MissingContractException', message: 'The tokens contract is missing, you need to bootstrap it.' });
     }
   }
 
