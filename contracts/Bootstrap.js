@@ -785,12 +785,12 @@ class Bootstrap {
             const memo = 'withdrawal tx ' + transactionId;
 
             await initiateWithdrawal(transactionId, sender, quantityToSend, memo);
-          }
-        }
 
-        if (BigNumber(fee).gt(0)) {
-          const memo = 'fee tx ' + transactionId;
-          await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+            if (BigNumber(fee).gt(0)) {
+                const memo = 'fee tx ' + transactionId;
+                await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+            }
+          }
         }
       }
     }
