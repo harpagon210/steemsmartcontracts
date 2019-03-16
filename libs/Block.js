@@ -93,9 +93,7 @@ class Block {
       await ipc.send({ // eslint-disable-line
         to: DB_PLUGIN_NAME,
         action: DB_PLUGIN_ACTIONS.INIT_DATABASE_HASH,
-        payload: {
-          previousDatabaseHash: currentDatabaseHash,
-        },
+        payload: currentDatabaseHash,
       });
 
       if (sender && contract && action) {
