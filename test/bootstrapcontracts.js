@@ -109,17 +109,20 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "0.001" }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true  }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -177,17 +180,20 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "0.001" }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -227,7 +233,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "T.KN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true }'));
@@ -238,12 +244,15 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": -2, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "&é", "symbol": "TKN", "precision": 8, "maxSupply": -2, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "qsdqsdqsdqsqsdqsdqsdqsdqsdsdqsdqsdqsdqsdqsdqsdqsdqsd", "symbol": "TKN", "precision": 8, "maxSupply": -2, "isSignedWithActiveKey": true }'));
-      
+
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -280,7 +289,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "T.KN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
@@ -291,12 +300,15 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "-2", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "&é", "symbol": "TKN", "precision": 8, "maxSupply": "-2", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "qsdqsdqsdqsqsdqsdqsdqsdqsdsdqsdqsdqsdqsdqsdqsdqsdqsd", "symbol": "TKN", "precision": 8, "maxSupply": "-2", "isSignedWithActiveKey": true }'));
-      
+
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -333,27 +345,33 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true  }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'updateUrl', '{ "symbol": "TKN", "url": "https://new.token.com" }'));
 
       block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -388,27 +406,33 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true  }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'Satoshi', 'tokens', 'updateUrl', '{ "symbol": "TKN", "url": "https://new.token.com" }'));
 
       block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -453,27 +477,33 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": 1000, "isSignedWithActiveKey": true  }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'Harpagon', 'tokens', 'updateMetadata', '{"symbol":"TKN", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
 
       block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -510,17 +540,20 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30529000, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 100, "to": "Satoshi", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       // check if the tokens have been accounted as supplied
@@ -573,17 +606,20 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": "1000" }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "Satoshi", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       // check if the tokens have been accounted as supplied
@@ -636,7 +672,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30529000, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
@@ -649,10 +685,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": 1000, "to": "az", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -688,7 +727,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": "1000" }'));
@@ -701,10 +740,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "1000", "to": "az", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -740,7 +782,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30529000, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": 1000 }'));
@@ -749,10 +791,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 0.1, "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -804,7 +849,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
@@ -816,10 +861,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "NTK", "quantity": "0.00000001", "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -903,7 +951,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": 1000, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30529000, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": 1000 }'));
@@ -918,10 +966,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": 101, "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -958,7 +1009,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": "1000" }'));
@@ -973,10 +1024,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Satoshi', 'tokens', 'transfer', '{ "symbol": "TKN", "quantity": "101", "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1032,12 +1086,15 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      
+
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
@@ -1045,10 +1102,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "7.99999999", "to": "testContract", "isSignedWithActiveKey": true }'));
 
       block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1100,7 +1160,7 @@ describe('Tokens smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 0, "maxSupply": "1000" }'));
@@ -1115,10 +1175,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Satoshi', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "101", "to": "testContract", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1179,12 +1242,15 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      
+
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
@@ -1193,10 +1259,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'Satoshi', 'testContract', 'sendRewards', '{ "quantity": "5.99999999", "to": "Vitalik", "isSignedWithActiveKey": true }'));
 
       block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1291,7 +1360,7 @@ describe('Tokens smart contract', () => {
         params: '',
         code: base64SmartContractCode,
       };
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1307,10 +1376,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Satoshi', 'testContract', 'overdrawnBalance', '{ "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1385,12 +1457,15 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload2)));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      
+
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "Harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'Harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
@@ -1399,10 +1474,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'Satoshi', 'testContract', 'sendRewards', '{ "quantity": "5.99999999", "to": "testContract2", "isSignedWithActiveKey": true }'));
 
       block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1518,7 +1596,7 @@ describe('Tokens smart contract', () => {
         params: '',
         code: base64SmartContractCode2,
       };
-      
+
       let transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload2)));
@@ -1537,10 +1615,13 @@ describe('Tokens smart contract', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'Satoshi', 'testContract', 'invalidParams', '{ "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1582,15 +1663,18 @@ describe('sscstore smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1626,15 +1710,18 @@ describe('sscstore smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "Satoshi", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1658,10 +1745,13 @@ describe('sscstore smart contract', () => {
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1698,15 +1788,18 @@ describe('sscstore smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -1743,16 +1836,19 @@ describe('sscstore smart contract', () => {
       await loadPlugin(blockchain);
 
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      
+
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1000000, "disabled": false }'));
 
       let block = {
+        refSteemBlockNumber: 30529000,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
-      
+
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {

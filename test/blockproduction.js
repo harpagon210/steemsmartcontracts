@@ -101,7 +101,7 @@ const unloadPlugin = (plugin) => {
 
 // voting
 describe.skip('Voting', () => {
-  it('should stake tokens', (done) => {
+  it.skip('should stake tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -110,11 +110,13 @@ describe.skip('Voting', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": 100, "to": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -122,7 +124,7 @@ describe.skip('Voting', () => {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       const result = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" } } });
       const stake = res.payload;
 
       // should have an active staking
@@ -130,9 +132,9 @@ describe.skip('Voting', () => {
       assert.equal(stake.balance, 30.0001);
       assert.equal(stake.stakedBlockNumber, 123456789);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" } } });
       const balance = res.payload;
-      
+
       // the balance should reflect the staking
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.balance, 69.9999);
@@ -146,7 +148,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should unstake tokens', (done) => {
+  it.skip('should unstake tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -160,6 +162,9 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30.0001 }'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -170,24 +175,27 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789 + BP_CONSTANTS.STAKE_WITHDRAWAL_COOLDOWN, 'TXID1237', 'satoshi', 'blockProduction', 'unstake', '{ "quantity": 10 }'));
 
       block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" } } });
 
       let stake = res.payload;
-      
+
       // should have an active staking minus the unstake
       assert.equal(stake.account, 'satoshi');
       assert.equal(stake.balance, 20.0001);
       assert.equal(stake.stakedBlockNumber, 123456789);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" } } });
       let balance = res.payload;
-      
+
       // the balance should reflect the staking
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.balance, 79.9999);
@@ -196,19 +204,22 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789 + BP_CONSTANTS.STAKE_WITHDRAWAL_COOLDOWN, 'TXID1238', 'satoshi', 'blockProduction', 'unstake', '{ "quantity": 20.0001 }'));
 
       block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_STAKES_TABLE, query: { account: "satoshi" } } });
       stake = res.payload;
-      
+
       // should not have an active staking
       assert.equal(stake, null);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'tokens', table: 'balances', query: { account: "satoshi" } } });
       balance = res.payload;
 
       // the balance should reflect the staking
@@ -224,7 +235,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should not stake tokens', (done) => {
+  it.skip('should not stake tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -240,6 +251,9 @@ describe.skip('Voting', () => {
 
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -266,7 +280,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should not unstake tokens', (done) => {
+  it.skip('should not unstake tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -284,6 +298,9 @@ describe.skip('Voting', () => {
 
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -311,7 +328,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should register a node', (done) => {
+  it.skip('should register a node', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -323,13 +340,16 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'harpagon', 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" } } });
       const producer = res.payload;
 
       assert.equal(producer.account, 'harpagon');
@@ -345,7 +365,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should vote', (done) => {
+  it.skip('should vote', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -360,18 +380,21 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" } } });
       let producer = res.payload;
 
       assert.equal(producer.power, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" } } });
       let userVotes = res.payload;
       assert.equal(userVotes.account, 'satoshi');
       assert.equal(userVotes.votes[0], 'harpagon');
@@ -380,18 +403,21 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'stake', '{ "quantity": 30 }'));
 
       block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: "harpagon" } } });
       producer = res.payload;
 
       assert.equal(producer.power, 30);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" } } });
       userVotes = res.payload;
       assert.equal(userVotes.account, 'satoshi');
       assert.equal(userVotes.votes[0], 'harpagon');
@@ -405,7 +431,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should unvote', (done) => {
+  it.skip('should unvote', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -423,13 +449,16 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'vote', '{ "producer": "vitalik"}'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in': ['harpagon', 'vitalik'] } } } });
       let producers = res.payload;
 
       assert.equal(producers[0].account, 'harpagon');
@@ -437,7 +466,7 @@ describe.skip('Voting', () => {
       assert.equal(producers[1].account, 'vitalik');
       assert.equal(producers[1].power, 30.0001);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" } } });
       let userVotes = res.payload;
       assert.equal(userVotes.account, 'satoshi');
       assert.equal(userVotes.votes[0], 'harpagon');
@@ -447,13 +476,16 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unvote', '{ "producer": "harpagon" }'));
 
       block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in': ['harpagon', 'vitalik'] } } } });
       producers = res.payload;
 
       assert.equal(producers[0].account, 'harpagon');
@@ -461,7 +493,7 @@ describe.skip('Voting', () => {
       assert.equal(producers[1].account, 'vitalik');
       assert.equal(producers[1].power, 30.0001);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" } } });
       userVotes = res.payload;
       assert.equal(userVotes.votes[0], 'vitalik');
 
@@ -469,13 +501,16 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'satoshi', 'blockProduction', 'unvote', '{ "producer": "vitalik" }'));
 
       block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in' : ['harpagon', 'vitalik'] } }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_PRODUCERS_TABLE, query: { account: { '$in': ['harpagon', 'vitalik'] } } } });
       producers = res.payload;
 
       assert.equal(producers[0].account, 'harpagon');
@@ -483,7 +518,7 @@ describe.skip('Voting', () => {
       assert.equal(producers[1].account, 'vitalik');
       assert.equal(producers[1].power, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" }} });
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: BP_CONSTANTS.CONTRACT_NAME, table: BP_CONSTANTS.BP_VOTES_TABLE, query: { account: "satoshi" } } });
       userVotes = res.payload;
       assert.equal(userVotes, null);
 
@@ -496,7 +531,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should rank the producers by power', (done) => {
+  it.skip('should rank the producers by power', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -525,6 +560,9 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(123456789, 'TXID1236', 'vitalik', 'blockProduction', 'vote', '{ "producer": "harpagon"}'));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -538,11 +576,11 @@ describe.skip('Voting', () => {
           table: BP_CONSTANTS.BP_PRODUCERS_TABLE,
           query: {
             account: {
-              '$in' : ['harpagon', 'vitalik', 'satoshi']
+              '$in': ['harpagon', 'vitalik', 'satoshi']
             }
           },
           indexes: [{ index: 'power', descending: true }],
-        } 
+        }
       });
 
       let producers = res.payload;
@@ -577,6 +615,9 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(2000001, 'TXID1236', 'vitalik', 'accounts', 'register', ''));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -590,7 +631,7 @@ describe.skip('Voting', () => {
           table: BP_CONSTANTS.BP_REWARDS_TABLE,
           query: {
           },
-        } 
+        }
       });
 
       let rewardsParams = res.payload;
@@ -599,7 +640,7 @@ describe.skip('Voting', () => {
       assert.equal(rewardsParams.inflationRate, BP_CONSTANTS.INITIAL_INFLATION_RATE);
 
       // the rewardsPerBlockPerProducer should be (0.01% of the total supply) / (the number of blocks * the number of block producers)
-      assert.equal(rewardsParams.rewardsPerBlockPerProducer, 0.05394118);
+      assert.equal(rewardsParams.rewardsPerBlockPerProducer, '0.00086305');
 
       resolve();
     })
@@ -610,7 +651,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should update the inflation rate until MINIMUM_INFLATION_RATE is reached', (done) => {
+  it.skip('should update the inflation rate until MINIMUM_INFLATION_RATE is reached', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -622,6 +663,9 @@ describe.skip('Voting', () => {
       transactions.push(new Transaction(2000001, 'TXID1234', 'satoshi', 'accounts', 'register', ''));
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -636,20 +680,23 @@ describe.skip('Voting', () => {
 
       for (let index = 1; index < maxLoop; index++) {
         lastBlockNumber += BP_CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE + 1;
-        const totalRewards = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(inflationRate).divide(BP_CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR);
+        const totalRewards = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION }).multiply(inflationRate).divide(BP_CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR);
         inflationRate = currency(inflationRate, { precision: 4 }).subtract(BP_CONSTANTS.INFLATION_RATE_DECREASING_RATE);
 
-        totalSupply = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).add(totalRewards);
+        totalSupply = currency(totalSupply, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION }).add(totalRewards);
         transactions = [];
         transactions.push(new Transaction(lastBlockNumber, 'TXID1234', 'null', 'tokens', 'issue', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": ${totalRewards}, "to": "satoshi", "isSignedWithActiveKey": true }`));
-  
+
         block = {
+          refSteemBlockNumber: lastBlockNumber,
+          refSteemBlockId: 'ABCD1',
+          prevRefSteemBlockId: 'ABCD2',
           timestamp: '2018-06-01T00:00:00',
           transactions,
         };
-  
+
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-  
+
         let res = await send(database.PLUGIN_NAME, 'MASTER', {
           action: database.PLUGIN_ACTIONS.FIND_ONE,
           payload: {
@@ -657,9 +704,9 @@ describe.skip('Voting', () => {
             table: BP_CONSTANTS.BP_REWARDS_TABLE,
             query: {
             },
-          } 
+          }
         });
-  
+
         let rewardsParams = res.payload;
 
         if (inflationRate <= BP_CONSTANTS.MINIMUM_INFLATION_RATE) {
@@ -679,7 +726,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should reward the top NB_BLOCK_PRODUCERS block producers after a block is produced', (done) => {
+  it.skip('should reward the top NB_BLOCK_PRODUCERS block producers after a block is produced', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -693,7 +740,7 @@ describe.skip('Voting', () => {
 
       // register block producers
       for (let index = 0; index < 50; index++) {
-        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));        
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
       }
 
       // stake
@@ -701,10 +748,13 @@ describe.skip('Voting', () => {
 
       // vote
       for (let index = 0; index < 30; index++) {
-        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));        
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));
       }
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -721,14 +771,14 @@ describe.skip('Voting', () => {
           index: 'power',
           descending: true,
           limit: BP_CONSTANTS.NB_BLOCK_PRODUCERS + 10
-        } 
+        }
       });
 
       let producers = res.payload;
 
       for (let index = 0; index < producers.length; index++) {
         const producer = producers[index];
-        
+
         if (index < BP_CONSTANTS.NB_VOTES_ALLOWED) {
           assert.equal(producer.power, 100);
         } else {
@@ -754,7 +804,7 @@ describe.skip('Voting', () => {
           table: BP_CONSTANTS.BP_REWARDS_TABLE,
           query: {
           },
-        } 
+        }
       });
 
       let rewardsParams = res.payload;
@@ -775,7 +825,7 @@ describe.skip('Voting', () => {
       });
   });
 
-  it('should allocate tokens to the proposal system after a block is produced', (done) => {
+  it.skip('should allocate tokens to the proposal system after a block is produced', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -789,7 +839,7 @@ describe.skip('Voting', () => {
 
       // register block producers
       for (let index = 0; index < 50; index++) {
-        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));        
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, `bp${index}`, 'blockProduction', 'registerNode', '{ "url": "https://mynode.com"}'));
       }
 
       // stake
@@ -797,10 +847,13 @@ describe.skip('Voting', () => {
 
       // vote
       for (let index = 0; index < 30; index++) {
-        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));        
+        transactions.push(new Transaction(123456789, `TXID1236${index}`, 'harpagon', 'blockProduction', 'vote', `{ "producer": "bp${index}" }`));
       }
 
       let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -825,13 +878,13 @@ describe.skip('Voting', () => {
           table: BP_CONSTANTS.BP_REWARDS_TABLE,
           query: {
           },
-        } 
+        }
       });
 
       let rewardsParams = res.payload;
 
-      assert.equal(balance.balance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
-      assert.equal(rewardsParams.proposalSystemBalance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION}).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
+      assert.equal(balance.balance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION }).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
+      assert.equal(rewardsParams.proposalSystemBalance, currency(rewardsParams.rewardsPerBlockPerProducer, { precision: BP_CONSTANTS.UTILITY_TOKEN_PRECISION }).multiply(BP_CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS));
 
       resolve();
     })
@@ -841,5 +894,5 @@ describe.skip('Voting', () => {
         done();
       });
   });
-  
+
 });

@@ -170,6 +170,9 @@ async function getBlock(reject) {
           {
             // we timestamp the block with the Steem block timestamp
             timestamp: block.timestamp,
+            refSteemBlockNumber: block.blockNumber,
+            refSteemBlockId: block.block_id,
+            prevRefSteemBlockId: block.previous,
             transactions: parseTransactions(
               currentBlock,
               block,

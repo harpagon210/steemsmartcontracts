@@ -8,9 +8,11 @@ const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
 
 class Block {
-  constructor(timestamp, transactions, previousBlockNumber, previousHash = '', previousDatabaseHash = '') {
+  constructor(timestamp, refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, previousBlockNumber, previousHash = '', previousDatabaseHash = '') {
     this.blockNumber = previousBlockNumber + 1;
-    this.refSteemBlockNumber = transactions.length > 0 ? transactions[0].refSteemBlockNumber : 0;
+    this.refSteemBlockNumber = refSteemBlockNumber;
+    this.refSteemBlockId = refSteemBlockId;
+    this.prevRefSteemBlockId = prevRefSteemBlockId;
     this.previousHash = previousHash;
     this.previousDatabaseHash = previousDatabaseHash;
     this.timestamp = timestamp;
@@ -28,6 +30,8 @@ class Block {
       + this.previousDatabaseHash
       + this.blockNumber.toString()
       + this.refSteemBlockNumber.toString()
+      + this.refSteemBlockId
+      + this.prevRefSteemBlockId
       + this.timestamp
       + JSON.stringify(this.transactions) // eslint-disable-line
     )
@@ -100,16 +104,19 @@ class Block {
 
           if (authorizedAccountContractDeployment.includes(sender)) {
             results = await SmartContracts.deploySmartContract( // eslint-disable-line
-              ipc, transaction, this.timestamp, jsVMTimeout,
+              ipc, transaction, this.timestamp,
+              this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
             );
           } else {
             results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
           }
         } else if (contract === 'blockProduction' && payload) {
-          results = await bp.processTransaction(transaction); // eslint-disable-line
+          // results = await bp.processTransaction(transaction); // eslint-disable-line
+          results = { logs: { errors: ['blockProduction contract not available'] } };
         } else {
           results = await SmartContracts.executeSmartContract(// eslint-disable-line
-            ipc, transaction, this.timestamp, jsVMTimeout,
+            ipc, transaction, this.timestamp,
+            this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
           );
         }
       } else {

@@ -13,8 +13,8 @@ class Bootstrap {
     const FORK_BLOCK_NUMBER = 30896500;
     const FORK_BLOCK_NUMBER_TWO = 30983000;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
-    const STEEM_PEGGED_ACCOUNT = 'steemsc';
-    const INITIAL_TOKEN_CREATION_FEE = '0';
+    const STEEM_PEGGED_ACCOUNT = 'steem-peg';
+    const INITIAL_TOKEN_CREATION_FEE = '100';
 
 
     // tokens contract
@@ -788,12 +788,12 @@ class Bootstrap {
             const memo = 'withdrawal tx ' + transactionId;
 
             await initiateWithdrawal(transactionId, sender, quantityToSend, memo);
-          }
-        }
 
-        if (BigNumber(fee).gt(0)) {
-          const memo = 'fee tx ' + transactionId;
-          await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+            if (BigNumber(fee).gt(0)) {
+              const memo = 'fee tx ' + transactionId;
+              await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+            }
+          }
         }
       }
     }
