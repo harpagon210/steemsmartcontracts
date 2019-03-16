@@ -1442,4 +1442,97 @@ describe('Smart Contracts', () => {
         done();
       });
   });
+
+  it('should generate random numbers in a deterministic way', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const smartContractCode = `
+        actions.createSSC = async (payload) => {
+          // Initialize the smart contract via the create action
+        }
+
+        actions.generateRandomNumbers = async (payload) => {
+          let generatedRandom = rng();
+
+          emit('random_generated', { generatedRandom })
+
+          generatedRandom = rng();
+
+          emit('random_generated', { generatedRandom })
+        }
+      `;
+
+      const base64SmartContractCode = Base64.encode(smartContractCode);
+
+      const contractPayload = {
+        name: 'random',
+        params: '',
+        code: base64SmartContractCode,
+      };
+
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'random', 'generateRandomNumbers', ''));
+
+      let block = {
+        refSteemBlockNumber: 123456789,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
+      let latestBlock = res.payload;
+
+      let txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
+
+      let logs = JSON.parse(txs[0].logs);
+
+      assert.equal(logs.events[0].event, 'random_generated');
+      assert.equal(logs.events[0].data.generatedRandom, 0.04779785670324099);
+      assert.equal(logs.events[1].event, 'random_generated');
+      assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
+
+      transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'random', 'generateRandomNumbers', ''));
+
+      block = {
+        refSteemBlockNumber: 123456789,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
+      latestBlock = res.payload;
+
+      txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
+
+      logs = JSON.parse(txs[0].logs);
+
+      assert.equal(logs.events[0].event, 'random_generated');
+      assert.equal(logs.events[0].data.generatedRandom, 0.04779785670324099);
+      assert.equal(logs.events[1].event, 'random_generated');
+      assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
 });
