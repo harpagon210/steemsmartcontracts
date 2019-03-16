@@ -98,7 +98,7 @@ const unloadPlugin = (plugin) => {
 }
 
 const FORK_BLOCK_NUMBER = 30896500;
-const SSC_STORE_QTY = '1';
+const SSC_STORE_QTY = '0.001';
 
 // tokens
 describe('Tokens smart contract', () => {
