@@ -1,5 +1,5 @@
 {
-    "chainId": "00000000000000000002",
+    "chainId": "mainnet1",
     "rpcNodePort": 5000,
     "dataDirectory": "./data/",
     "databaseFileName": "database.db",
