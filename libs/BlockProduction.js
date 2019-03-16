@@ -1,4 +1,5 @@
 const currency = require('currency.js');
+const BigNumber = require('bignumber.js');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
@@ -45,9 +46,11 @@ class BlockProduction {
       contracts.insert(bpContract);
 
       // calculate rewards parameters
-      const totalRewards = CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY
-        * CONSTANTS.INITIAL_INFLATION_RATE
-        / CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR;
+      const totalRewards = BigNumber(CONSTANTS.UTILITY_TOKEN_INITIAL_SUPPLY)
+        .multipliedBy(CONSTANTS.INITIAL_INFLATION_RATE)
+        .dividedBy(CONSTANTS.NB_INFLATION_DECREASE_PER_YEAR)
+        .toFixed(CONSTANTS.UTILITY_TOKEN_PRECISION);
+
       const rewardsPerBlockPerProducer = BlockProduction
         .calculateRewardsPerBlockPerProducer(totalRewards);
 
@@ -66,7 +69,7 @@ class BlockProduction {
       // issue tokens to the initial accounts
       balancesTable.insert(CONSTANTS.INITIAL_BALANCES);
     } else {
-      throw Object.assign({ error: 'MissingContractException', message: 'The tokens and accounts contracts are missing, you need to bootstrap them.' });
+      throw Object.assign({ error: 'MissingContractException', message: 'The tokens contract is missing, you need to bootstrap it.' });
     }
   }
 
@@ -78,25 +81,26 @@ class BlockProduction {
   }
 
   static calculateRewardsPerBlockPerProducer(totalRewards) {
-    const rewardsPerBlock = totalRewards / CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE;
-    const nbUnitsToReward = CONSTANTS.NB_BLOCK_PRODUCERS + CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS;
+    const rewardsPerBlock = BigNumber(totalRewards)
+      .dividedBy(CONSTANTS.NB_BLOCKS_UPDATE_INFLATION_RATE)
+      .toFixed(CONSTANTS.UTILITY_TOKEN_PRECISION);
 
-    let rewardsPerBlockPerBP = currency(
-      rewardsPerBlock,
-      { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
-    ).divide(nbUnitsToReward).value;
+    const nbUnitsToReward = BigNumber(CONSTANTS.NB_BLOCK_PRODUCERS)
+      .plus(CONSTANTS.PROPOSAL_SYSTEM_REWARD_UNITS);
 
-    const calculatedRewardsPerBlock = currency(
-      rewardsPerBlockPerBP,
-      { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
-    ).multiply(nbUnitsToReward).value;
+    let rewardsPerBlockPerBP = BigNumber(rewardsPerBlock)
+      .dividedBy(nbUnitsToReward)
+      .toFixed(CONSTANTS.UTILITY_TOKEN_PRECISION);
 
-    if (calculatedRewardsPerBlock > rewardsPerBlock) {
+    const calculatedRewardsPerBlock = BigNumber(rewardsPerBlockPerBP)
+      .multipliedBy(nbUnitsToReward)
+      .toFixed(CONSTANTS.UTILITY_TOKEN_PRECISION);
+
+    if (BigNumber(calculatedRewardsPerBlock).gt(rewardsPerBlock)) {
       // console.log('adjusting rewardsPerBlockPerBP');
-      rewardsPerBlockPerBP = currency(
-        rewardsPerBlockPerBP,
-        { precision: CONSTANTS.UTILITY_TOKEN_PRECISION },
-      ).subtract(CONSTANTS.MINIMUM_TOKEN_VALUE).value;
+      rewardsPerBlockPerBP = BigNumber(rewardsPerBlockPerBP)
+        .minus(CONSTANTS.MINIMUM_TOKEN_VALUE)
+        .toFixed(CONSTANTS.UTILITY_TOKEN_PRECISION);
     }
 
     return rewardsPerBlockPerBP;

@@ -11,6 +11,7 @@ class Transaction {
     this.payload = typeof payload === 'string' ? payload : null;
     this.executedCodeHash = '';
     this.hash = '';
+    this.databaseHash = '';
     this.logs = {};
   }
 
@@ -41,6 +42,7 @@ class Transaction {
       + this.action
       + this.payload
       + this.executedCodeHash
+      + this.databaseHash
       + this.logs,
     )
       .toString(enchex);

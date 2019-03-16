@@ -4,6 +4,7 @@ const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const BigNumber = require('bignumber.js');
 const validator = require('validator');
+const seedrandom = require('seedrandom');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
@@ -13,7 +14,9 @@ const RESERVED_ACTIONS = ['createSSC'];
 
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
-  static async deploySmartContract(ipc, transaction, timestamp, jsVMTimeout) {
+  static async deploySmartContract(
+    ipc, transaction, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+  ) {
     try {
       const { transactionId, refSteemBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
@@ -73,7 +76,7 @@ class SmartContracts {
         // compile the code for faster executions later on
         const script = new VMScript(codeTemplate).compile();
 
-        const tables = [];
+        const tables = {};
 
         // prepare the db object that will be available in the VM
         const db = {
@@ -107,6 +110,8 @@ class SmartContracts {
           events: [],
         };
 
+        const rng = seedrandom(`${prevRefSteemBlockId}${refSteemBlockId}${transactionId}`);
+
         // initialize the state that will be available in the VM
         const vmState = {
           action: 'createSSC',
@@ -117,13 +122,15 @@ class SmartContracts {
           db,
           BigNumber,
           validator,
+          rng: () => rng(),
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: async (
             contractName, actionName, parameters,
           ) => SmartContracts.executeSmartContractFromSmartContract(
             ipc, logs, sender, params, contractName, actionName,
-            JSON.stringify(parameters), jsVMTimeout,
+            JSON.stringify(parameters),
+            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
           ),
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
@@ -169,7 +176,9 @@ class SmartContracts {
   }
 
   // execute the smart contract and perform actions on the database if needed
-  static async executeSmartContract(ipc, transaction, timestamp, jsVMTimeout) {
+  static async executeSmartContract(
+    ipc, transaction, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+  ) {
     try {
       const {
         transactionId,
@@ -235,6 +244,8 @@ class SmartContracts {
         },
       };
 
+      const rng = seedrandom(`${prevRefSteemBlockId}${refSteemBlockId}${transactionId}`);
+
       // initialize the state that will be available in the VM
       const vmState = {
         sender,
@@ -247,13 +258,15 @@ class SmartContracts {
         db,
         BigNumber,
         validator,
+        rng: () => rng(),
         debug: log => console.log(log), // eslint-disable-line no-console
         // execute a smart contract from the current smart contract
         executeSmartContract: async (
           contractName, actionName, parameters,
         ) => SmartContracts.executeSmartContractFromSmartContract(
           ipc, results, sender, payloadObj, contractName, actionName,
-          JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
+          JSON.stringify(parameters),
+          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
         ),
         // execute a smart contract from the current smart contract
         // with the contractOwner authority level
@@ -261,7 +274,8 @@ class SmartContracts {
           contractName, actionName, parameters,
         ) => SmartContracts.executeSmartContractFromSmartContract(
           ipc, results, contractOwner, payloadObj, contractName, actionName,
-          JSON.stringify(parameters), refSteemBlockNumber, jsVMTimeout,
+          JSON.stringify(parameters),
+          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
         ),
         // execute a token transfer from the contract balance
         transferTokens: async (
@@ -274,7 +288,8 @@ class SmartContracts {
             quantity,
             symbol,
             type,
-          }), refSteemBlockNumber, jsVMTimeout,
+          }),
+          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
         ),
         // emit an event that will be stored in the logs
         emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
@@ -332,7 +347,9 @@ class SmartContracts {
 
   static async executeSmartContractFromSmartContract(
     ipc, originalResults, sender, originalParameters,
-    contract, action, parameters, refSteemBlockNumber, jsVMTimeout,
+    contract, action, parameters,
+    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
+    jsVMTimeout,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
@@ -362,6 +379,8 @@ class SmartContracts {
           payload: JSON.stringify(sanitizedParams),
           refSteemBlockNumber,
         },
+        refSteemBlockId,
+        prevRefSteemBlockId,
         jsVMTimeout,
       );
 
@@ -418,7 +437,13 @@ class SmartContracts {
     if (res.payload === true) {
       // add the table name to the list of table available for this contract
       const finalTableName = `${contractName}_${tableName}`;
-      if (!tables.includes(finalTableName)) tables.push(finalTableName);
+      if (tables[finalTableName] === undefined) {
+        tables[finalTableName] = { // eslint-disable-line
+          size: 0,
+          hash: '',
+          nbIndexes: indexes.length,
+        };
+      }
     }
   }
 

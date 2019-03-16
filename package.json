@@ -27,6 +27,7 @@
     "lokijs": "^1.5.6",
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
+    "seedrandom": "^3.0.1",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
     "winston": "^3.1.0"

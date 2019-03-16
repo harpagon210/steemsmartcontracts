@@ -34,7 +34,7 @@ async function createGenesisBlock(payload, callback) {
   const genesisTransactions = Bootstrap.getBootstrapTransactions(genesisSteemBlock);
   genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
 
-  const genesisBlock = new Block('2018-06-01T00:00:00', genesisTransactions, -1, '0');
+  const genesisBlock = new Block('2018-06-01T00:00:00', 0, '', '', genesisTransactions, -1, '0');
   await genesisBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);
   return callback(genesisBlock);
 }
@@ -48,15 +48,21 @@ function addBlock(block) {
 }
 
 // produce all the pending transactions, that will result in the creation of a block
-async function producePendingTransactions(transactions, timestamp) {
+async function producePendingTransactions(
+  refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
+) {
   const res = await getLatestBlock();
   if (res) {
     const previousBlock = res.payload;
     const newBlock = new Block(
       timestamp,
+      refSteemBlockNumber,
+      refSteemBlockId,
+      prevRefSteemBlockId,
       transactions,
       previousBlock.blockNumber,
       previousBlock.hash,
+      previousBlock.databaseHash,
     );
 
     await newBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);
@@ -72,7 +78,9 @@ actions.produceNewBlock = async (block) => {
   if (stopRequested) return;
   producing = true;
   // the stream parsed transactions from the Steem blockchain
-  const { transactions, timestamp } = block;
+  const {
+    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
+  } = block;
   const newTransactions = [];
 
   transactions.forEach((transaction) => {
@@ -88,7 +96,9 @@ actions.produceNewBlock = async (block) => {
 
   // if there are transactions pending we produce a block
   if (newTransactions.length > 0) {
-    await producePendingTransactions(newTransactions, timestamp);
+    await producePendingTransactions(
+      refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, newTransactions, timestamp,
+    );
   }
   producing = false;
 };
@@ -97,7 +107,9 @@ const produceNewBlockSync = async (block, callback = null) => {
   if (stopRequested) return;
   producing = true;
   // the stream parsed transactions from the Steem blockchain
-  const { transactions, timestamp } = block;
+  const {
+    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
+  } = block;
   const newTransactions = [];
 
   transactions.forEach((transaction) => {
@@ -113,7 +125,9 @@ const produceNewBlockSync = async (block, callback = null) => {
 
   // if there are transactions pending we produce a block
   if (newTransactions.length > 0) {
-    await producePendingTransactions(newTransactions, timestamp);
+    await producePendingTransactions(
+      refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, newTransactions, timestamp,
+    );
   }
   producing = false;
 

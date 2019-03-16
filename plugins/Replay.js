@@ -1,6 +1,7 @@
 const fs = require('fs');
 const readLastLines = require('read-last-lines');
 const LineByLineReader = require('line-by-line');
+const dsteem = require('dsteem');
 const { IPC } = require('../libs/IPC');
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
@@ -9,10 +10,13 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Replay.constants');
 const PLUGIN_PATH = require.resolve(__filename);
 
 const ipc = new IPC(PLUGIN_NAME);
+let steemClient = null;
+
 
 let currentSteemBlock = 0;
 let currentBlock = 0;
 let filePath = '';
+let steemNode = '';
 
 function getCurrentBlock() {
   return currentBlock;
@@ -47,14 +51,35 @@ function replayFile(callback) {
         lr.pause();
         if (line !== '') {
           const block = JSON.parse(line);
-          const { blockNumber, timestamp, transactions } = block;
+          const {
+            blockNumber,
+            timestamp,
+            transactions,
+            refSteemBlockNumber,
+            refSteemBlockId,
+            prevRefSteemBlockId,
+          } = block;
+
+          let finalRefSteemBlockId = refSteemBlockId;
+          let finalPrevRefSteemBlockId = prevRefSteemBlockId;
+
           if (blockNumber !== 0) {
             currentSteemBlock = transactions[0].refSteemBlockNumber;
             currentBlock = blockNumber;
             console.log(`replaying block ${currentBlock} / ${lastBockNumber}`); // eslint-disable-line no-console
+
+            if (steemClient !== null && finalRefSteemBlockId === undefined) {
+              const steemBlock = await steemClient.database.getBlock(refSteemBlockNumber);
+              finalRefSteemBlockId = steemBlock.block_id;
+              finalPrevRefSteemBlockId = steemBlock.previous;
+            }
+
             await sendBlock({
               blockNumber,
               timestamp,
+              refSteemBlockNumber,
+              refSteemBlockId: finalRefSteemBlockId,
+              prevRefSteemBlockId: finalPrevRefSteemBlockId,
               transactions,
             });
           }
@@ -78,8 +103,10 @@ function replayFile(callback) {
 }
 
 function init(payload) {
-  const { blocksLogFilePath } = payload;
+  const { blocksLogFilePath, streamNodes } = payload;
   filePath = blocksLogFilePath;
+  steemNode = streamNodes[0]; // eslint-disable-line
+  steemClient = process.env.NODE_ENV === 'test' ? new dsteem.Client('https://testnet.steemitdev.com', { addressPrefix: 'TST', chainId: '46d82ab7d8db682eb1959aed0ada039a6d49afa1602491f93dde9cac3e8e6c32' }) : new dsteem.Client(steemNode);
 }
 
 ipc.onReceiveMessage((message) => {
