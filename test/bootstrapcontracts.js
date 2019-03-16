@@ -98,6 +98,7 @@ const unloadPlugin = (plugin) => {
 }
 
 const FORK_BLOCK_NUMBER = 30896500;
+const SSC_STORE_QTY = '1';
 
 // tokens
 describe('Tokens smart contract', () => {
@@ -161,7 +162,7 @@ describe('Tokens smart contract', () => {
 
       assert.equal(balance.symbol, BP_CONSTANTS.UTILITY_TOKEN_SYMBOL);
       assert.equal(balance.account, 'Harpagon');
-      assert.equal(balance.balance, 0);
+      assert.equal(balance.balance, BigNumber(SSC_STORE_QTY).minus('0.001').toFixed(3));
 
       resolve();
     })
@@ -1691,7 +1692,7 @@ describe('sscstore smart contract', () => {
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(balanceSatoshi.balance, 0.001);
+      assert.equal(balanceSatoshi.balance, SSC_STORE_QTY);
 
       resolve();
     })

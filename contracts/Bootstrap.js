@@ -15,6 +15,8 @@ class Bootstrap {
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
     const STEEM_PEGGED_ACCOUNT = 'steemsc';
     const INITIAL_TOKEN_CREATION_FEE = '0';
+    const SSC_STORE_PRICE = '0.001';
+    const SSC_STORE_QTY = '1';
 
 
     // tokens contract
@@ -644,8 +646,8 @@ class Bootstrap {
       const params = {};
       
       params.priceSBD = "1000000";
-      params.priceSteem = "0.001";
-      params.quantity = "0.001";
+      params.priceSteem = "${SSC_STORE_PRICE}";
+      params.quantity = "${SSC_STORE_QTY}";
       params.disabled = false;
 
       await db.insert('params', params);      
