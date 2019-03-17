@@ -13,10 +13,10 @@ class Bootstrap {
     const FORK_BLOCK_NUMBER = 30896500;
     const FORK_BLOCK_NUMBER_TWO = 30983000;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
-    const STEEM_PEGGED_ACCOUNT = 'steem-peg';
-    const INITIAL_TOKEN_CREATION_FEE = '100';
+    const STEEM_PEGGED_ACCOUNT = 'steemsc';
+    const INITIAL_TOKEN_CREATION_FEE = '0';
     const SSC_STORE_PRICE = '0.001';
-    const SSC_STORE_QTY = '0.001';
+    const SSC_STORE_QTY = '1';
 
 
     // tokens contract
