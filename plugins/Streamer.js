@@ -39,7 +39,11 @@ function parseTransactions(refBlockNumber, block) {
   const transactionsLength = block.transactions.length;
 
   for (let i = 0; i < transactionsLength; i += 1) {
-    block.transactions[i].operations.forEach((operation) => { // eslint-disable-line no-loop-func
+    const nbOperations = block.transactions[i].operations.length;
+    let nbValidOperations = 0;
+    for (let indexOp = 0; indexOp < nbOperations; indexOp += 1) {
+      const operation = block.transactions[i].operations[indexOp];
+
       if (operation[0] === 'custom_json' || operation[0] === 'transfer' || operation[0] === 'comment') {
         try {
           let id = null;
@@ -123,8 +127,17 @@ function parseTransactions(refBlockNumber, block) {
 
                 // if multi transactions
                 // append the index of the transaction to the Steem transaction id
-                const SSCtransactionId = nbTransactions > 1
-                  ? `${block.transaction_ids[i]}-${index}` : `${block.transaction_ids[i]}`;
+                let SSCtransactionId = block.transaction_ids[i];
+
+                if (nbValidOperations > 0) {
+                  SSCtransactionId = `${SSCtransactionId}-${indexOp}`;
+                }
+
+                if (nbTransactions > 0) {
+                  SSCtransactionId = `${SSCtransactionId}-${index}`;
+                }
+
+                nbValidOperations += 1;
 
                 newTransactions.push(
                   new Transaction(
@@ -143,7 +156,7 @@ function parseTransactions(refBlockNumber, block) {
           // console.error('Invalid transaction', e); // eslint-disable-line no-console
         }
       }
-    });
+    }
   }
 
   return newTransactions;
