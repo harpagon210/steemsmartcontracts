@@ -74,22 +74,6 @@ function replayFile(callback) {
               finalPrevRefSteemBlockId = steemBlock.previous;
             }
 
-            // fix transaction ids
-
-            const nbTxs = transactions.length;
-
-            if (nbTxs > 1) {
-              for (let index = 1; index < nbTxs; index += 1) {
-                const tx = transactions[index];
-                const prevTx = transactions[index - 1];
-
-                if (tx.transactionId === prevTx.transactionId) {
-                  transactions[index - 1].transactionId = `${transactions[index].transactionId}-${index - 1}`;
-                  transactions[index].transactionId = `${transactions[index].transactionId}-${index}`;
-                }
-              }
-            }
-
             await sendBlock({
               blockNumber,
               timestamp,
