@@ -133,7 +133,7 @@ function parseTransactions(refBlockNumber, block) {
                   SSCtransactionId = `${SSCtransactionId}-${indexOp}`;
                 }
 
-                if (nbTransactions > 0) {
+                if (nbTransactions > 1) {
                   SSCtransactionId = `${SSCtransactionId}-${index}`;
                 }
 
