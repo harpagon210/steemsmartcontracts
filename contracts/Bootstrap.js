@@ -805,12 +805,13 @@ class Bootstrap {
 
       if (api.sender !== api.owner) return;
 
-      if (api.refSteemBlockNumber >= 31248438 && api.refSteemBlockNumber <= 31262296) {
-        id = id.replace('-0', '');
-      }
-
       if (id && isSignedWithActiveKey) {
-        const withdrawal = await api.db.findOne('withdrawals', { id });
+        let finalId = id;
+        if (api.refSteemBlockNumber >= 31248438 && api.refSteemBlockNumber <= 31262296) {
+          finalId = finalId.replace('-0', '');
+        }
+
+        const withdrawal = await api.db.findOne('withdrawals', { id: finalId });
 
         if (withdrawal) {
           await api.db.remove('withdrawals', withdrawal);
