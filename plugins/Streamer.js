@@ -129,7 +129,7 @@ function parseTransactions(refBlockNumber, block) {
                 // append the index of the transaction to the Steem transaction id
                 let SSCtransactionId = block.transaction_ids[i];
 
-                if (nbOperations > 0) {
+                if (nbOperations > 1) {
                   SSCtransactionId = `${SSCtransactionId}-${indexOp}`;
                 }
 
