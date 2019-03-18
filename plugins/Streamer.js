@@ -40,7 +40,7 @@ function parseTransactions(refBlockNumber, block) {
 
   for (let i = 0; i < transactionsLength; i += 1) {
     const nbOperations = block.transactions[i].operations.length;
-    let nbValidOperations = 0;
+
     for (let indexOp = 0; indexOp < nbOperations; indexOp += 1) {
       const operation = block.transactions[i].operations[indexOp];
 
@@ -129,15 +129,13 @@ function parseTransactions(refBlockNumber, block) {
                 // append the index of the transaction to the Steem transaction id
                 let SSCtransactionId = block.transaction_ids[i];
 
-                if (nbValidOperations > 0) {
+                if (nbOperations > 0) {
                   SSCtransactionId = `${SSCtransactionId}-${indexOp}`;
                 }
 
                 if (nbTransactions > 1) {
                   SSCtransactionId = `${SSCtransactionId}-${index}`;
                 }
-
-                nbValidOperations += 1;
 
                 newTransactions.push(
                   new Transaction(
