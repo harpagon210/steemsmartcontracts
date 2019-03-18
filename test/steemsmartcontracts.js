@@ -228,7 +228,7 @@ describe('Smart Contracts', () => {
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
-          await db.createTable('testTable');
+          await api.db.createTable('testTable');
         }
       `;
 
@@ -282,7 +282,7 @@ describe('Smart Contracts', () => {
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
-          await db.createTable('testTable', ['index1', 'index2']);
+          await api.db.createTable('testTable', ['index1', 'index2']);
         }
       `;
 
@@ -334,15 +334,15 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender
+            'id': api.sender
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
@@ -394,26 +394,26 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender,
-            'username': sender
+            'id': api.sender,
+            'username': api.sender
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
 
         actions.updateUser = async (payload) => {
           const { username } = payload;
           
-          let user = await db.findOne('users', { 'id': sender });
+          let user = await api.db.findOne('users', { 'id': api.sender });
 
           user.username = username;
 
-          await db.update('users', user);
+          await api.db.update('users', user);
         }
       `;
 
@@ -467,22 +467,22 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender,
-            'username': sender
+            'id': api.sender,
+            'username': api.sender
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
 
         actions.removeUser = async (payload) => {
-          let user = await db.findOne('users', { 'id': sender });
+          let user = await api.db.findOne('users', { 'id': api.sender });
 
-          await db.remove('users', user);
+          await api.db.remove('users', user);
         }
       `;
 
@@ -535,16 +535,16 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender,
-            'username': sender
+            'id': api.sender,
+            'username': api.sender
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
@@ -640,18 +640,18 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users', ['age']);
+          await api.db.createTable('users', ['age']);
         }
 
         actions.addUser = async (payload) => {
           const { age } = payload;
 
           const newUser = {
-            'id': sender,
+            'id': api.sender,
             age
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
@@ -751,18 +751,18 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users', ['age']);
+          await api.db.createTable('users', ['age']);
         }
 
         actions.addUser = async (payload) => {
           const { age } = payload;
 
           const newUser = {
-            'id': sender,
+            'id': api.sender,
             age
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
@@ -861,11 +861,11 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
-          if (sender !== owner) return;
+          if (api.sender !== api.owner) return;
 
           const { userId } = payload;
   
@@ -873,7 +873,7 @@ describe('Smart Contracts', () => {
             'id': userId
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
@@ -943,30 +943,30 @@ describe('Smart Contracts', () => {
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender,
-            'username': sender
+            'id': api.sender,
+            'username': api.sender
           };
 
-          await db.insert('users', newUser);
+          await api.db.insert('users', newUser);
         }
       `;
 
       const booksSmartContractCode = `
       actions.createSSC = async (payload) => {
         // Initialize the smart contract via the create action
-        await db.createTable('books');
+        await api.db.createTable('books');
       }
       
       actions.addBook = async (payload) => {
 
         const { title } = payload;
 
-        let user = await db.findOneInTable('usersContract', 'users', { "id": sender });
+        let user = await api.db.findOneInTable('usersContract', 'users', { "id": api.sender });
 
         if (user) {
           const newBook = {
@@ -974,7 +974,7 @@ describe('Smart Contracts', () => {
             title
           };
   
-          await db.insert('books', newBook);
+          await api.db.insert('books', newBook);
         }
       }
     `;
@@ -1036,31 +1036,31 @@ describe('Smart Contracts', () => {
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
-          await db.createTable('users');
+          await api.db.createTable('users');
         }
 
         actions.addUser = async (payload) => {
           const newUser = {
-            'id': sender,
-            'username': sender
+            'id': api.sender,
+            'username': api.sender
           };
 
-          const user = await db.insert('users', newUser);
+          const user = await api.db.insert('users', newUser);
 
-          await executeSmartContract('booksContract', 'addBook', { "title": "The Awesome Book" })
+          await api.executeSmartContract('booksContract', 'addBook', { "title": "The Awesome Book" })
         }
       `;
 
       const booksSmartContractCode = `
       actions.createSSC = async (payload) => {
         // Initialize the smart contract via the create action
-        await db.createTable('books');
+        await api.db.createTable('books');
       }
       
       actions.addBook = async (payload) => {
         const { title } = payload;
         
-        let user = await db.findOneInTable('usersContract', 'users', { "id": sender });
+        let user = await api.db.findOneInTable('usersContract', 'users', { "id": api.sender });
 
         if (user) {
           const newBook = {
@@ -1068,7 +1068,7 @@ describe('Smart Contracts', () => {
             title
           };
 
-          const book = await db.insert('books', newBook);
+          const book = await api.db.insert('books', newBook);
         }
       }
     `;
@@ -1129,7 +1129,7 @@ describe('Smart Contracts', () => {
       const smartContractCode = `
         actions.createSSC = function (payload) {
           // Initialize the smart contract via the create action
-          emit('contract_create', { "contractName": "testContract" })
+          api.emit('contract_create', { "contractName": "testContract" })
         }
       `;
 
@@ -1188,7 +1188,7 @@ describe('Smart Contracts', () => {
         }
 
         actions.addUser = async (payload) => {
-          await executeSmartContract('booksContract', 'addBook', { })
+          await api.executeSmartContract('booksContract', 'addBook', { })
         }
       `;
 
@@ -1198,7 +1198,7 @@ describe('Smart Contracts', () => {
       }
       
       actions.addBook = async (payload) => {
-        emit('contract_create', { "contractName": "testContract" });
+        api.emit('contract_create', { "contractName": "testContract" });
       }
     `;
 
@@ -1380,7 +1380,7 @@ describe('Smart Contracts', () => {
         }
 
         actions.addUser = async (payload) => {
-          await executeSmartContract('booksContract', 'addBook', { })
+          await api.executeSmartContract('booksContract', 'addBook', { })
         }
       `;
 
@@ -1457,13 +1457,13 @@ describe('Smart Contracts', () => {
         }
 
         actions.generateRandomNumbers = async (payload) => {
-          let generatedRandom = rng();
+          let generatedRandom = api.random();
 
-          emit('random_generated', { generatedRandom })
+          api.emit('random_generated', { generatedRandom })
 
-          generatedRandom = rng();
+          generatedRandom = api.random();
 
-          emit('random_generated', { generatedRandom })
+          api.emit('random_generated', { generatedRandom })
         }
       `;
 

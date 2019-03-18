@@ -22,46 +22,46 @@ class Bootstrap {
     // tokens contract
     contractCode = `
     actions.createSSC = async (payload) => {
-        await db.createTable('tokens', ['symbol']);
-        await db.createTable('balances', ['account']);
-        await db.createTable('contractsBalances', ['account']);
-        await db.createTable('params');
+        await api.db.createTable('tokens', ['symbol']);
+        await api.db.createTable('balances', ['account']);
+        await api.db.createTable('contractsBalances', ['account']);
+        await api.db.createTable('params');
     
         const params = {};
         params.tokenCreationFee = "0";
-        await db.insert('params', params);
+        await api.db.insert('params', params);
     }
     
     actions.updateParams = async (payload) => {
-        if (sender !== owner) return;
+        if (api.sender !== api.owner) return;
     
         const { tokenCreationFee } = payload;
     
-        const params = await db.findOne('params', {});
+        const params = await api.db.findOne('params', {});
     
         params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}) : tokenCreationFee;
     
-        await db.update('params', params);
+        await api.db.update('params', params);
     }
     
     actions.updateUrl = async (payload) => {
         const { url, symbol } = payload;
     
-        if (assert(symbol && typeof symbol === 'string'
+        if (api.assert(symbol && typeof symbol === 'string'
             && url && typeof url === 'string', 'invalid params')
-            && assert(url.length <= 255, 'invalid url: max length of 255')) {
+            && api.assert(url.length <= 255, 'invalid url: max length of 255')) {
             // check if the token exists
-            let token = await db.findOne('tokens', { symbol });
+            let token = await api.db.findOne('tokens', { symbol });
     
             if (token) {
-                if (assert(token.issuer === sender, 'must be the issuer')) {
+                if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
                   try {
                     let metadata = JSON.parse(token.metadata);
 
-                    if(assert(metadata && metadata.url, 'an error occured when trying to update the url')) {
+                    if(api.assert(metadata && metadata.url, 'an error occured when trying to update the url')) {
                       metadata.url = url;
                       token.metadata = JSON.stringify(metadata);
-                      await db.update('tokens', token);
+                      await api.db.update('tokens', token);
                     }
                   } catch(e) {
                     // error when parsing the metadata
@@ -74,20 +74,20 @@ class Bootstrap {
     actions.updateMetadata = async (payload) => {
       const { metadata, symbol } = payload;
 
-      if (assert(symbol && typeof symbol === 'string'
+      if (api.assert(symbol && typeof symbol === 'string'
           && metadata && typeof metadata === 'object', 'invalid params')) {
           // check if the token exists
-          let token = await db.findOne('tokens', { symbol });
+          let token = await api.db.findOne('tokens', { symbol });
   
           if (token) {
-              if (assert(token.issuer === sender, 'must be the issuer')) {
+              if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
 
                 try {
                   const finalMetadata = JSON.stringify(metadata);
 
-                  if (assert(finalMetadata.length <= 1000, 'invalid metadata: max length of 1000')) {
+                  if (api.assert(finalMetadata.length <= 1000, 'invalid metadata: max length of 1000')) {
                     token.metadata = finalMetadata;
-                    await db.update('tokens', token);
+                    await api.db.update('tokens', token);
                   }
                 } catch(e) {
                   // error when stringifying the metadata
@@ -101,16 +101,16 @@ class Bootstrap {
         const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
     
         // get contract params
-        const params = await db.findOne('params', {});
+        const params = await api.db.findOne('params', {});
         const { tokenCreationFee } = params;
     
-        // get sender's UTILITY_TOKEN_SYMBOL balance
-        const utilityTokenBalance = await db.findOne('balances', { account: sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
+        // get api.sender's UTILITY_TOKEN_SYMBOL balance
+        const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
     
-        const authorizedCreation = BigNumber(tokenCreationFee).lte("0") ? true : utilityTokenBalance && BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
+        const authorizedCreation = api.BigNumber(tokenCreationFee).lte("0") ? true : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
     
-        if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-            && assert(name && typeof name === 'string'
+        if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
+            && api.assert(name && typeof name === 'string'
                 && symbol && typeof symbol === 'string'
                 && (url === undefined || (url && typeof url === 'string'))
                 && (precision && typeof precision === 'number' || precision === 0)
@@ -118,17 +118,17 @@ class Bootstrap {
     
             // the precision must be between 0 and 8 and must be an integer
             // the max supply must be positive
-            if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
-                && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
-                && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
-                && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
-                && assert(maxSupply > 0, 'maxSupply must be positive')
-                && assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
+            if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
+                && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+                && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
+                && api.assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
+                && api.assert(maxSupply > 0, 'maxSupply must be positive')
+                && api.assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
     
                 // check if the token already exists
-                let token = await db.findOne('tokens', { symbol });
+                let token = await api.db.findOne('tokens', { symbol });
     
-                if (assert(token === null, 'symbol already exists')) {
+                if (api.assert(token === null, 'symbol already exists')) {
                     const finalUrl = url === undefined ? '' : url;
     
                     let metadata = {
@@ -138,7 +138,7 @@ class Bootstrap {
                     metadata = JSON.stringify(metadata);
                     
                     const newToken = {
-                        issuer: sender,
+                        issuer: api.sender,
                         symbol,
                         name,
                         metadata,
@@ -148,11 +148,11 @@ class Bootstrap {
                         circulatingSupply: 0,
                     };
     
-                    await db.insert('tokens', newToken);
+                    await api.db.insert('tokens', newToken);
     
                     // burn the token creation fees
-                    if (BigNumber(tokenCreationFee).gt(0)) {
-                        await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: BigNumber(tokenCreationFee).toNumber(), isSignedWithActiveKey });
+                    if (api.BigNumber(tokenCreationFee).gt(0)) {
+                        await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: api.BigNumber(tokenCreationFee).toNumber(), isSignedWithActiveKey });
                     }
                 }
             }
@@ -163,34 +163,34 @@ class Bootstrap {
         const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
     
         // get contract params
-        const params = await db.findOne('params', {});
+        const params = await api.db.findOne('params', {});
         const { tokenCreationFee } = params;
     
-        // get sender's UTILITY_TOKEN_SYMBOL balance
-        const utilityTokenBalance = await db.findOne('balances', { account: sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
+        // get api.sender's UTILITY_TOKEN_SYMBOL balance
+        const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}" });
     
-        const authorizedCreation = BigNumber(tokenCreationFee).lte(0) ? true : utilityTokenBalance && BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
+        const authorizedCreation = api.BigNumber(tokenCreationFee).lte(0) ? true : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
     
-        if (assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-            && assert(name && typeof name === 'string'
+        if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
+            && api.assert(name && typeof name === 'string'
                 && symbol && typeof symbol === 'string'
                 && (url === undefined || (url && typeof url === 'string'))
                 && (precision && typeof precision === 'number' || precision === 0)
-                && maxSupply && typeof maxSupply === 'string' && !BigNumber(maxSupply).isNaN(), 'invalid params')) {
+                && maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN(), 'invalid params')) {
     
             // the precision must be between 0 and 8 and must be an integer
             // the max supply must be positive
-            if (assert(validator.isAlpha(symbol) && validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
-                && assert(validator.isAlphanumeric(validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
-                && assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
-                && assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
-                && assert(BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
-                && assert(BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), 'maxSupply must be lower than ' + Number.MAX_SAFE_INTEGER)) {
+            if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
+                && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+                && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
+                && api.assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
+                && api.assert(api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
+                && api.assert(api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), 'maxSupply must be lower than ' + Number.MAX_SAFE_INTEGER)) {
     
                 // check if the token already exists
-                let token = await db.findOne('tokens', { symbol });
+                let token = await api.db.findOne('tokens', { symbol });
     
-                if (assert(token === null, 'symbol already exists')) {
+                if (api.assert(token === null, 'symbol already exists')) {
                   const finalUrl = url === undefined ? '' : url;
     
                   let metadata = {
@@ -199,20 +199,20 @@ class Bootstrap {
   
                   metadata = JSON.stringify(metadata);
                     const newToken = {
-                        issuer: sender,
+                        issuer: api.sender,
                         symbol,
                         name,
                         metadata,
                         precision,
-                        maxSupply: BigNumber(maxSupply).toFixed(precision),
+                        maxSupply: api.BigNumber(maxSupply).toFixed(precision),
                         supply: "0",
                         circulatingSupply: "0",
                     };
     
-                    await db.insert('tokens', newToken);
+                    await api.db.insert('tokens', newToken);
     
                     // burn the token creation fees
-                    if (BigNumber(tokenCreationFee).gt(0)) {
+                    if (api.BigNumber(tokenCreationFee).gt(0)) {
                         await actions.transfer({ to: 'null', symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: tokenCreationFee, isSignedWithActiveKey });
                     }
                 }
@@ -221,7 +221,7 @@ class Bootstrap {
     }
     
     actions.create = async (payload) => {
-        if (refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
+        if (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
             await createVOne(payload);
         } else {
             await createVTwo(payload);
@@ -231,24 +231,24 @@ class Bootstrap {
     const issueVOne = async (payload) => {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
     
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'number', 'invalid params')) {
     
-            let token = await db.findOne('tokens', { symbol });
+            let token = await api.db.findOne('tokens', { symbol });
     
             // the symbol must exist
-            // the sender must be the issuer
+            // the api.sender must be the issuer
             // then we need to check that the quantity is correct
-            if (assert(token !== null, 'symbol does not exist')
-                && assert(token.issuer === sender, 'not allowed to issue tokens')
-                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                && assert(quantity > 0, 'must issue positive quantity')
-                && assert(quantity <= (BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
+            if (api.assert(token !== null, 'symbol does not exist')
+                && api.assert(token.issuer === api.sender, 'not allowed to issue tokens')
+                && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                && api.assert(quantity > 0, 'must issue positive quantity')
+                && api.assert(quantity <= (api.BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
     
                 // a valid steem account is between 3 and 16 characters in length
-                if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
                     // we made all the required verification, let's now issue the tokens
     
                     let res = await addBalanceVOne(token.issuer, token, quantity, 'balances');
@@ -270,9 +270,9 @@ class Bootstrap {
                             token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, true);
                         }
     
-                        await db.update('tokens', token);
+                        await api.db.update('tokens', token);
     
-                        emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+                        api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
                     }
                 }
             }
@@ -282,24 +282,24 @@ class Bootstrap {
     const issueVTwo = async (payload) => {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
     
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
-                && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN(), 'invalid params')) {
+                && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     
-            let token = await db.findOne('tokens', { symbol });
+            let token = await api.db.findOne('tokens', { symbol });
     
             // the symbol must exist
-            // the sender must be the issuer
+            // the api.sender must be the issuer
             // then we need to check that the quantity is correct
-            if (assert(token !== null, 'symbol does not exist')
-                && assert(token.issuer === sender, 'not allowed to issue tokens')
-                && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                && assert(BigNumber(quantity).gt(0), 'must issue positive quantity')
-                && assert(BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
+            if (api.assert(token !== null, 'symbol does not exist')
+                && api.assert(token.issuer === api.sender, 'not allowed to issue tokens')
+                && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                && api.assert(api.BigNumber(quantity).gt(0), 'must issue positive quantity')
+                && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
     
                 // a valid steem account is between 3 and 16 characters in length
-                if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
                     // we made all the required verification, let's now issue the tokens
     
                     let res = await addBalanceVTwo(token.issuer, token, quantity, 'balances');
@@ -321,9 +321,9 @@ class Bootstrap {
                             token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, true);
                         }
     
-                        await db.update('tokens', token);
+                        await api.db.update('tokens', token);
     
-                        emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+                        api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
                     }
                 }
             }
@@ -331,7 +331,7 @@ class Bootstrap {
     }
     
     actions.issue = async (payload) => {
-        if (refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
+        if (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
             await issueVOne(payload);
         } else {
             await issueVTwo(payload);
@@ -341,37 +341,37 @@ class Bootstrap {
     const transferVOne = async (payload) => {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
     
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'number', 'invalid params')) {
     
-            if (assert(to !== sender, 'cannot transfer to self')) {
+            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
                 // a valid steem account is between 3 and 16 characters in length
-                if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-                    let token = await db.findOne('tokens', { symbol });
+                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                    let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
                     // then we need to check that the quantity is correct
-                    if (assert(token !== null, 'symbol does not exist')
-                        && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                        && assert(quantity > 0, 'must transfer positive quantity')) {
+                    if (api.assert(token !== null, 'symbol does not exist')
+                        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                        && api.assert(quantity > 0, 'must transfer positive quantity')) {
     
-                        if (await subBalanceVOne(sender, token, quantity, 'balances')) {
+                        if (await subBalanceVOne(api.sender, token, quantity, 'balances')) {
                             const res = await addBalanceVOne(to, token, quantity, 'balances');
     
                             if (res === false) {
-                                await addBalanceVOne(sender, token, quantity, 'balances');
+                                await addBalanceVOne(api.sender, token, quantity, 'balances');
     
                                 return false;
                             }
     
                             if (to === 'null') {
                                 token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, false);
-                                await db.update('tokens', token);
+                                await api.db.update('tokens', token);
                             }
     
-                            emit('transfer', { from: sender, to, symbol, quantity });
+                            api.emit('transfer', { from: api.sender, to, symbol, quantity });
     
                             return true;
                         }
@@ -386,37 +386,37 @@ class Bootstrap {
     const transferVTwo = async (payload) => {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
     
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
-                && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN(), 'invalid params')) {
+                && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     
-            if (assert(to !== sender, 'cannot transfer to self')) {
+            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
                 // a valid steem account is between 3 and 16 characters in length
-                if (assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-                    let token = await db.findOne('tokens', { symbol });
+                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                    let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
                     // then we need to check that the quantity is correct
-                    if (assert(token !== null, 'symbol does not exist')
-                        && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                        && assert(BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
+                    if (api.assert(token !== null, 'symbol does not exist')
+                        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                        && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
-                        if (await subBalanceVTwo(sender, token, quantity, 'balances')) {
+                        if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
                             const res = await addBalanceVTwo(to, token, quantity, 'balances');
     
                             if (res === false) {
-                                await addBalanceVTwo(sender, token, quantity, 'balances');
+                                await addBalanceVTwo(api.sender, token, quantity, 'balances');
     
                                 return false;
                             }
     
                             if (to === 'null') {
                                 token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
-                                await db.update('tokens', token);
+                                await api.db.update('tokens', token);
                             }
     
-                            emit('transfer', { from: sender, to, symbol, quantity });
+                            api.emit('transfer', { from: api.sender, to, symbol, quantity });
     
                             return true;
                         }
@@ -429,7 +429,7 @@ class Bootstrap {
     }
     
     actions.transfer = async (payload) => {
-        if (refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
+        if (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
             await transferVOne(payload);
         } else {
             await transferVTwo(payload);
@@ -439,34 +439,34 @@ class Bootstrap {
     actions.transferToContract = async (payload) => {
         const { to, symbol, quantity, isSignedWithActiveKey } = payload;
     
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(to && typeof to === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
-                && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN(), 'invalid params')) {
+                && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     
-            if (assert(to !== sender, 'cannot transfer to self')) {
+            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
                 // a valid contract account is between 3 and 50 characters in length
-                if (assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
-                    let token = await db.findOne('tokens', { symbol });
+                if (api.assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
+                    let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
                     // then we need to check that the quantity is correct
-                    if (assert(token !== null, 'symbol does not exist')
-                        && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                        && assert(BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
+                    if (api.assert(token !== null, 'symbol does not exist')
+                        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                        && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
-                        if (await subBalanceVTwo(sender, token, quantity, 'balances')) {
+                        if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
                             const res = await addBalanceVTwo(to, token, quantity, 'contractsBalances');
     
                             if (res === false) {
-                                await addBalanceVTwo(sender, token, quantity, 'balances');
+                                await addBalanceVTwo(api.sender, token, quantity, 'balances');
                             } else {
                                 if (to === 'null') {
                                     token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
-                                    await db.update('tokens', token);
+                                    await api.db.update('tokens', token);
                                 }
     
-                                emit('transferToContract', { from: sender, to, symbol, quantity });
+                                api.emit('transferToContract', { from: api.sender, to, symbol, quantity });
                             }
                         }
                     }
@@ -477,32 +477,32 @@ class Bootstrap {
     
     actions.transferFromContract = async (payload) => {
         // this action can only be called by the 'null' account which only the core code can use
-        if (assert(sender === 'null', 'not authorized')) {
+        if (api.assert(api.sender === 'null', 'not authorized')) {
             const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
             const types = ['user', 'contract'];
     
-            if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-                && assert(to && typeof to === 'string'
+            if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+                && api.assert(to && typeof to === 'string'
                     && from && typeof from === 'string'
                     && symbol && typeof symbol === 'string'
                     && type && (types.includes(type))
-                    && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN(), 'invalid params')) {
+                    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     
                 const table = type === 'user' ? 'balances' : 'contractsBalances';
     
-                if (assert(type === 'user' || (type === 'contract' && to !== from), 'cannot transfer to self')) {
+                if (api.assert(type === 'user' || (type === 'contract' && to !== from), 'cannot transfer to self')) {
                     // validate the "to"
                     let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
     
                     // the account must exist
-                    if (assert(toValid === true, 'invalid to')) {
-                        let token = await db.findOne('tokens', { symbol });
+                    if (api.assert(toValid === true, 'invalid to')) {
+                        let token = await api.db.findOne('tokens', { symbol });
     
                         // the symbol must exist
                         // then we need to check that the quantity is correct
-                        if (assert(token !== null, 'symbol does not exist')
-                            && assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-                            && assert(BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
+                        if (api.assert(token !== null, 'symbol does not exist')
+                            && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+                            && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
                             if (await subBalanceVTwo(from, token, quantity, 'contractsBalances')) {
                                 const res = await addBalanceVTwo(to, token, quantity, table);
@@ -512,10 +512,10 @@ class Bootstrap {
                                 } else {
                                     if (to === 'null') {
                                         token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
-                                        await db.update('tokens', token);
+                                        await api.db.update('tokens', token);
                                     }
     
-                                    emit('transferFromContract', { from, to, symbol, quantity });
+                                    api.emit('transferFromContract', { from, to, symbol, quantity });
                                 }
                             }
                         }
@@ -526,15 +526,15 @@ class Bootstrap {
     }
     
     const subBalanceVOne = async (account, token, quantity, table) => {
-      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
-      if (assert(balance !== null, 'balance does not exist') &&
-        assert(balance.balance >= quantity, 'overdrawn balance')) {
+      let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
+      if (api.assert(balance !== null, 'balance does not exist') &&
+        api.assert(balance.balance >= quantity, 'overdrawn balance')) {
         const originalBalance = balance.balance;
 
         balance.balance = calculateBalanceVOne(balance.balance, quantity, token.precision, false);
 
-        if (assert(balance.balance < originalBalance, 'cannot subtract')) {
-          await db.update(table, balance);
+        if (api.assert(balance.balance < originalBalance, 'cannot subtract')) {
+          await api.db.update(table, balance);
 
           return true;
         }          
@@ -544,16 +544,16 @@ class Bootstrap {
     }
 
     const subBalanceVTwo = async (account, token, quantity, table) => {
-      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
+      let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
 
-      if (assert(balance !== null, 'balance does not exist') &&
-          assert(BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
+      if (api.assert(balance !== null, 'balance does not exist') &&
+          api.assert(api.BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
           const originalBalance = balance.balance;
   
           balance.balance = calculateBalanceVTwo(balance.balance, quantity, token.precision, false);
 
-          if (assert(BigNumber(balance.balance).lt(originalBalance), 'cannot subtract')) {
-              await db.update(table, balance);
+          if (api.assert(api.BigNumber(balance.balance).lt(originalBalance), 'cannot subtract')) {
+              await api.db.update(table, balance);
   
               return true;
           }
@@ -563,7 +563,7 @@ class Bootstrap {
   }
     
     const addBalanceVOne = async (account, token, quantity, table) => {
-      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
+      let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
       if (balance === null) {
         balance = {
           account,
@@ -571,15 +571,15 @@ class Bootstrap {
           'balance': quantity
         }
         
-        await db.insert(table, balance);
+        await api.db.insert(table, balance);
 
         return true;
       } else {
         const originalBalance = balance.balance;
 
         balance.balance = calculateBalanceVOne(balance.balance, quantity, token.precision, true);
-        if (assert(balance.balance > originalBalance, 'cannot add')) {
-          await db.update(table, balance);
+        if (api.assert(balance.balance > originalBalance, 'cannot add')) {
+          await api.db.update(table, balance);
           return true;
         }
 
@@ -588,7 +588,7 @@ class Bootstrap {
     }
 
     const addBalanceVTwo = async (account, token, quantity, table) => {
-      let balance = await db.findOne(table, { account, 'symbol': token.symbol });
+      let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
       if (balance === null) {
           balance = {
               account,
@@ -596,15 +596,15 @@ class Bootstrap {
               'balance': quantity
           }
   
-          await db.insert(table, balance);
+          await api.db.insert(table, balance);
   
           return true;
       } else {
           const originalBalance = balance.balance;
   
           balance.balance = calculateBalanceVTwo(balance.balance, quantity, token.precision, true);
-          if (assert(BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
-              await db.update(table, balance);
+          if (api.assert(api.BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
+              await api.db.update(table, balance);
               return true;
           }
   
@@ -617,15 +617,15 @@ class Bootstrap {
       return add ? balance + quantity : balance - quantity
     }
 
-    return add ? BigNumber(balance).plus(quantity).toNumber() : BigNumber(balance).minus(quantity).toNumber()
+    return add ? api.BigNumber(balance).plus(quantity).toNumber() : api.BigNumber(balance).minus(quantity).toNumber()
   }
 
     const calculateBalanceVTwo = function (balance, quantity, precision, add) {
-      return add ? BigNumber(balance).plus(quantity).toFixed(precision) : BigNumber(balance).minus(quantity).toFixed(precision);
+      return add ? api.BigNumber(balance).plus(quantity).toFixed(precision) : api.BigNumber(balance).minus(quantity).toFixed(precision);
   }
     
     const countDecimals = function (value) {
-        return BigNumber(value).dp();
+        return api.BigNumber(value).dp();
     }
     `;
 
@@ -642,7 +642,7 @@ class Bootstrap {
     // sscstore contract
     contractCode = `
     actions.createSSC = async (payload) => {
-      await db.createTable('params');
+      await api.db.createTable('params');
       const params = {};
       
       params.priceSBD = "1000000";
@@ -650,31 +650,31 @@ class Bootstrap {
       params.quantity = "${SSC_STORE_QTY}";
       params.disabled = false;
 
-      await db.insert('params', params);      
+      await api.db.insert('params', params);      
     }
 
     actions.updateParams = async (payload) => {
-      if (sender !== owner) return;
+      if (api.sender !== api.owner) return;
 
       const { priceSBD, priceSteem, quantity, disabled } = payload;
 
-      const params = await db.findOne('params', { });
+      const params = await api.db.findOne('params', { });
 
       params.priceSBD = priceSBD;
       params.priceSteem = priceSteem;
       params.quantity = quantity;
       params.disabled = disabled;
 
-      await db.update('params', params);
+      await api.db.update('params', params);
     }
 
     actions.buy = async (payload) => {
       const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
 
-      if (recipient !== owner) return;
+      if (recipient !== api.owner) return;
 
-      if (assert(recipient && amountSTEEMSBD && isSignedWithActiveKey, 'invalid params')) {
-        const params = await db.findOne('params', { });
+      if (api.assert(recipient && amountSTEEMSBD && isSignedWithActiveKey, 'invalid params')) {
+        const params = await api.db.findOne('params', { });
 
         if (params.disabled) return;
 
@@ -685,25 +685,25 @@ class Bootstrap {
   
         let quantity = 0;
         let quantityToSend = 0;
-        BigNumber.set({ DECIMAL_PLACES: 3 });
+        api.BigNumber.set({ DECIMAL_PLACES: 3 });
 
         // STEEM
         if (unit === 'STEEM') {
-          quantity = BigNumber(amount).dividedBy(params.priceSteem);
+          quantity = api.BigNumber(amount).dividedBy(params.priceSteem);
         } 
         // SBD (disabled)
         else {
-          // quantity = BigNumber(amount).dividedBy(params.priceSBD);
+          // quantity = api.BigNumber(amount).dividedBy(params.priceSBD);
         }
   
-        if (refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
-          quantityToSend = Number(BigNumber(quantity).multipliedBy(params.quantity).toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}));
+        if (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER}) {
+          quantityToSend = Number(api.BigNumber(quantity).multipliedBy(params.quantity).toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}));
         } else {
-          quantityToSend = BigNumber(quantity).multipliedBy(params.quantity).toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION});
+          quantityToSend = api.BigNumber(quantity).multipliedBy(params.quantity).toFixed(${BP_CONSTANTS.UTILITY_TOKEN_PRECISION});
         }
 
         if (quantityToSend > 0) {
-          await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: quantityToSend, to: sender })
+          await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", quantity: quantityToSend, to: api.sender })
         }
       }
     }
@@ -722,13 +722,13 @@ class Bootstrap {
     // steem-pegged asset contract
     contractCode = `
     actions.createSSC = async (payload) => {
-      await db.createTable('withdrawals'); 
+      await api.db.createTable('withdrawals'); 
     }
 
     actions.buy = async (payload) => {
       const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
 
-      if (recipient !== owner) return;
+      if (recipient !== api.owner) return;
 
       if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
         const res = amountSTEEMSBD.split(' ');
@@ -736,25 +736,25 @@ class Bootstrap {
         const unit = res[1];
   
         // STEEM
-        if (assert(unit === 'STEEM', 'only STEEM can be used')) {
+        if (api.assert(unit === 'STEEM', 'only STEEM can be used')) {
           let quantityToSend = res[0];
 
           // calculate the 1% fee (with a min of 0.001 STEEM)
-          let fee = BigNumber(quantityToSend).multipliedBy(0.01).toFixed(3);
+          let fee = api.BigNumber(quantityToSend).multipliedBy(0.01).toFixed(3);
 
-          if (BigNumber(fee).lt("0.001")) {
+          if (api.BigNumber(fee).lt("0.001")) {
             fee = "0.001";
           }
   
-          quantityToSend = BigNumber(quantityToSend).minus(fee).toFixed(3);
+          quantityToSend = api.BigNumber(quantityToSend).minus(fee).toFixed(3);
 
-          if (BigNumber(quantityToSend).gt(0)) {
-            await executeSmartContractAsOwner('tokens', 'transfer', { symbol: "STEEMP", quantity: quantityToSend, to: sender })
+          if (api.BigNumber(quantityToSend).gt(0)) {
+            await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: "STEEMP", quantity: quantityToSend, to: api.sender })
           }
 
-          if (BigNumber(fee).gt(0)) {
-            const memo = 'fee tx ' + transactionId;
-            await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+          if (api.BigNumber(fee).gt(0)) {
+            const memo = 'fee tx ' + api.transactionId;
+            await initiateWithdrawal(api.transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
           }
         } 
         // SBD
@@ -767,33 +767,33 @@ class Bootstrap {
     actions.withdraw = async (payload) => {
       const { quantity, isSignedWithActiveKey } = payload;
 
-      if (assert(
-          quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN() 
-          && BigNumber(quantity).gt(0)
+      if (api.assert(
+          quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN() 
+          && api.BigNumber(quantity).gt(0)
           && isSignedWithActiveKey, 'invalid params')) {
 
         // calculate the 1% fee (with a min of 0.001 STEEM)
-        let fee = BigNumber(quantity).multipliedBy(0.01).toFixed(3);
+        let fee = api.BigNumber(quantity).multipliedBy(0.01).toFixed(3);
 
-        if (BigNumber(fee).lt("0.001")) {
+        if (api.BigNumber(fee).lt("0.001")) {
           fee = "0.001";
         }
 
-        const quantityToSend = BigNumber(quantity).minus(fee).toFixed(3);
+        const quantityToSend = api.BigNumber(quantity).minus(fee).toFixed(3);
 
-        if (BigNumber(quantityToSend).gt(0)) {
-          const res = await executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity, to: owner });
+        if (api.BigNumber(quantityToSend).gt(0)) {
+          const res = await api.executeSmartContract('tokens', 'transfer', { symbol: "STEEMP", quantity, to: api.owner });
  
           if (res.errors === undefined &&
-              res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === sender && el.data.to === owner && el.data.quantity === quantity && el.data.symbol === "STEEMP") !== undefined) {
+              res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === api.sender && el.data.to === api.owner && el.data.quantity === quantity && el.data.symbol === "STEEMP") !== undefined) {
             // withdrawal
-            const memo = 'withdrawal tx ' + transactionId;
+            const memo = 'withdrawal tx ' + api.transactionId;
 
-            await initiateWithdrawal(transactionId, sender, quantityToSend, memo);
+            await initiateWithdrawal(api.transactionId, api.sender, quantityToSend, memo);
 
-            if (BigNumber(fee).gt(0)) {
-              const memo = 'fee tx ' + transactionId;
-              await initiateWithdrawal(transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
+            if (api.BigNumber(fee).gt(0)) {
+              const memo = 'fee tx ' + api.transactionId;
+              await initiateWithdrawal(api.transactionId + '-fee', '${ACCOUNT_RECEIVING_FEES}', fee, memo);
             }
           }
         }
@@ -803,13 +803,13 @@ class Bootstrap {
     actions.removeWithdrawal = async (payload) => {
       const { id, isSignedWithActiveKey } = payload;
 
-      if (sender !== owner) return;
+      if (api.sender !== api.owner) return;
 
       if (id && isSignedWithActiveKey) {
-        const withdrawal = await db.findOne('withdrawals', { id });
+        const withdrawal = await api.db.findOne('withdrawals', { id });
 
         if (withdrawal) {
-          await db.remove('withdrawals', withdrawal);
+          await api.db.remove('withdrawals', withdrawal);
         }
       }
     }
@@ -823,7 +823,7 @@ class Bootstrap {
         withdrawal.memo = memo;
         withdrawal.quantity = quantity;
 
-        await db.insert('withdrawals', withdrawal); 
+        await api.db.insert('withdrawals', withdrawal); 
     }
     `;
 
@@ -842,10 +842,10 @@ class Bootstrap {
     const CONTRACT_NAME = 'market';
 
     actions.createSSC = async (payload) => {
-        await db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration']);
-        await db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration']);
-        await db.createTable('tradesHistory', ['symbol']);
-        await db.createTable('metrics', ['symbol']);
+        await api.db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration']);
+        await api.db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration']);
+        await api.db.createTable('tradesHistory', ['symbol']);
+        await api.db.createTable('metrics', ['symbol']);
     };
 
     actions.cancel = async (payload) => {
@@ -853,15 +853,15 @@ class Bootstrap {
 
         const types = ['buy', 'sell'];
 
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(type && types.includes(type)
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(type && types.includes(type)
                 && id && Number.isInteger(id), 'invalid params')) {
             const table = type === 'buy' ? 'buyBook' : 'sellBook';
             // get order
-            const order = await db.findOne(table, { $loki: id });
+            const order = await api.db.findOne(table, { $loki: id });
 
-            if (assert(order, 'order does not exist')
-                && order.account === sender) {
+            if (api.assert(order, 'order does not exist')
+                && order.account === api.sender) {
                 let quantity;
                 let symbol;
 
@@ -874,9 +874,9 @@ class Bootstrap {
                 }
 
                 // unlock tokens
-                await transferTokens(sender, symbol, quantity, 'user');
+                await api.transferTokens(api.sender, symbol, quantity, 'user');
 
-                await db.remove(table, order);
+                await api.db.remove(table, order);
 
                 if (type === 'sell') {
                     await updateAskMetric(order.symbol);
@@ -891,50 +891,50 @@ class Bootstrap {
         const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
 
         // buy (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(
-                price && typeof price === 'string' && !BigNumber(price).isNaN()
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(
+                price && typeof price === 'string' && !api.BigNumber(price).isNaN()
                 && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
-                && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN()
+                && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN()
                 && (expiration === undefined || (expiration && Number.isInteger(expiration) && expiration > 0)), 'invalid params')) {
 
             // get the token params
-            const token = await db.findOneInTable('tokens', 'tokens', { symbol });
+            const token = await api.db.findOneInTable('tokens', 'tokens', { symbol });
 
             // perform a few verifications
-            if (assert(token
-                && BigNumber(price).gt(0)
+            if (api.assert(token
+                && api.BigNumber(price).gt(0)
                 && countDecimals(price) <= 3
                 && countDecimals(quantity) <= token.precision, 'invalid params')) {
-                // initiate a transfer from sender to contract balance
+                // initiate a transfer from api.sender to contract balance
 
-                const nbTokensToLock = BigNumber(price).multipliedBy(quantity).toFixed(3);
+                const nbTokensToLock = api.BigNumber(price).multipliedBy(quantity).toFixed(3);
 
-                if (assert(refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToLock).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
+                if (api.assert(api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || api.BigNumber(nbTokensToLock).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
                   // lock STEEM_PEGGED_SYMBOL tokens
-                  const res = await executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
+                  const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
                   if (res.errors === undefined &&
-                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
-                      const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
+                      const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
                           .dividedBy(1000)
                           .toNumber();
 
                       // order
                       const order = {};
 
-                      order.txId = transactionId;
+                      order.txId = api.transactionId;
                       order.timestamp = timestampSec;
-                      order.account = sender;
+                      order.account = api.sender;
                       order.symbol = symbol;
                       order.quantity = quantity;
                       order.price = price;
                       order.tokensLocked = nbTokensToLock;
                       order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
-                      const orderInDB = await db.insert('buyBook', order);
+                      const orderInDb = await api.db.insert('buyBook', order);
 
-                      await findMatchingSellOrders(orderInDB, token.precision);
+                      await findMatchingSellOrders(orderInDb, token.precision);
                   }
                 }
             }
@@ -944,49 +944,49 @@ class Bootstrap {
     actions.sell = async (payload) => {
         const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
         // sell (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
-        if (assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-            && assert(
-                price && typeof price === 'string' && !BigNumber(price).isNaN()
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(
+                price && typeof price === 'string' && !api.BigNumber(price).isNaN()
                 && symbol && typeof symbol === 'string' && symbol !== STEEM_PEGGED_SYMBOL
-                && quantity && typeof quantity === 'string' && !BigNumber(quantity).isNaN()
+                && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN()
                 && (expiration === undefined || (expiration && Number.isInteger(expiration) && expiration > 0)), 'invalid params')) {
 
             // get the token params
-            const token = await db.findOneInTable('tokens', 'tokens', { symbol });
+            const token = await api.db.findOneInTable('tokens', 'tokens', { symbol });
 
             // perform a few verifications
-            if (assert(token
-                && BigNumber(price).gt(0)
+            if (api.assert(token
+                && api.BigNumber(price).gt(0)
                 && countDecimals(price) <= 3
                 && countDecimals(quantity) <= token.precision, 'invalid params')) {
 
-                const nbTokensToFillOrder = BigNumber(price).multipliedBy(quantity).toFixed(3);
+                const nbTokensToFillOrder = api.BigNumber(price).multipliedBy(quantity).toFixed(3);
 
-                if (assert(refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
-                  // initiate a transfer from sender to contract balance
+                if (api.assert(api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || api.BigNumber(nbTokensToFillOrder).gte('0.001'), 'order cannot be placed as it cannot be filled')) {
+                  // initiate a transfer from api.sender to contract balance
                   // lock symbol tokens
-                  const res = await executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
+                  const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
 
                   if (res.errors === undefined &&
-                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
-                      const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+                      res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
+                      const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
                           .dividedBy(1000)
                           .toNumber();
 
                       // order
                       const order = {};
 
-                      order.txId = transactionId;
+                      order.txId = api.transactionId;
                       order.timestamp = timestampSec;
-                      order.account = sender;
+                      order.account = api.sender;
                       order.symbol = symbol;
                       order.quantity = quantity;
                       order.price = price;
                       order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
-                      const orderInDB = await db.insert('sellBook', order);
+                      const orderInDb = await api.db.insert('sellBook', order);
 
-                      await findMatchingBuyOrders(orderInDB, token.precision);
+                      await findMatchingBuyOrders(orderInDb, token.precision);
                   }
                 }
             }
@@ -1002,7 +1002,7 @@ class Bootstrap {
         await removeExpiredOrders('sellBook');
 
         // get the orders that match the symbol and the price
-        let sellOrderBook = await db.find('sellBook', {
+        let sellOrderBook = await api.db.find('sellBook', {
             symbol,
             price: {
                 $lte: price,
@@ -1017,52 +1017,52 @@ class Bootstrap {
             const nbOrders = sellOrderBook.length;
             let inc = 0;
 
-            while (inc < nbOrders && BigNumber(buyOrder.quantity).gt(0)) {
+            while (inc < nbOrders && api.BigNumber(buyOrder.quantity).gt(0)) {
                 const sellOrder = sellOrderBook[inc];
-                if (BigNumber(buyOrder.quantity).lte(sellOrder.quantity)) {
+                if (api.BigNumber(buyOrder.quantity).lte(sellOrder.quantity)) {
 
-                    let qtyTokensToSend = BigNumber(sellOrder.price)
+                    let qtyTokensToSend = api.BigNumber(sellOrder.price)
                         .multipliedBy(buyOrder.quantity)
                         .toFixed(3);
 
-                    if (BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
-                        qtyTokensToSend = BigNumber(sellOrder.price)
+                    if (api.BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
+                        qtyTokensToSend = api.BigNumber(sellOrder.price)
                             .multipliedBy(buyOrder.quantity)
-                            .toFixed(3, BigNumber.ROUND_DOWN);
+                            .toFixed(3, api.BigNumber.ROUND_DOWN);
                     }
 
-                    if (assert(BigNumber(qtyTokensToSend).gt(0)
-                        && BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
+                    if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
+                        && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
 
                         // transfer the tokens to the buyer
-                        await transferTokens(account, symbol, buyOrder.quantity, 'user');
+                        await api.transferTokens(account, symbol, buyOrder.quantity, 'user');
 
                         // transfer the tokens to the seller
-                        await transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
                         // update the sell order
-                        const qtyLeftSellOrder = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
-                        const nbTokensToFillOrder = BigNumber(sellOrder.price).multipliedBy(qtyLeftSellOrder).toFixed(3);
+                        const qtyLeftSellOrder = api.BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
+                        const nbTokensToFillOrder = api.BigNumber(sellOrder.price).multipliedBy(qtyLeftSellOrder).toFixed(3);
 
                         
 
-                        if (BigNumber(qtyLeftSellOrder).gt(0)
-                        && (refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'))) {
+                        if (api.BigNumber(qtyLeftSellOrder).gt(0)
+                        && (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || api.BigNumber(nbTokensToFillOrder).gte('0.001'))) {
                             sellOrder.quantity = qtyLeftSellOrder;
 
-                            await db.update('sellBook', sellOrder);
+                            await api.db.update('sellBook', sellOrder);
                         } else {
-                          if (BigNumber(qtyLeftSellOrder).gt(0)) {
-                            await transferTokens(sellOrder.account, symbol, qtyLeftSellOrder, 'user');
+                          if (api.BigNumber(qtyLeftSellOrder).gt(0)) {
+                            await api.transferTokens(sellOrder.account, symbol, qtyLeftSellOrder, 'user');
                           }
-                            await db.remove('sellBook', sellOrder);
+                            await api.db.remove('sellBook', sellOrder);
                         }
 
                         // unlock remaining tokens, update the quantity to get and remove the buy order
-                        const tokensToUnlock = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
+                        const tokensToUnlock = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
 
-                        if (BigNumber(tokensToUnlock).gt(0)) {
-                            await transferTokens(account, STEEM_PEGGED_SYMBOL, tokensToUnlock, 'user');
+                        if (api.BigNumber(tokensToUnlock).gt(0)) {
+                            await api.transferTokens(account, STEEM_PEGGED_SYMBOL, tokensToUnlock, 'user');
                         }
 
                         // add the trade to the history
@@ -1071,43 +1071,43 @@ class Bootstrap {
                         await updateVolumeMetric(symbol, qtyTokensToSend);
 
                         buyOrder.quantity = "0";
-                        await db.remove('buyBook', buyOrder);
+                        await api.db.remove('buyBook', buyOrder);
                     }
                 } else {
-                    let qtyTokensToSend = BigNumber(sellOrder.price)
+                    let qtyTokensToSend = api.BigNumber(sellOrder.price)
                         .multipliedBy(sellOrder.quantity)
                         .toFixed(3);
 
-                    if (BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
-                        qtyTokensToSend = BigNumber(sellOrder.price)
+                    if (api.BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
+                        qtyTokensToSend = api.BigNumber(sellOrder.price)
                             .multipliedBy(sellOrder.quantity)
-                            .toFixed(3, BigNumber.ROUND_DOWN);
+                            .toFixed(3, api.BigNumber.ROUND_DOWN);
                     }
 
-                    if (assert(BigNumber(qtyTokensToSend).gt(0)
-                        && BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
+                    if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
+                        && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
 
                         // transfer the tokens to the buyer
-                        await transferTokens(account, symbol, sellOrder.quantity, 'user');
+                        await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
 
                         // transfer the tokens to the seller
-                        await transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
                         // remove the sell order
-                        await db.remove('sellBook', sellOrder);
+                        await api.db.remove('sellBook', sellOrder);
 
                         // update tokensLocked and the quantity to get
-                        buyOrder.tokensLocked = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
-                        buyOrder.quantity = BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
+                        buyOrder.tokensLocked = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
+                        buyOrder.quantity = api.BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
 
                         // check if the order can still be filled
-                        const nbTokensToFillOrder = BigNumber(buyOrder.price).multipliedBy(buyOrder.quantity).toFixed(3);
+                        const nbTokensToFillOrder = api.BigNumber(buyOrder.price).multipliedBy(buyOrder.quantity).toFixed(3);
 
-                        if (refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && BigNumber(nbTokensToFillOrder).lt('0.001')) {
-                          await transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.tokensLocked, 'user');
+                        if (api.refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && api.BigNumber(nbTokensToFillOrder).lt('0.001')) {
+                          await api.transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.tokensLocked, 'user');
 
                           buyOrder.quantity = "0";
-                          await db.remove('buyBook', buyOrder);
+                          await api.db.remove('buyBook', buyOrder);
                         }
 
                         // add the trade to the history
@@ -1122,9 +1122,9 @@ class Bootstrap {
 
             offset += 1000;
 
-            if (BigNumber(buyOrder.quantity).gt(0)) {
+            if (api.BigNumber(buyOrder.quantity).gt(0)) {
                 // get the orders that match the symbol and the price
-                sellOrderBook = await db.find('sellBook', {
+                sellOrderBook = await api.db.find('sellBook', {
                     symbol,
                     price: {
                         $lte: price,
@@ -1135,11 +1135,11 @@ class Bootstrap {
                         { index: '$loki', descending: false },
                     ]);
             }
-        } while (sellOrderBook.length > 0 && BigNumber(buyOrder.quantity).gt(0));
+        } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
 
         // update the buy order if partially filled
-        if (BigNumber(buyOrder.quantity).gt(0)) {
-            await db.update('buyBook', buyOrder);
+        if (api.BigNumber(buyOrder.quantity).gt(0)) {
+            await api.db.update('buyBook', buyOrder);
         }
 
         await updateAskMetric(symbol);
@@ -1155,7 +1155,7 @@ class Bootstrap {
         await removeExpiredOrders('buyBook');
 
         // get the orders that match the symbol and the price
-        let buyOrderBook = await db.find('buyBook', {
+        let buyOrderBook = await api.db.find('buyBook', {
             symbol,
             price: {
                 $gte: price,
@@ -1170,45 +1170,45 @@ class Bootstrap {
             const nbOrders = buyOrderBook.length;
             let inc = 0;
 
-            while (inc < nbOrders && BigNumber(sellOrder.quantity).gt(0)) {
+            while (inc < nbOrders && api.BigNumber(sellOrder.quantity).gt(0)) {
                 const buyOrder = buyOrderBook[inc];
-                if (BigNumber(sellOrder.quantity).lte(buyOrder.quantity)) {
+                if (api.BigNumber(sellOrder.quantity).lte(buyOrder.quantity)) {
 
-                    let qtyTokensToSend = BigNumber(buyOrder.price)
+                    let qtyTokensToSend = api.BigNumber(buyOrder.price)
                         .multipliedBy(sellOrder.quantity)
                         .toFixed(3);
 
-                    if (BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
-                        qtyTokensToSend = BigNumber(buyOrder.price)
+                    if (api.BigNumber(qtyTokensToSend).gt(buyOrder.tokensLocked)) {
+                        qtyTokensToSend = api.BigNumber(buyOrder.price)
                             .multipliedBy(sellOrder.quantity)
-                            .toFixed(3, BigNumber.ROUND_DOWN);
+                            .toFixed(3, api.BigNumber.ROUND_DOWN);
                     }
 
-                    if (assert(BigNumber(qtyTokensToSend).gt(0)
-                        && BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
+                    if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
+                        && api.BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
                         // transfer the tokens to the buyer
-                        await transferTokens(buyOrder.account, symbol, sellOrder.quantity, 'user');
+                        await api.transferTokens(buyOrder.account, symbol, sellOrder.quantity, 'user');
 
                         // transfer the tokens to the seller
-                        await transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
                         // update the buy order
-                        const qtyLeftBuyOrder = BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
+                        const qtyLeftBuyOrder = api.BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
 
-                        const buyOrdertokensLocked = BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
-                        const nbTokensToFillOrder = BigNumber(buyOrder.price).multipliedBy(qtyLeftBuyOrder).toFixed(3);
+                        const buyOrdertokensLocked = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
+                        const nbTokensToFillOrder = api.BigNumber(buyOrder.price).multipliedBy(qtyLeftBuyOrder).toFixed(3);
 
-                        if (BigNumber(qtyLeftBuyOrder).gt(0)
-                            && (refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || BigNumber(nbTokensToFillOrder).gte('0.001'))) {
+                        if (api.BigNumber(qtyLeftBuyOrder).gt(0)
+                            && (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_TWO} || api.BigNumber(nbTokensToFillOrder).gte('0.001'))) {
                             buyOrder.quantity = qtyLeftBuyOrder;
                             buyOrder.tokensLocked = buyOrdertokensLocked;
 
-                            await db.update('buyBook', buyOrder);
+                            await api.db.update('buyBook', buyOrder);
                         } else {
-                            if (BigNumber(buyOrdertokensLocked).gt(0)) {
-                                await transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, buyOrdertokensLocked, 'user');
+                            if (api.BigNumber(buyOrdertokensLocked).gt(0)) {
+                                await api.transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, buyOrdertokensLocked, 'user');
                             }
-                            await db.remove('buyBook', buyOrder);
+                            await api.db.remove('buyBook', buyOrder);
                         }
 
                         // add the trade to the history
@@ -1217,42 +1217,42 @@ class Bootstrap {
                         await updateVolumeMetric(symbol, qtyTokensToSend);
 
                         sellOrder.quantity = 0;
-                        await db.remove('sellBook', sellOrder);
+                        await api.db.remove('sellBook', sellOrder);
                     }
                 } else {
 
-                    let qtyTokensToSend = BigNumber(buyOrder.price)
+                    let qtyTokensToSend = api.BigNumber(buyOrder.price)
                         .multipliedBy(buyOrder.quantity)
                         .toFixed(3);
 
                     if (qtyTokensToSend > buyOrder.tokensLocked) {
-                        qtyTokensToSend = BigNumber(buyOrder.price)
+                        qtyTokensToSend = api.BigNumber(buyOrder.price)
                             .multipliedBy(buyOrder.quantity)
-                            .toFixed(3, BigNumber.ROUND_DOWN);
+                            .toFixed(3, api.BigNumber.ROUND_DOWN);
                     }
 
-                    if (assert(BigNumber(qtyTokensToSend).gt(0)
-                        && BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
+                    if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
+                        && api.BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
                         // transfer the tokens to the buyer
-                        await transferTokens(buyOrder.account, symbol, buyOrder.quantity, 'user');
+                        await api.transferTokens(buyOrder.account, symbol, buyOrder.quantity, 'user');
 
                         // transfer the tokens to the seller
-                        await transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
                         // remove the buy order
-                        await db.remove('buyBook', buyOrder);
+                        await api.db.remove('buyBook', buyOrder);
 
                         // update the quantity to get
-                        sellOrder.quantity = BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
+                        sellOrder.quantity = api.BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
 
                         // check if the order can still be filled
-                        const nbTokensToFillOrder = BigNumber(sellOrder.price).multipliedBy(sellOrder.quantity).toFixed(3);
+                        const nbTokensToFillOrder = api.BigNumber(sellOrder.price).multipliedBy(sellOrder.quantity).toFixed(3);
                           
-                        if (refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && BigNumber(nbTokensToFillOrder).lt('0.001')) {
-                          await transferTokens(account, symbol, sellOrder.quantity, 'user');
+                        if (api.refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_TWO} && api.BigNumber(nbTokensToFillOrder).lt('0.001')) {
+                          await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
 
                           sellOrder.quantity = "0";
-                          await db.remove('sellBook', sellOrder);
+                          await api.db.remove('sellBook', sellOrder);
                         }
 
                         // add the trade to the history
@@ -1267,9 +1267,9 @@ class Bootstrap {
 
             offset += 1000;
 
-            if (BigNumber(sellOrder.quantity).gt(0)) {
+            if (api.BigNumber(sellOrder.quantity).gt(0)) {
                 // get the orders that match the symbol and the price
-                buyOrderBook = await db.find('buyBook', {
+                buyOrderBook = await api.db.find('buyBook', {
                     symbol,
                     price: {
                         $gte: price,
@@ -1280,11 +1280,11 @@ class Bootstrap {
                         { index: '$loki', descending: false },
                     ]);
             }
-        } while (buyOrderBook.length > 0 && BigNumber(sellOrder.quantity).gt(0));
+        } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
 
         // update the sell order if partially filled
-        if (BigNumber(sellOrder.quantity).gt(0)) {
-            await db.update('sellBook', sellOrder);
+        if (api.BigNumber(sellOrder.quantity).gt(0)) {
+            await api.db.update('sellBook', sellOrder);
         }
 
         await updateAskMetric(symbol);
@@ -1292,12 +1292,12 @@ class Bootstrap {
     };
 
     const removeExpiredOrders = async (table) => {
-        const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+        const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
             .dividedBy(1000)
             .toNumber();
 
         // clean orders
-        let ordersToDelete = await db.find(
+        let ordersToDelete = await api.db.find(
             table,
             {
                 expiration: {
@@ -1307,10 +1307,10 @@ class Bootstrap {
 
         while (ordersToDelete.length > 0) {
             ordersToDelete.forEach(async (order) => {
-                await db.remove(table, order);
+                await api.db.remove(table, order);
             });
 
-            ordersToDelete = await db.find(
+            ordersToDelete = await api.db.find(
                 table,
                 {
                     expiration: {
@@ -1321,7 +1321,7 @@ class Bootstrap {
     }
 
     const getMetric = async (symbol) => {
-        let metric = await db.findOne('metrics', { symbol });
+        let metric = await api.db.findOne('metrics', { symbol });
 
         if (metric === null) {
             metric = {};
@@ -1336,14 +1336,14 @@ class Bootstrap {
             metric.priceChangeSteem = "0";
             metric.priceChangePercent = "0";
 
-            return await db.insert('metrics', metric);
+            return await api.db.insert('metrics', metric);
         }
 
         return metric;
     }
 
     const updateVolumeMetric = async (symbol, quantity) => {
-        const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+        const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
             .dividedBy(1000)
             .toNumber();
 
@@ -1351,18 +1351,18 @@ class Bootstrap {
 
         if (metric.volumeExpiration < timestampSec) {
             metric.volume = quantity;
-            metric.volumeExpiration = BigNumber(timestampSec).plus(86400).toNumber();
+            metric.volumeExpiration = api.BigNumber(timestampSec).plus(86400).toNumber();
         } else {
-            metric.volume = BigNumber(metric.volume).plus(quantity).toNumber();
+            metric.volume = api.BigNumber(metric.volume).plus(quantity).toNumber();
         }
 
-        await db.update('metrics', metric);
+        await api.db.update('metrics', metric);
     }
 
     const updateBidMetric = async (symbol) => {
         let metric = await getMetric(symbol);
 
-        const buyOrderBook = await db.find('buyBook',
+        const buyOrderBook = await api.db.find('buyBook',
             {
                 symbol,
             }, 1, 0,
@@ -1378,13 +1378,13 @@ class Bootstrap {
             metric.highestBid = "0";
         }
 
-        await db.update('metrics', metric);
+        await api.db.update('metrics', metric);
     }
 
     const updateAskMetric = async (symbol) => {
         let metric = await getMetric(symbol);
 
-        const sellOrderBook = await db.find('sellBook',
+        const sellOrderBook = await api.db.find('sellBook',
             {
                 symbol,
             }, 1, 0,
@@ -1399,7 +1399,7 @@ class Bootstrap {
             metric.lowestAsk = "0";
         }
 
-        await db.update('metrics', metric);
+        await api.db.update('metrics', metric);
     }
 
     const updatePriceMetrics = async (symbol, price, timestamp) => {
@@ -1409,26 +1409,26 @@ class Bootstrap {
 
         if (metric.lastDayPriceExpiration < timestamp) {
             metric.lastDayPrice = price;
-            metric.lastDayPriceExpiration = BigNumber(timestamp).plus(86400).toNumber();
+            metric.lastDayPriceExpiration = api.BigNumber(timestamp).plus(86400).toNumber();
             metric.priceChangeSteem = "0";
             metric.priceChangePercent = "0%";
         } else {
-            metric.priceChangeSteem = BigNumber(price).minus(metric.lastDayPrice).toFixed(3);
-            metric.priceChangePercent = BigNumber(metric.priceChangeSteem).dividedBy(metric.lastDayPrice).multipliedBy(100).toFixed(2) + '%';
+            metric.priceChangeSteem = api.BigNumber(price).minus(metric.lastDayPrice).toFixed(3);
+            metric.priceChangePercent = api.BigNumber(metric.priceChangeSteem).dividedBy(metric.lastDayPrice).multipliedBy(100).toFixed(2) + '%';
         }
 
-        await db.update('metrics', metric);
+        await api.db.update('metrics', metric);
     }
 
     const updateTradesHistory = async (type, symbol, quantity, price) => {
-        const timestampSec = BigNumber(new Date(steemBlockTimestamp + '.000Z').getTime())
+        const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
             .dividedBy(1000)
             .toNumber();
 
-        const timestampMinus24hrs = BigNumber(timestampSec).minus(86400).toNumber();
+        const timestampMinus24hrs = api.BigNumber(timestampSec).minus(86400).toNumber();
 
         // clean history
-        let tradesToDelete = await db.find(
+        let tradesToDelete = await api.db.find(
             'tradesHistory',
             {
                 symbol,
@@ -1439,10 +1439,10 @@ class Bootstrap {
 
         while (tradesToDelete.length > 0) {
             tradesToDelete.forEach(async (trade) => {
-                await db.remove('tradesHistory', trade);
+                await api.db.remove('tradesHistory', trade);
             });
 
-            tradesToDelete = await db.find(
+            tradesToDelete = await api.db.find(
                 'tradesHistory',
                 {
                     symbol,
@@ -1460,13 +1460,13 @@ class Bootstrap {
         newTrade.price = price;
         newTrade.timestamp = timestampSec;
 
-        await db.insert('tradesHistory', newTrade);
+        await api.db.insert('tradesHistory', newTrade);
 
         await updatePriceMetrics(symbol, price, timestampSec);
     }
 
     const countDecimals = function (value) {
-        return BigNumber(value).dp();
+        return api.BigNumber(value).dp();
     };
     `;
 
