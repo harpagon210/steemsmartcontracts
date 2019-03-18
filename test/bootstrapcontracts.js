@@ -1227,7 +1227,7 @@ describe('Tokens smart contract', () => {
 
         actions.sendRewards = async function (payload) {
           const { to, quantity } = payload;
-          await transferTokens(to, 'TKN', quantity, 'user');
+          await api.transferTokens(to, 'TKN', quantity, 'user');
         }
       `;
 
@@ -1326,31 +1326,31 @@ describe('Tokens smart contract', () => {
         }
 
         actions.notSigned = async function (payload) {
-          await transferTokens('to', 'TKN', '2.02', 'user');
+          await api.transferTokens('to', 'TKN', '2.02', 'user');
         }
 
         actions.toNotExist = async function (payload) {
-          await transferTokens('df', 'TKN', '2.02', 'user');
+          await api.transferTokens('df', 'TKN', '2.02', 'user');
         }
 
         actions.symbolNotExist = async function (payload) {
-          await transferTokens('Satoshi', 'TNK', '2.02', 'user');
+          await api.transferTokens('Satoshi', 'TNK', '2.02', 'user');
         }
 
         actions.wrongPrecision = async function (payload) {
-          await transferTokens('Satoshi', 'TKN', '2.02', 'user');
+          await api.transferTokens('Satoshi', 'TKN', '2.02', 'user');
         }
 
         actions.negativeQty = async function (payload) {
-          await transferTokens('Satoshi', 'TKN', '-2', 'user');
+          await api.transferTokens('Satoshi', 'TKN', '-2', 'user');
         }
 
         actions.balanceNotExist = async function (payload) {
-          await transferTokens('Satoshi', 'TKN', '2', 'user');
+          await api.transferTokens('Satoshi', 'TKN', '2', 'user');
         }
 
         actions.overdrawnBalance = async function (payload) {
-          await transferTokens('Satoshi', 'TKN', '2', 'user');
+          await api.transferTokens('Satoshi', 'TKN', '2', 'user');
         }
       `;
 
@@ -1427,7 +1427,7 @@ describe('Tokens smart contract', () => {
 
         actions.sendRewards = async function (payload) {
           const { to, quantity } = payload;
-          await transferTokens(to, 'TKN', quantity, 'contract');
+          await api.transferTokens(to, 'TKN', quantity, 'contract');
         }
       `;
 
@@ -1540,39 +1540,39 @@ describe('Tokens smart contract', () => {
         }
 
         actions.notSigned = async function (payload) {
-          await transferTokens('to', 'TKN', '2.02', 'contract');
+          await api.transferTokens('to', 'TKN', '2.02', 'contract');
         }
 
         actions.notToSelf = async function (payload) {
-          await transferTokens('testContract', 'TKN', '2.02', 'contract');
+          await api.transferTokens('testContract', 'TKN', '2.02', 'contract');
         }
 
         actions.toNotExist = async function (payload) {
-          await transferTokens('sd', 'TKN', '2.02', 'contract');
+          await api.transferTokens('sd', 'TKN', '2.02', 'contract');
         }
 
         actions.symbolNotExist = async function (payload) {
-          await transferTokens('testContract2', 'TNK', '2.02', 'contract');
+          await api.transferTokens('testContract2', 'TNK', '2.02', 'contract');
         }
 
         actions.wrongPrecision = async function (payload) {
-          await transferTokens('testContract2', 'TKN', '2.02', 'contract');
+          await api.transferTokens('testContract2', 'TKN', '2.02', 'contract');
         }
 
         actions.negativeQty = async function (payload) {
-          await transferTokens('testContract2', 'TKN', '-2', 'contract');
+          await api.transferTokens('testContract2', 'TKN', '-2', 'contract');
         }
 
         actions.balanceNotExist = async function (payload) {
-          await transferTokens('testContract2', 'TKN', '2', 'contract');
+          await api.transferTokens('testContract2', 'TKN', '2', 'contract');
         }
 
         actions.overdrawnBalance = async function (payload) {
-          await transferTokens('testContract2', 'TKN', '2', 'contract');
+          await api.transferTokens('testContract2', 'TKN', '2', 'contract');
         }
 
         actions.invalidParams = async function (payload) {
-          await transferTokens('testContract2', 'TKN', '2', 'invalid');
+          await api.transferTokens('testContract2', 'TKN', '2', 'invalid');
         }
       `;
 

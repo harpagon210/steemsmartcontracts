@@ -55,11 +55,11 @@ class SmartContracts {
 
           const execute = async function () {
             try {
-              if (action && typeof action === 'string' && typeof actions[action] === 'function') {
-                if (action !== 'createSSC') {
+              if (api.action && typeof api.action === 'string' && typeof actions[api.action] === 'function') {
+                if (api.action !== 'createSSC') {
                   actions.createSSC = null;
                 }
-                await actions[action](payload);
+                await actions[api.action](api.payload);
                 done(null);
               }
             } catch (error) {
@@ -114,32 +114,34 @@ class SmartContracts {
 
         // initialize the state that will be available in the VM
         const vmState = {
-          action: 'createSSC',
-          payload: params ? JSON.parse(JSON.stringify(params)) : null,
-          transactionId,
-          refSteemBlockNumber,
-          steemBlockTimestamp: timestamp,
-          db,
-          BigNumber,
-          validator,
-          rng: () => rng(),
-          debug: log => console.log(log), // eslint-disable-line no-console
-          // execute a smart contract from the current smart contract
-          executeSmartContract: async (
-            contractName, actionName, parameters,
-          ) => SmartContracts.executeSmartContractFromSmartContract(
-            ipc, logs, sender, params, contractName, actionName,
-            JSON.stringify(parameters),
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-          ),
-          // emit an event that will be stored in the logs
-          emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
-          // add an error that will be stored in the logs
-          assert: (condition, error) => {
-            if (!condition && typeof error === 'string') {
-              logs.errors.push(error);
-            }
-            return condition;
+          api: {
+            action: 'createSSC',
+            payload: params ? JSON.parse(JSON.stringify(params)) : null,
+            transactionId,
+            refSteemBlockNumber,
+            steemBlockTimestamp: timestamp,
+            db,
+            BigNumber,
+            validator,
+            random: () => rng(),
+            debug: log => console.log(log), // eslint-disable-line no-console
+            // execute a smart contract from the current smart contract
+            executeSmartContract: async (
+              contractName, actionName, parameters,
+            ) => SmartContracts.executeSmartContractFromSmartContract(
+              ipc, logs, sender, params, contractName, actionName,
+              JSON.stringify(parameters),
+              refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            ),
+            // emit an event that will be stored in the logs
+            emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
+            // add an error that will be stored in the logs
+            assert: (condition, error) => {
+              if (!condition && typeof error === 'string') {
+                logs.errors.push(error);
+              }
+              return condition;
+            },
           },
         };
 
@@ -248,57 +250,59 @@ class SmartContracts {
 
       // initialize the state that will be available in the VM
       const vmState = {
-        sender,
-        owner: contractOwner,
-        refSteemBlockNumber,
-        steemBlockTimestamp: timestamp,
-        transactionId,
-        action,
-        payload: JSON.parse(JSON.stringify(payloadObj)),
-        db,
-        BigNumber,
-        validator,
-        rng: () => rng(),
-        debug: log => console.log(log), // eslint-disable-line no-console
-        // execute a smart contract from the current smart contract
-        executeSmartContract: async (
-          contractName, actionName, parameters,
-        ) => SmartContracts.executeSmartContractFromSmartContract(
-          ipc, results, sender, payloadObj, contractName, actionName,
-          JSON.stringify(parameters),
-          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-        ),
-        // execute a smart contract from the current smart contract
-        // with the contractOwner authority level
-        executeSmartContractAsOwner: async (
-          contractName, actionName, parameters,
-        ) => SmartContracts.executeSmartContractFromSmartContract(
-          ipc, results, contractOwner, payloadObj, contractName, actionName,
-          JSON.stringify(parameters),
-          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-        ),
-        // execute a token transfer from the contract balance
-        transferTokens: async (
-          to, symbol, quantity, type,
-        ) => SmartContracts.executeSmartContractFromSmartContract(
-          ipc, results, 'null', payloadObj, 'tokens', 'transferFromContract',
-          JSON.stringify({
-            from: contract,
-            to,
-            quantity,
-            symbol,
-            type,
-          }),
-          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-        ),
-        // emit an event that will be stored in the logs
-        emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
-        // add an error that will be stored in the logs
-        assert: (condition, error) => {
-          if (!condition && typeof error === 'string') {
-            results.logs.errors.push(error);
-          }
-          return condition;
+        api: {
+          sender,
+          owner: contractOwner,
+          refSteemBlockNumber,
+          steemBlockTimestamp: timestamp,
+          transactionId,
+          action,
+          payload: JSON.parse(JSON.stringify(payloadObj)),
+          db,
+          BigNumber,
+          validator,
+          random: () => rng(),
+          debug: log => console.log(log), // eslint-disable-line no-console
+          // execute a smart contract from the current smart contract
+          executeSmartContract: async (
+            contractName, actionName, parameters,
+          ) => SmartContracts.executeSmartContractFromSmartContract(
+            ipc, results, sender, payloadObj, contractName, actionName,
+            JSON.stringify(parameters),
+            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          ),
+          // execute a smart contract from the current smart contract
+          // with the contractOwner authority level
+          executeSmartContractAsOwner: async (
+            contractName, actionName, parameters,
+          ) => SmartContracts.executeSmartContractFromSmartContract(
+            ipc, results, contractOwner, payloadObj, contractName, actionName,
+            JSON.stringify(parameters),
+            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          ),
+          // execute a token transfer from the contract balance
+          transferTokens: async (
+            to, symbol, quantity, type,
+          ) => SmartContracts.executeSmartContractFromSmartContract(
+            ipc, results, 'null', payloadObj, 'tokens', 'transferFromContract',
+            JSON.stringify({
+              from: contract,
+              to,
+              quantity,
+              symbol,
+              type,
+            }),
+            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          ),
+          // emit an event that will be stored in the logs
+          emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
+          // add an error that will be stored in the logs
+          assert: (condition, error) => {
+            if (!condition && typeof error === 'string') {
+              results.logs.errors.push(error);
+            }
+            return condition;
+          },
         },
       };
 
