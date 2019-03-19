@@ -1414,7 +1414,8 @@ class Bootstrap {
         await api.db.update('metrics', metric);
     }
 
-    const updatePriceMetrics = async (symbol, price, blockDate) => {
+    const updatePriceMetrics = async (symbol, price) => {
+        const blockDate = new Date(api.steemBlockTimestamp + '.000Z')
         const timestampSec = blockDate.getTime() / 1000;
 
         let metric = await getMetric(symbol);
@@ -1475,7 +1476,7 @@ class Bootstrap {
 
         await api.db.insert('tradesHistory', newTrade);
 
-        await updatePriceMetrics(symbol, price, blockDate);
+        await updatePriceMetrics(symbol, price);
     }
 
     const countDecimals = function (value) {
