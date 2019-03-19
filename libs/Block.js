@@ -2,7 +2,7 @@ const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 
 const { SmartContracts } = require('./SmartContracts');
-const { BlockProduction } = require('./BlockProduction');
+const { Transaction } = require('../libs/Transaction');
 
 const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
@@ -17,6 +17,7 @@ class Block {
     this.previousDatabaseHash = previousDatabaseHash;
     this.timestamp = timestamp;
     this.transactions = transactions;
+    this.virtualTransactions = [];
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
@@ -74,74 +75,36 @@ class Block {
   // produce the block (deploy a smart contract or execute a smart contract)
   async produceBlock(ipc, jsVMTimeout, activeSigningKey) {
     const nbTransactions = this.transactions.length;
-    const bp = new BlockProduction(ipc, this.refSteemBlockNumber);
 
     let currentDatabaseHash = this.previousDatabaseHash;
 
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
-      const {
-        sender,
-        contract,
-        action,
-        payload,
-      } = transaction;
 
-      let results = null;
+      await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
 
-      // init the database hash for that transactions
-      await ipc.send({ // eslint-disable-line
-        to: DB_PLUGIN_NAME,
-        action: DB_PLUGIN_ACTIONS.INIT_DATABASE_HASH,
-        payload: currentDatabaseHash,
-      });
-
-      if (sender && contract && action) {
-        if (contract === 'contract' && action === 'deploy' && payload) {
-          const authorizedAccountContractDeployment = ['null', 'steemsc', 'steem-peg'];
-
-          if (authorizedAccountContractDeployment.includes(sender)) {
-            results = await SmartContracts.deploySmartContract( // eslint-disable-line
-              ipc, transaction, this.timestamp,
-              this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
-            );
-          } else {
-            results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
-          }
-        } else if (contract === 'blockProduction' && payload) {
-          // results = await bp.processTransaction(transaction); // eslint-disable-line
-          results = { logs: { errors: ['blockProduction contract not available'] } };
-        } else {
-          results = await SmartContracts.executeSmartContract(// eslint-disable-line
-            ipc, transaction, this.timestamp,
-            this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
-          );
-        }
-      } else {
-        results = { logs: { errors: ['the parameters sender, contract and action are required'] } };
-      }
-
-      // get the database hash
-      const res = await ipc.send({ // eslint-disable-line
-        to: DB_PLUGIN_NAME,
-        action: DB_PLUGIN_ACTIONS.GET_DATABASE_HASH,
-        payload: {
-        },
-      });
-
-      currentDatabaseHash = res.payload;
-
-
-      // console.log('transac logs', results.logs);
-      transaction.addLogs(results.logs);
-      transaction.executedCodeHash = results.executedCodeHash || '';
-      transaction.databaseHash = currentDatabaseHash;
-
-      transaction.calculateHash();
+      currentDatabaseHash = transaction.databaseHash;
     }
 
-    // reward block producers
-    await bp.rewardBlockProducers(); // eslint-disable-line
+    // handle virtual transactions
+    const virtualTransactions = [];
+
+    // check the pending unstakings
+    virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
+
+    const nbVirtualTransactions = virtualTransactions.length;
+    for (let i = 0; i < nbVirtualTransactions; i += 1) {
+      const transaction = virtualTransactions[i];
+      transaction.refSteemBlockNumber = this.refSteemBlockNumber;
+      transaction.transactionId = `${this.refSteemBlockNumber}-${i}`;
+      await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
+      currentDatabaseHash = transaction.databaseHash;
+
+      // if there are outputs in the virtual transaction we save the transaction into the block
+      if (transaction.logs !== '{}') {
+        this.virtualTransactions.push(transaction);
+      }
+    }
 
     this.hash = this.calculateHash();
     // calculate the merkle root of the transactions' hashes and the transactions' database hashes
@@ -151,6 +114,68 @@ class Block {
     this.databaseHash = merkleRoots.databaseHash;
     const buffMR = Buffer.from(this.merkleRoot, 'hex');
     this.signature = activeSigningKey.sign(buffMR).toString();
+  }
+
+  async processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash) {
+    const {
+      sender,
+      contract,
+      action,
+      payload,
+    } = transaction;
+
+    let results = null;
+    let newCurrentDatabaseHash = currentDatabaseHash;
+
+    // init the database hash for that transactions
+    await ipc.send({ // eslint-disable-line
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.INIT_DATABASE_HASH,
+      payload: newCurrentDatabaseHash,
+    });
+
+    if (sender && contract && action) {
+      if (contract === 'contract' && action === 'deploy' && payload) {
+        const authorizedAccountContractDeployment = ['null', 'steemsc', 'steem-peg'];
+
+        if (authorizedAccountContractDeployment.includes(sender)) {
+          results = await SmartContracts.deploySmartContract( // eslint-disable-line
+            ipc, transaction, this.timestamp,
+            this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
+          );
+        } else {
+          results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
+        }
+      } else if (contract === 'blockProduction' && payload) {
+        // results = await bp.processTransaction(transaction); // eslint-disable-line
+        results = { logs: { errors: ['blockProduction contract not available'] } };
+      } else {
+        results = await SmartContracts.executeSmartContract(// eslint-disable-line
+          ipc, transaction, this.timestamp,
+          this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
+        );
+      }
+    } else {
+      results = { logs: { errors: ['the parameters sender, contract and action are required'] } };
+    }
+
+    // get the database hash
+    const res = await ipc.send({ // eslint-disable-line
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_DATABASE_HASH,
+      payload: {
+      },
+    });
+
+    newCurrentDatabaseHash = res.payload;
+
+
+    // console.log('transac logs', results.logs);
+    transaction.addLogs(results.logs);
+    transaction.executedCodeHash = results.executedCodeHash || ''; // eslint-disable-line
+    transaction.databaseHash = newCurrentDatabaseHash; // eslint-disable-line
+
+    transaction.calculateHash();
   }
 }
 

@@ -31,7 +31,7 @@ if (process.env.NODE_ENV === 'production') {
 
 async function createGenesisBlock(payload, callback) {
   const { chainId, genesisSteemBlock } = payload;
-  const genesisTransactions = Bootstrap.getBootstrapTransactions(genesisSteemBlock);
+  const genesisTransactions = await Bootstrap.getBootstrapTransactions(genesisSteemBlock);
   genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
 
   const genesisBlock = new Block('2018-06-01T00:00:00', 0, '', '', genesisTransactions, -1, '0');
