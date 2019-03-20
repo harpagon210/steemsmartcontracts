@@ -672,6 +672,7 @@ const startUnstake = async (account, token, quantity) => {
     symbol: token.symbol,
     quantity,
     unstakeCompleteTimestamp,
+    txID: api.transactionId,
   };
 
   await api.db.insert('pendingUnstakes', unstake);
@@ -698,6 +699,56 @@ actions.unstake = async (payload) => {
         await startUnstake(api.sender, token, quantity);
 
         api.emit('unstakeStart', { account: api.sender, symbol, quantity });
+      }
+    }
+  }
+};
+
+const processCancelUnstake = async (unstake) => {
+  const {
+    account,
+    symbol,
+    quantity,
+  } = unstake;
+
+  const balance = await api.db.findOne('balances', { account, symbol });
+  const token = await api.db.findOne('tokens', { symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.pendingUnstake).gte(quantity), 'overdrawn pendingUnstake')) {
+    const originalStake = balance.stake;
+    const originalPendingStake = balance.pendingUnstake;
+
+    balance.stake = calculateBalanceVTwo(
+      balance.stake, quantity, token.precision, true,
+    );
+    balance.pendingUnstake = calculateBalanceVTwo(
+      balance.pendingUnstake, quantity, token.precision, false,
+    );
+
+    if (api.assert(api.BigNumber(balance.pendingUnstake).lt(originalPendingStake)
+      && api.BigNumber(balance.stake).gt(originalStake), 'cannot subtract')) {
+      await api.db.update('balances', balance);
+
+      api.emit('unstake', { account, symbol, quantity });
+      return true;
+    }
+  }
+
+  return false;
+};
+
+actions.cancelUnstake = async (payload) => {
+  const { txID, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+      && api.assert(txID && typeof txID === 'string', 'invalid params')) {
+    // get unstake
+    const unstake = await api.db.findOne('pendingUnstakes', { account: api.sender, txID });
+
+    if (api.assert(unstake, 'unstake does not exist')) {
+      if (await processCancelUnstake(unstake)) {
+        await api.db.remove('pendingUnstakes', unstake);
       }
     }
   }

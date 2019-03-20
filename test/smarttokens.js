@@ -548,6 +548,7 @@ describe('smart tokens', function () {
       assert.equal(unstake.quantity, '0.00000001');
       const blockDate = new Date('2018-06-30T00:02:00.000Z')
       assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
 
       resolve();
     })
@@ -617,6 +618,328 @@ describe('smart tokens', function () {
       assert.equal(JSON.parse(txs[5].logs).errors[0], 'must unstake positive quantity');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'overdrawn stake');
       assert.equal(JSON.parse(txs[7].logs).errors[0], 'symbol precision mismatch');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should cancel an unstake', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'tokens', 'stake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, "99.99999999");
+      assert.equal(balance.stake, "0.00000001");
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-30T00:02:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, '99.99999999');
+      assert.equal(balance.stake, 0);
+      assert.equal(balance.pendingUnstake, '0.00000001');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'pendingUnstakes',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let unstake = res.payload;
+
+      assert.equal(unstake.symbol, 'TKN');
+      assert.equal(unstake.account, 'satoshi');
+      assert.equal(unstake.quantity, '0.00000001');
+      const blockDate = new Date('2018-06-30T00:02:00.000Z')
+      assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID1238", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-30T00:03:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, '99.99999999');
+      assert.equal(balance.stake, '0.00000001');
+      assert.equal(balance.pendingUnstake, '0.00000000');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'pendingUnstakes',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      unstake = res.payload;
+
+      assert.equal(unstake, null);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should not cancel an unstake', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'tokens', 'stake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, "99.99999999");
+      assert.equal(balance.stake, "0.00000001");
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-30T00:02:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, '99.99999999');
+      assert.equal(balance.stake, 0);
+      assert.equal(balance.pendingUnstake, '0.00000001');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'pendingUnstakes',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let unstake = res.payload;
+
+      assert.equal(unstake.symbol, 'TKN');
+      assert.equal(unstake.account, 'satoshi');
+      assert.equal(unstake.quantity, '0.00000001');
+      let blockDate = new Date('2018-06-30T00:02:00.000Z')
+      assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
+
+      transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID1239", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'harpagon', 'tokens', 'cancelUnstake', '{ "txID": "TXID1238", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: FORK_BLOCK_NUMBER,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-30T00:03:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, '99.99999999');
+      assert.equal(balance.stake, '0.00000000');
+      assert.equal(balance.pendingUnstake, '0.00000001');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'pendingUnstakes',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      unstake = res.payload;
+
+      assert.equal(unstake.symbol, 'TKN');
+      assert.equal(unstake.account, 'satoshi');
+      assert.equal(unstake.quantity, '0.00000001');
+      blockDate = new Date('2018-06-30T00:02:00.000Z')
+      assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
 
       resolve();
     })
@@ -725,6 +1048,7 @@ describe('smart tokens', function () {
       assert.equal(unstake.quantity, '0.00000001');
       const blockDate = new Date('2018-06-30T00:02:00.000Z')
       assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
 
       transactions = [];
       // send whatever transaction
@@ -898,6 +1222,7 @@ describe('smart tokens', function () {
       assert.equal(unstake.quantity, '0.00000001');
       const blockDate = new Date('2018-06-30T00:02:00.000Z')
       assert.equal(unstake.unstakeCompleteTimestamp, blockDate.setDate(blockDate.getDate() + 7));
+      assert.equal(unstake.txID, 'TXID1238');
 
       transactions = [];
       // send whatever transaction
