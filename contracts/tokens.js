@@ -3,7 +3,7 @@ actions.createSSC = async (payload) => {
   await api.db.createTable('balances', ['account']);
   await api.db.createTable('contractsBalances', ['account']);
   await api.db.createTable('params');
-  await api.db.createTable('pendingUnstakes', ['account']);
+  await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
 
   const params = {};
   params.tokenCreationFee = '0';
@@ -191,6 +191,8 @@ const createVTwo = async (payload) => {
           maxSupply: api.BigNumber(maxSupply).toFixed(precision),
           supply: '0',
           circulatingSupply: '0',
+          stakingEnabled: false,
+          unstakingCooldown: 1,
         };
 
         await api.db.insert('tokens', newToken);
@@ -542,9 +544,93 @@ actions.transferFromContract = async (payload) => {
   }
 };
 
+const processUnstake = async (unstake) => {
+  const {
+    account,
+    symbol,
+    quantity,
+  } = unstake;
+
+  const balance = await api.db.findOne('balances', { account, symbol });
+  const token = await api.db.findOne('tokens', { symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.pendingUnstake).gte(quantity), 'overdrawn pendingUnstake')) {
+    const originalBalance = balance.balance;
+    const originalPendingStake = balance.pendingUnstake;
+
+    balance.balance = calculateBalanceVTwo(
+      balance.balance, quantity, token.precision, true,
+    );
+    balance.pendingUnstake = calculateBalanceVTwo(
+      balance.pendingUnstake, quantity, token.precision, false,
+    );
+
+    if (api.assert(api.BigNumber(balance.pendingUnstake).lt(originalPendingStake)
+      && api.BigNumber(balance.balance).gt(originalBalance), 'cannot subtract')) {
+      await api.db.update('balances', balance);
+
+      api.emit('unstake', { account, symbol, quantity });
+      return true;
+    }
+  }
+
+  return false;
+};
+
 actions.checkPendingUnstakes = async (payload) => {
-  // api.debug('it works')
-  api.emit('testEvent', { memo: 'test memo' });
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+    const timestamp = blockDate.getTime();
+
+    // get all the pending unstakes that are ready to be released
+    let pendingUnstakes = await api.db.find(
+      'pendingUnstakes',
+      {
+        unstakeCompleteTimestamp: {
+          $lte: timestamp,
+        },
+      });
+
+    let nbPendingUnstakes = pendingUnstakes.length;
+    while (nbPendingUnstakes > 0) {
+      for (let index = 0; index < nbPendingUnstakes; index += 1) {
+        const pendingUnstake = pendingUnstakes[index];
+
+        if (await processUnstake(pendingUnstake)) {
+          await api.db.remove('pendingUnstakes', pendingUnstake);
+        }
+      }
+
+      pendingUnstakes = await api.db.find(
+        'pendingUnstakes',
+        {
+          unstakeCompleteTimestamp: {
+            $lte: timestamp,
+          },
+        });
+  
+      nbPendingUnstakes = pendingUnstakes.length;
+    }
+  }
+};
+
+actions.enableStaking = async (payload) => {
+  const { symbol, unstakingCooldown, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
+    && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 365, 'unstakingCooldown must be an integer between 1 and 365')) {
+    const token = await api.db.findOne('tokens', { symbol });
+
+    if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.issuer === api.sender, 'must be the issuer')
+      && api.assert(token.stakingEnabled === false, 'staking already enabled')) {
+      token.stakingEnabled = true;
+      token.unstakingCooldown = unstakingCooldown;
+      await api.db.update('tokens', token);
+    }
+  }
 };
 
 actions.stake = async (payload) => {
@@ -561,8 +647,8 @@ actions.stake = async (payload) => {
     // then we need to check that the quantity is correct
     if (api.assert(token !== null, 'symbol does not exist')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+      && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
-
       if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
         const res = await addStake(api.sender, token, quantity);
 
@@ -574,6 +660,21 @@ actions.stake = async (payload) => {
       }
     }
   }
+};
+
+const startUnstake = async (account, token, quantity) => {
+  const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+  const unstakeCompleteTimestamp = blockDate
+    .setDate(blockDate.getDate() + token.unstakingCooldown);
+
+  const unstake = {
+    account,
+    symbol: token.symbol,
+    quantity,
+    unstakeCompleteTimestamp,
+  };
+
+  await api.db.insert('pendingUnstakes', unstake);
 };
 
 actions.unstake = async (payload) => {
@@ -589,12 +690,12 @@ actions.unstake = async (payload) => {
     // the symbol must exist
     // then we need to check that the quantity is correct
     if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
-      && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
+      && api.assert(api.BigNumber(quantity).gt(0), 'must unstake positive quantity')) {
 
       if (await subStake(api.sender, token, quantity)) {
-        // const res = await startUnstake()
-
+        await startUnstake(api.sender, token, quantity);
 
         api.emit('unstakeStart', { account: api.sender, symbol, quantity });
       }
@@ -683,9 +784,7 @@ const addBalanceVOne = async (account, token, quantity, table) => {
     balance = {
       account,
       symbol: token.symbol,
-      balance: quantity,
-      stake: '0',
-      pendingUnstake: '0',
+      balance: quantity
     };
 
     await api.db.insert(table, balance);
@@ -711,6 +810,7 @@ const addBalanceVTwo = async (account, token, quantity, table) => {
       symbol: token.symbol,
       balance: quantity,
       stake: '0',
+      pendingUnstake: '0',
     };
 
     await api.db.insert(table, balance);
