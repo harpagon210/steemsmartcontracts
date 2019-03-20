@@ -2,18 +2,20 @@ actions.createSSC = async (payload) => {
   await api.db.createTable('params');
   const params = {};
 
-  params.priceSBD = "1000000";
+  params.priceSBD = '1000000';
   params.priceSteem = "'${SSC_STORE_PRICE}$'";
   params.quantity = "'${SSC_STORE_QTY}$'";
   params.disabled = false;
 
   await api.db.insert('params', params);
-}
+};
 
 actions.updateParams = async (payload) => {
   if (api.sender !== api.owner) return;
 
-  const { priceSBD, priceSteem, quantity, disabled } = payload;
+  const {
+    priceSBD, priceSteem, quantity, disabled,
+  } = payload;
 
   const params = await api.db.findOne('params', {});
 
@@ -23,7 +25,7 @@ actions.updateParams = async (payload) => {
   params.disabled = disabled;
 
   await api.db.update('params', params);
-}
+};
 
 actions.buy = async (payload) => {
   const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
@@ -47,9 +49,7 @@ actions.buy = async (payload) => {
     // STEEM
     if (unit === 'STEEM') {
       quantity = api.BigNumber(amount).dividedBy(params.priceSteem);
-    }
-    // SBD (disabled)
-    else {
+    } else { // SBD (disabled)
       // quantity = api.BigNumber(amount).dividedBy(params.priceSBD);
     }
 
@@ -60,7 +60,7 @@ actions.buy = async (payload) => {
     }
 
     if (quantityToSend > 0) {
-      await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: quantityToSend, to: api.sender })
+      await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: quantityToSend, to: api.sender });
     }
   }
-}
+};

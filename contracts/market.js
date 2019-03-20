@@ -45,10 +45,12 @@ actions.cancel = async (payload) => {
       }
     }
   }
-}
+};
 
 actions.buy = async (payload) => {
-  const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
+  const {
+    symbol, quantity, price, expiration, isSignedWithActiveKey,
+  } = payload;
 
   // buy (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
@@ -74,9 +76,9 @@ actions.buy = async (payload) => {
         // lock STEEM_PEGGED_SYMBOL tokens
         const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: nbTokensToLock, to: CONTRACT_NAME });
 
-        if (res.errors === undefined &&
-          res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
-          const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
+        if (res.errors === undefined
+          && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === nbTokensToLock && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
+          const timestampSec = api.BigNumber(new Date(`${api.steemBlockTimestamp}.000Z`).getTime())
             .dividedBy(1000)
             .toNumber();
 
@@ -90,7 +92,9 @@ actions.buy = async (payload) => {
           order.quantity = quantity;
           order.price = price;
           order.tokensLocked = nbTokensToLock;
-          order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
+          order.expiration = expiration === undefined || expiration > 2592000
+            ? timestampSec + 2592000
+            : timestampSec + expiration;
 
           const orderInDb = await api.db.insert('buyBook', order);
 
@@ -102,7 +106,9 @@ actions.buy = async (payload) => {
 };
 
 actions.sell = async (payload) => {
-  const { symbol, quantity, price, expiration, isSignedWithActiveKey } = payload;
+  const {
+    symbol, quantity, price, expiration, isSignedWithActiveKey,
+  } = payload;
   // sell (quantity) of (symbol) at (price)(STEEM_PEGGED_SYMBOL) per (symbol)
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(
@@ -127,9 +133,9 @@ actions.sell = async (payload) => {
         // lock symbol tokens
         const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol, quantity, to: CONTRACT_NAME });
 
-        if (res.errors === undefined &&
-          res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
-          const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
+        if (res.errors === undefined
+          && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
+          const timestampSec = api.BigNumber(new Date(`${api.steemBlockTimestamp}.000Z`).getTime())
             .dividedBy(1000)
             .toNumber();
 
@@ -142,7 +148,9 @@ actions.sell = async (payload) => {
           order.symbol = symbol;
           order.quantity = quantity;
           order.price = price;
-          order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
+          order.expiration = expiration === undefined || expiration > 2592000
+            ? timestampSec + 2592000
+            : timestampSec + expiration;
 
           const orderInDb = await api.db.insert('sellBook', order);
 
@@ -154,7 +162,9 @@ actions.sell = async (payload) => {
 };
 
 const findMatchingSellOrders = async (order, tokenPrecision) => {
-  const { txId, account, symbol, quantity, price } = order;
+  const {
+    account, symbol, price,
+  } = order;
 
   const buyOrder = order;
   let offset = 0;
@@ -169,10 +179,10 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       $lte: price,
     },
   }, 1000, offset,
-    [
-      { index: 'price', descending: false },
-      { index: '$loki', descending: false },
-    ]);
+  [
+    { index: 'price', descending: false },
+    { index: '$loki', descending: false },
+  ]);
 
   do {
     const nbOrders = sellOrderBook.length;
@@ -181,7 +191,6 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
     while (inc < nbOrders && api.BigNumber(buyOrder.quantity).gt(0)) {
       const sellOrder = sellOrderBook[inc];
       if (api.BigNumber(buyOrder.quantity).lte(sellOrder.quantity)) {
-
         let qtyTokensToSend = api.BigNumber(sellOrder.price)
           .multipliedBy(buyOrder.quantity)
           .toFixed(3);
@@ -194,7 +203,6 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 
         if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
           && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
-
           // transfer the tokens to the buyer
           await api.transferTokens(account, symbol, buyOrder.quantity, 'user');
 
@@ -202,10 +210,12 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
           // update the sell order
-          const qtyLeftSellOrder = api.BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
-          const nbTokensToFillOrder = api.BigNumber(sellOrder.price).multipliedBy(qtyLeftSellOrder).toFixed(3);
-
-
+          const qtyLeftSellOrder = api.BigNumber(sellOrder.quantity)
+            .minus(buyOrder.quantity)
+            .toFixed(tokenPrecision);
+          const nbTokensToFillOrder = api.BigNumber(sellOrder.price)
+            .multipliedBy(qtyLeftSellOrder)
+            .toFixed(3);
 
           if (api.BigNumber(qtyLeftSellOrder).gt(0)
             && (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER_TWO}$' || api.BigNumber(nbTokensToFillOrder).gte('0.001'))) {
@@ -220,7 +230,9 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           }
 
           // unlock remaining tokens, update the quantity to get and remove the buy order
-          const tokensToUnlock = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
+          const tokensToUnlock = api.BigNumber(buyOrder.tokensLocked)
+            .minus(qtyTokensToSend)
+            .toFixed(3);
 
           if (api.BigNumber(tokensToUnlock).gt(0)) {
             await api.transferTokens(account, STEEM_PEGGED_SYMBOL, tokensToUnlock, 'user');
@@ -232,7 +244,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           // update the volume
           volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
 
-          buyOrder.quantity = "0";
+          buyOrder.quantity = '0';
           await api.db.remove('buyBook', buyOrder);
         }
       } else {
@@ -248,7 +260,6 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 
         if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
           && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
-
           // transfer the tokens to the buyer
           await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
 
@@ -259,16 +270,22 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           await api.db.remove('sellBook', sellOrder);
 
           // update tokensLocked and the quantity to get
-          buyOrder.tokensLocked = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
-          buyOrder.quantity = api.BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
+          buyOrder.tokensLocked = api.BigNumber(buyOrder.tokensLocked)
+            .minus(qtyTokensToSend)
+            .toFixed(3);
+          buyOrder.quantity = api.BigNumber(buyOrder.quantity)
+            .minus(sellOrder.quantity)
+            .toFixed(tokenPrecision);
 
           // check if the order can still be filled
-          const nbTokensToFillOrder = api.BigNumber(buyOrder.price).multipliedBy(buyOrder.quantity).toFixed(3);
+          const nbTokensToFillOrder = api.BigNumber(buyOrder.price)
+            .multipliedBy(buyOrder.quantity)
+            .toFixed(3);
 
           if (api.refSteemBlockNumber >= '${FORK_BLOCK_NUMBER_TWO}$' && api.BigNumber(nbTokensToFillOrder).lt('0.001')) {
             await api.transferTokens(account, STEEM_PEGGED_SYMBOL, buyOrder.tokensLocked, 'user');
 
-            buyOrder.quantity = "0";
+            buyOrder.quantity = '0';
             await api.db.remove('buyBook', buyOrder);
           }
 
@@ -293,10 +310,10 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           $lte: price,
         },
       }, 1000, offset,
-        [
-          { index: 'price', descending: false },
-          { index: '$loki', descending: false },
-        ]);
+      [
+        { index: 'price', descending: false },
+        { index: '$loki', descending: false },
+      ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
 
@@ -311,7 +328,9 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 };
 
 const findMatchingBuyOrders = async (order, tokenPrecision) => {
-  const { txId, account, symbol, quantity, price } = order;
+  const {
+    account, symbol, price,
+  } = order;
 
   const sellOrder = order;
   let offset = 0;
@@ -326,10 +345,10 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       $gte: price,
     },
   }, 1000, offset,
-    [
-      { index: 'price', descending: true },
-      { index: '$loki', descending: false },
-    ]);
+  [
+    { index: 'price', descending: true },
+    { index: '$loki', descending: false },
+  ]);
 
   do {
     const nbOrders = buyOrderBook.length;
@@ -338,7 +357,6 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
     while (inc < nbOrders && api.BigNumber(sellOrder.quantity).gt(0)) {
       const buyOrder = buyOrderBook[inc];
       if (api.BigNumber(sellOrder.quantity).lte(buyOrder.quantity)) {
-
         let qtyTokensToSend = api.BigNumber(buyOrder.price)
           .multipliedBy(sellOrder.quantity)
           .toFixed(3);
@@ -358,10 +376,16 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
 
           // update the buy order
-          const qtyLeftBuyOrder = api.BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
+          const qtyLeftBuyOrder = api.BigNumber(buyOrder.quantity)
+            .minus(sellOrder.quantity)
+            .toFixed(tokenPrecision);
 
-          const buyOrdertokensLocked = api.BigNumber(buyOrder.tokensLocked).minus(qtyTokensToSend).toFixed(3);
-          const nbTokensToFillOrder = api.BigNumber(buyOrder.price).multipliedBy(qtyLeftBuyOrder).toFixed(3);
+          const buyOrdertokensLocked = api.BigNumber(buyOrder.tokensLocked)
+            .minus(qtyTokensToSend)
+            .toFixed(3);
+          const nbTokensToFillOrder = api.BigNumber(buyOrder.price)
+            .multipliedBy(qtyLeftBuyOrder)
+            .toFixed(3);
 
           if (api.BigNumber(qtyLeftBuyOrder).gt(0)
             && (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER_TWO}$' || api.BigNumber(nbTokensToFillOrder).gte('0.001'))) {
@@ -386,7 +410,6 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           await api.db.remove('sellBook', sellOrder);
         }
       } else {
-
         let qtyTokensToSend = api.BigNumber(buyOrder.price)
           .multipliedBy(buyOrder.quantity)
           .toFixed(3);
@@ -409,15 +432,19 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           await api.db.remove('buyBook', buyOrder);
 
           // update the quantity to get
-          sellOrder.quantity = api.BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
+          sellOrder.quantity = api.BigNumber(sellOrder.quantity)
+            .minus(buyOrder.quantity)
+            .toFixed(tokenPrecision);
 
           // check if the order can still be filled
-          const nbTokensToFillOrder = api.BigNumber(sellOrder.price).multipliedBy(sellOrder.quantity).toFixed(3);
+          const nbTokensToFillOrder = api.BigNumber(sellOrder.price)
+            .multipliedBy(sellOrder.quantity)
+            .toFixed(3);
 
           if (api.refSteemBlockNumber >= '${FORK_BLOCK_NUMBER_TWO}$' && api.BigNumber(nbTokensToFillOrder).lt('0.001')) {
             await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
 
-            sellOrder.quantity = "0";
+            sellOrder.quantity = '0';
             await api.db.remove('sellBook', sellOrder);
           }
 
@@ -442,10 +469,10 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           $gte: price,
         },
       }, 1000, offset,
-        [
-          { index: 'price', descending: true },
-          { index: '$loki', descending: false },
-        ]);
+      [
+        { index: 'price', descending: true },
+        { index: '$loki', descending: false },
+      ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
 
@@ -460,7 +487,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
 };
 
 const removeExpiredOrders = async (table) => {
-  const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
+  const timestampSec = api.BigNumber(new Date(`${api.steemBlockTimestamp}.000Z`).getTime())
     .dividedBy(1000)
     .toNumber();
 
@@ -486,7 +513,7 @@ const removeExpiredOrders = async (table) => {
         },
       });
   }
-}
+};
 
 const getMetric = async (symbol) => {
   let metric = await api.db.findOne('metrics', { symbol });
@@ -494,27 +521,27 @@ const getMetric = async (symbol) => {
   if (metric === null) {
     metric = {};
     metric.symbol = symbol;
-    metric.volume = "0";
+    metric.volume = '0';
     metric.volumeExpiration = 0;
-    metric.lastPrice = "0";
-    metric.lowestAsk = "0";
-    metric.highestBid = "0";
-    metric.lastDayPrice = "0";
+    metric.lastPrice = '0';
+    metric.lowestAsk = '0';
+    metric.highestBid = '0';
+    metric.lastDayPrice = '0';
     metric.lastDayPriceExpiration = 0;
-    metric.priceChangeSteem = "0";
-    metric.priceChangePercent = "0";
+    metric.priceChangeSteem = '0';
+    metric.priceChangePercent = '0';
 
     return await api.db.insert('metrics', metric);
   }
 
   return metric;
-}
+};
 
 const updateVolumeMetric = async (symbol, quantity) => {
-  const blockDate = new Date(api.steemBlockTimestamp + '.000Z');
+  const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
   const timestampSec = blockDate.getTime() / 1000;
 
-  let metric = await getMetric(symbol);
+  const metric = await getMetric(symbol);
 
   if (metric.volumeExpiration < timestampSec) {
     metric.volume = quantity;
@@ -524,10 +551,10 @@ const updateVolumeMetric = async (symbol, quantity) => {
   }
 
   await api.db.update('metrics', metric);
-}
+};
 
 const updateBidMetric = async (symbol) => {
-  let metric = await getMetric(symbol);
+  const metric = await getMetric(symbol);
 
   const buyOrderBook = await api.db.find('buyBook',
     {
@@ -535,21 +562,20 @@ const updateBidMetric = async (symbol) => {
     }, 1, 0,
     [
       { index: 'price', descending: true },
-    ]
-  );
+    ]);
 
 
   if (buyOrderBook.length > 0) {
     metric.highestBid = buyOrderBook[0].price;
   } else {
-    metric.highestBid = "0";
+    metric.highestBid = '0';
   }
 
   await api.db.update('metrics', metric);
-}
+};
 
 const updateAskMetric = async (symbol) => {
-  let metric = await getMetric(symbol);
+  const metric = await getMetric(symbol);
 
   const sellOrderBook = await api.db.find('sellBook',
     {
@@ -557,42 +583,41 @@ const updateAskMetric = async (symbol) => {
     }, 1, 0,
     [
       { index: 'price', descending: false },
-    ]
-  );
+    ]);
 
   if (sellOrderBook.length > 0) {
     metric.lowestAsk = sellOrderBook[0].price;
   } else {
-    metric.lowestAsk = "0";
+    metric.lowestAsk = '0';
   }
 
   await api.db.update('metrics', metric);
-}
+};
 
 const updatePriceMetrics = async (symbol, price) => {
-  const blockDate = new Date(api.steemBlockTimestamp + '.000Z')
+  const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`)
   const timestampSec = blockDate.getTime() / 1000;
 
-  let metric = await getMetric(symbol);
+  const metric = await getMetric(symbol);
 
   metric.lastPrice = price;
 
   if (metric.lastDayPriceExpiration < timestampSec) {
     metric.lastDayPrice = price;
     metric.lastDayPriceExpiration = blockDate.setUTCHours(24, 0, 0, 0) / 1000;
-    metric.priceChangeSteem = "0";
-    metric.priceChangePercent = "0%";
+    metric.priceChangeSteem = '0';
+    metric.priceChangePercent = '0%';
   } else {
     metric.priceChangeSteem = api.BigNumber(price).minus(metric.lastDayPrice).toFixed(3);
-    metric.priceChangePercent = api.BigNumber(metric.priceChangeSteem).dividedBy(metric.lastDayPrice).multipliedBy(100).toFixed(2) + '%';
+    metric.priceChangePercent = `${api.BigNumber(metric.priceChangeSteem).dividedBy(metric.lastDayPrice).multipliedBy(100).toFixed(2)}%`;
   }
 
   await api.db.update('metrics', metric);
-}
+};
 
 const updateTradesHistory = async (type, symbol, quantity, price) => {
-  const blockDate = new Date(api.steemBlockTimestamp + '.000Z')
-  const timestampSec = blockDate.getTime() / 1000
+  const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+  const timestampSec = blockDate.getTime() / 1000;
 
   const timestampMinus24hrs = blockDate.setDate(blockDate.getDate() - 1) / 1000;
 
@@ -632,8 +657,6 @@ const updateTradesHistory = async (type, symbol, quantity, price) => {
   await api.db.insert('tradesHistory', newTrade);
 
   await updatePriceMetrics(symbol, price);
-}
-
-const countDecimals = function (value) {
-  return api.BigNumber(value).dp();
 };
+
+const countDecimals = (value) => api.BigNumber(value).dp();

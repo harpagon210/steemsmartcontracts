@@ -6,9 +6,9 @@ actions.createSSC = async (payload) => {
   await api.db.createTable('pendingUnstakes', ['account']);
 
   const params = {};
-  params.tokenCreationFee = "0";
+  params.tokenCreationFee = '0';
   await api.db.insert('params', params);
-}
+};
 
 actions.updateParams = async (payload) => {
   if (api.sender !== api.owner) return;
@@ -20,7 +20,7 @@ actions.updateParams = async (payload) => {
   params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed('${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}$') : tokenCreationFee;
 
   await api.db.update('params', params);
-}
+};
 
 actions.updateUrl = async (payload) => {
   const { url, symbol } = payload;
@@ -29,12 +29,12 @@ actions.updateUrl = async (payload) => {
     && url && typeof url === 'string', 'invalid params')
     && api.assert(url.length <= 255, 'invalid url: max length of 255')) {
     // check if the token exists
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     if (token) {
       if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
         try {
-          let metadata = JSON.parse(token.metadata);
+          const metadata = JSON.parse(token.metadata);
 
           if (api.assert(metadata && metadata.url, 'an error occured when trying to update the url')) {
             metadata.url = url;
@@ -47,7 +47,7 @@ actions.updateUrl = async (payload) => {
       }
     }
   }
-}
+};
 
 actions.updateMetadata = async (payload) => {
   const { metadata, symbol } = payload;
@@ -55,7 +55,7 @@ actions.updateMetadata = async (payload) => {
   if (api.assert(symbol && typeof symbol === 'string'
     && metadata && typeof metadata === 'object', 'invalid params')) {
     // check if the token exists
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     if (token) {
       if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
@@ -73,10 +73,12 @@ actions.updateMetadata = async (payload) => {
       }
     }
   }
-}
+};
 
 const createVOne = async (payload) => {
-  const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
+  const {
+    name, symbol, url, precision, maxSupply, isSignedWithActiveKey,
+  } = payload;
 
   // get contract params
   const params = await api.db.findOne('params', {});
@@ -85,15 +87,14 @@ const createVOne = async (payload) => {
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
   const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
-  const authorizedCreation = api.BigNumber(tokenCreationFee).lte("0") ? true : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
+  const authorizedCreation = api.BigNumber(tokenCreationFee).lte('0') ? true : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
 
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
     && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
-      && (precision && typeof precision === 'number' || precision === 0)
+      && ((precision && typeof precision === 'number') || precision === 0)
       && maxSupply && typeof maxSupply === 'number', 'invalid params')) {
-
     // the precision must be between 0 and 8 and must be an integer
     // the max supply must be positive
     if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
@@ -102,16 +103,15 @@ const createVOne = async (payload) => {
       && api.assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
       && api.assert(maxSupply > 0, 'maxSupply must be positive')
       && api.assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
-
       // check if the token already exists
-      let token = await api.db.findOne('tokens', { symbol });
+      const token = await api.db.findOne('tokens', { symbol });
 
       if (api.assert(token === null, 'symbol already exists')) {
         const finalUrl = url === undefined ? '' : url;
 
         let metadata = {
-          url: finalUrl
-        }
+          url: finalUrl,
+        };
 
         metadata = JSON.stringify(metadata);
 
@@ -130,15 +130,19 @@ const createVOne = async (payload) => {
 
         // burn the token creation fees
         if (api.BigNumber(tokenCreationFee).gt(0)) {
-          await actions.transfer({ to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: api.BigNumber(tokenCreationFee).toNumber(), isSignedWithActiveKey });
+          await actions.transfer({
+            to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: api.BigNumber(tokenCreationFee).toNumber(), isSignedWithActiveKey,
+          });
         }
       }
     }
   }
-}
+};
 
 const createVTwo = async (payload) => {
-  const { name, symbol, url, precision, maxSupply, isSignedWithActiveKey } = payload;
+  const {
+    name, symbol, url, precision, maxSupply, isSignedWithActiveKey,
+  } = payload;
 
   // get contract params
   const params = await api.db.findOne('params', {});
@@ -147,13 +151,15 @@ const createVTwo = async (payload) => {
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
   const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
-  const authorizedCreation = api.BigNumber(tokenCreationFee).lte(0) ? true : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
+  const authorizedCreation = api.BigNumber(tokenCreationFee).lte(0)
+    ? true
+    : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
 
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
     && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
-      && (precision && typeof precision === 'number' || precision === 0)
+      && ((precision && typeof precision === 'number') || precision === 0)
       && maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN(), 'invalid params')) {
 
     // the precision must be between 0 and 8 and must be an integer
@@ -166,14 +172,14 @@ const createVTwo = async (payload) => {
       && api.assert(api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), 'maxSupply must be lower than ' + Number.MAX_SAFE_INTEGER)) {
 
       // check if the token already exists
-      let token = await api.db.findOne('tokens', { symbol });
+      const token = await api.db.findOne('tokens', { symbol });
 
       if (api.assert(token === null, 'symbol already exists')) {
         const finalUrl = url === undefined ? '' : url;
 
         let metadata = {
-          url: finalUrl
-        }
+          url: finalUrl,
+        };
 
         metadata = JSON.stringify(metadata);
         const newToken = {
@@ -183,20 +189,22 @@ const createVTwo = async (payload) => {
           metadata,
           precision,
           maxSupply: api.BigNumber(maxSupply).toFixed(precision),
-          supply: "0",
-          circulatingSupply: "0",
+          supply: '0',
+          circulatingSupply: '0',
         };
 
         await api.db.insert('tokens', newToken);
 
         // burn the token creation fees
         if (api.BigNumber(tokenCreationFee).gt(0)) {
-          await actions.transfer({ to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey });
+          await actions.transfer({
+            to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey,
+          });
         }
       }
     }
   }
-}
+};
 
 actions.create = async (payload) => {
   if (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER}$') {
@@ -204,17 +212,19 @@ actions.create = async (payload) => {
   } else {
     await createVTwo(payload);
   }
-}
+};
 
 const issueVOne = async (payload) => {
-  const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'number', 'invalid params')) {
 
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     // the symbol must exist
     // the api.sender must be the issuer
@@ -255,17 +265,19 @@ const issueVOne = async (payload) => {
       }
     }
   }
-}
+};
 
 const issueVTwo = async (payload) => {
-  const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
 
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     // the symbol must exist
     // the api.sender must be the issuer
@@ -296,17 +308,21 @@ const issueVTwo = async (payload) => {
           token.supply = calculateBalanceVTwo(token.supply, quantity, token.precision, true);
 
           if (to !== 'null') {
-            token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, true);
+            token.circulatingSupply = calculateBalanceVTwo(
+              token.circulatingSupply, quantity, token.precision, true,
+            );
           }
 
           await api.db.update('tokens', token);
 
-          api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+          api.emit('transferFromContract', {
+            from: 'tokens', to, symbol, quantity,
+          });
         }
       }
     }
   }
-}
+};
 
 actions.issue = async (payload) => {
   if (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER}$') {
@@ -314,20 +330,21 @@ actions.issue = async (payload) => {
   } else {
     await issueVTwo(payload);
   }
-}
+};
 
 const transferVOne = async (payload) => {
-  const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'number', 'invalid params')) {
-
     if (api.assert(to !== api.sender, 'cannot transfer to self')) {
       // a valid steem account is between 3 and 16 characters in length
       if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-        let token = await api.db.findOne('tokens', { symbol });
+        const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
         // then we need to check that the quantity is correct
@@ -345,11 +362,15 @@ const transferVOne = async (payload) => {
             }
 
             if (to === 'null') {
-              token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, false);
+              token.circulatingSupply = calculateBalanceVOne(
+                token.circulatingSupply, quantity, token.precision, false,
+              );
               await api.db.update('tokens', token);
             }
 
-            api.emit('transfer', { from: api.sender, to, symbol, quantity });
+            api.emit('transfer', {
+              from: api.sender, to, symbol, quantity,
+            });
 
             return true;
           }
@@ -359,10 +380,12 @@ const transferVOne = async (payload) => {
   }
 
   return false;
-}
+};
 
 const transferVTwo = async (payload) => {
-  const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(to && typeof to === 'string'
@@ -372,7 +395,7 @@ const transferVTwo = async (payload) => {
     if (api.assert(to !== api.sender, 'cannot transfer to self')) {
       // a valid steem account is between 3 and 16 characters in length
       if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
-        let token = await api.db.findOne('tokens', { symbol });
+        const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
         // then we need to check that the quantity is correct
@@ -390,11 +413,15 @@ const transferVTwo = async (payload) => {
             }
 
             if (to === 'null') {
-              token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
+              token.circulatingSupply = calculateBalanceVTwo(
+                token.circulatingSupply, quantity, token.precision, false,
+              );
               await api.db.update('tokens', token);
             }
 
-            api.emit('transfer', { from: api.sender, to, symbol, quantity });
+            api.emit('transfer', {
+              from: api.sender, to, symbol, quantity,
+            });
 
             return true;
           }
@@ -404,7 +431,7 @@ const transferVTwo = async (payload) => {
   }
 
   return false;
-}
+};
 
 actions.transfer = async (payload) => {
   if (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER}$') {
@@ -412,10 +439,12 @@ actions.transfer = async (payload) => {
   } else {
     await transferVTwo(payload);
   }
-}
+};
 
 actions.transferToContract = async (payload) => {
-  const { to, symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(to && typeof to === 'string'
@@ -425,7 +454,7 @@ actions.transferToContract = async (payload) => {
     if (api.assert(to !== api.sender, 'cannot transfer to self')) {
       // a valid contract account is between 3 and 50 characters in length
       if (api.assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
-        let token = await api.db.findOne('tokens', { symbol });
+        const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
         // then we need to check that the quantity is correct
@@ -440,23 +469,29 @@ actions.transferToContract = async (payload) => {
               await addBalanceVTwo(api.sender, token, quantity, 'balances');
             } else {
               if (to === 'null') {
-                token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
+                token.circulatingSupply = calculateBalanceVTwo(
+                  token.circulatingSupply, quantity, token.precision, false,
+                );
                 await api.db.update('tokens', token);
               }
 
-              api.emit('transferToContract', { from: api.sender, to, symbol, quantity });
+              api.emit('transferToContract', {
+                from: api.sender, to, symbol, quantity,
+              });
             }
           }
         }
       }
     }
   }
-}
+};
 
 actions.transferFromContract = async (payload) => {
   // this action can only be called by the 'null' account which only the core code can use
   if (api.assert(api.sender === 'null', 'not authorized')) {
-    const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
+    const {
+      from, to, symbol, quantity, type, isSignedWithActiveKey,
+    } = payload;
     const types = ['user', 'contract'];
 
     if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
@@ -470,11 +505,11 @@ actions.transferFromContract = async (payload) => {
 
       if (api.assert(type === 'user' || (type === 'contract' && to !== from), 'cannot transfer to self')) {
         // validate the "to"
-        let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
+        const toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
 
         // the account must exist
         if (api.assert(toValid === true, 'invalid to')) {
-          let token = await api.db.findOne('tokens', { symbol });
+          const token = await api.db.findOne('tokens', { symbol });
 
           // the symbol must exist
           // then we need to check that the quantity is correct
@@ -489,11 +524,15 @@ actions.transferFromContract = async (payload) => {
                 await addBalanceVTwo(from, token, quantity, 'contractsBalances');
               } else {
                 if (to === 'null') {
-                  token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
+                  token.circulatingSupply = calculateBalanceVTwo(
+                    token.circulatingSupply, quantity, token.precision, false,
+                  );
                   await api.db.update('tokens', token);
                 }
 
-                api.emit('transferFromContract', { from, to, symbol, quantity });
+                api.emit('transferFromContract', {
+                  from, to, symbol, quantity,
+                });
               }
             }
           }
@@ -501,12 +540,12 @@ actions.transferFromContract = async (payload) => {
       }
     }
   }
-}
+};
 
 actions.checkPendingUnstakes = async (payload) => {
-  //api.debug('it works')
-  api.emit('testEvent', { 'memo': 'test memo' });
-}
+  // api.debug('it works')
+  api.emit('testEvent', { memo: 'test memo' });
+};
 
 actions.stake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
@@ -516,7 +555,7 @@ actions.stake = async (payload) => {
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
 
     // a valid steem account is between 3 and 16 characters in length
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     // the symbol must exist
     // then we need to check that the quantity is correct
@@ -529,15 +568,13 @@ actions.stake = async (payload) => {
 
         if (res === false) {
           await addBalanceVTwo(api.sender, token, quantity, 'balances');
-
-          return false;
         } else {
           api.emit('stake', { account: api.sender, symbol, quantity });
         }
       }
     }
   }
-}
+};
 
 actions.unstake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
@@ -547,7 +584,7 @@ actions.unstake = async (payload) => {
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
 
     // a valid steem account is between 3 and 16 characters in length
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     // the symbol must exist
     // then we need to check that the quantity is correct
@@ -556,17 +593,17 @@ actions.unstake = async (payload) => {
       && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
 
       if (await subStake(api.sender, token, quantity)) {
-        //const res = await startUnstake()
+        // const res = await startUnstake()
 
 
         api.emit('unstakeStart', { account: api.sender, symbol, quantity });
       }
     }
   }
-}
+};
 
 const addStake = async (account, token, quantity) => {
-  let balance = await api.db.findOne('balances', { account, 'symbol': token.symbol });
+  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
 
   const originalStake = balance.stake;
 
@@ -577,18 +614,20 @@ const addStake = async (account, token, quantity) => {
   }
 
   return false;
-}
+};
 
 const subStake = async (account, token, quantity) => {
-  let balance = await api.db.findOne('balances', { account, 'symbol': token.symbol });
+  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
 
-  if (api.assert(balance !== null, 'balance does not exist') &&
-    api.assert(api.BigNumber(balance.stake).gte(quantity), 'overdrawn stake')) {
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.stake).gte(quantity), 'overdrawn stake')) {
     const originalStake = balance.stake;
     const originalPendingStake = balance.pendingUnstake;
 
     balance.stake = calculateBalanceVTwo(balance.stake, quantity, token.precision, false);
-    balance.pendingUnstake = calculateBalanceVTwo(balance.pendingUnstake, quantity, token.precision, true);
+    balance.pendingUnstake = calculateBalanceVTwo(
+      balance.pendingUnstake, quantity, token.precision, true,
+    );
 
     if (api.assert(api.BigNumber(balance.stake).lt(originalStake)
       && api.BigNumber(balance.pendingUnstake).gt(originalPendingStake), 'cannot subtract')) {
@@ -599,12 +638,12 @@ const subStake = async (account, token, quantity) => {
   }
 
   return false;
-}
+};
 
 const subBalanceVOne = async (account, token, quantity, table) => {
-  let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
-  if (api.assert(balance !== null, 'balance does not exist') &&
-    api.assert(balance.balance >= quantity, 'overdrawn balance')) {
+  const balance = await api.db.findOne(table, { account, symbol: token.symbol });
+  if (api.assert(balance !== null, 'balance does not exist') 
+    && api.assert(balance.balance >= quantity, 'overdrawn balance')) {
     const originalBalance = balance.balance;
 
     balance.balance = calculateBalanceVOne(balance.balance, quantity, token.precision, false);
@@ -617,13 +656,13 @@ const subBalanceVOne = async (account, token, quantity, table) => {
   }
 
   return false;
-}
+};
 
 const subBalanceVTwo = async (account, token, quantity, table) => {
-  let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
+  const balance = await api.db.findOne(table, { account, symbol: token.symbol });
 
-  if (api.assert(balance !== null, 'balance does not exist') &&
-    api.assert(api.BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
     const originalBalance = balance.balance;
 
     balance.balance = calculateBalanceVTwo(balance.balance, quantity, token.precision, false);
@@ -636,73 +675,74 @@ const subBalanceVTwo = async (account, token, quantity, table) => {
   }
 
   return false;
-}
+};
 
 const addBalanceVOne = async (account, token, quantity, table) => {
-  let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
+  let balance = await api.db.findOne(table, { account, symbol: token.symbol });
   if (balance === null) {
     balance = {
       account,
-      'symbol': token.symbol,
-      'balance': quantity,
-      'stake': "0",
-      'pendingUnstake': "0"
-    }
+      symbol: token.symbol,
+      balance: quantity,
+      stake: '0',
+      pendingUnstake: '0',
+    };
 
     await api.db.insert(table, balance);
 
     return true;
-  } else {
-    const originalBalance = balance.balance;
-
-    balance.balance = calculateBalanceVOne(balance.balance, quantity, token.precision, true);
-    if (api.assert(balance.balance > originalBalance, 'cannot add')) {
-      await api.db.update(table, balance);
-      return true;
-    }
-
-    return false;
   }
-}
+  const originalBalance = balance.balance;
+
+  balance.balance = calculateBalanceVOne(balance.balance, quantity, token.precision, true);
+  if (api.assert(balance.balance > originalBalance, 'cannot add')) {
+    await api.db.update(table, balance);
+    return true;
+  }
+
+  return false;
+};
 
 const addBalanceVTwo = async (account, token, quantity, table) => {
-  let balance = await api.db.findOne(table, { account, 'symbol': token.symbol });
+  let balance = await api.db.findOne(table, { account, symbol: token.symbol });
   if (balance === null) {
     balance = {
       account,
-      'symbol': token.symbol,
-      'balance': quantity,
-      'stake': "0"
-    }
+      symbol: token.symbol,
+      balance: quantity,
+      stake: '0',
+    };
 
     await api.db.insert(table, balance);
 
     return true;
-  } else {
-    const originalBalance = balance.balance;
-
-    balance.balance = calculateBalanceVTwo(balance.balance, quantity, token.precision, true);
-    if (api.assert(api.BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
-      await api.db.update(table, balance);
-      return true;
-    }
-
-    return false;
   }
-}
 
-const calculateBalanceVOne = function (balance, quantity, precision, add) {
+  const originalBalance = balance.balance;
+
+  balance.balance = calculateBalanceVTwo(balance.balance, quantity, token.precision, true);
+  if (api.assert(api.BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
+    await api.db.update(table, balance);
+    return true;
+  }
+
+  return false;
+};
+
+const calculateBalanceVOne = (balance, quantity, precision, add) => {
   if (precision === 0) {
-    return add ? balance + quantity : balance - quantity
+    return add ? balance + quantity : balance - quantity;
   }
 
-  return add ? api.BigNumber(balance).plus(quantity).toNumber() : api.BigNumber(balance).minus(quantity).toNumber()
-}
+  return add
+    ? api.BigNumber(balance).plus(quantity).toNumber()
+    : api.BigNumber(balance).minus(quantity).toNumber();
+};
 
-const calculateBalanceVTwo = function (balance, quantity, precision, add) {
-  return add ? api.BigNumber(balance).plus(quantity).toFixed(precision) : api.BigNumber(balance).minus(quantity).toFixed(precision);
-}
+const calculateBalanceVTwo = (balance, quantity, precision, add) => {
+  return add
+    ? api.BigNumber(balance).plus(quantity).toFixed(precision)
+    : api.BigNumber(balance).minus(quantity).toFixed(precision);
+};
 
-const countDecimals = function (value) {
-  return api.BigNumber(value).dp();
-}
+const countDecimals = value => api.BigNumber(value).dp();
