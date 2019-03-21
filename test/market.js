@@ -1768,7 +1768,8 @@ describe('Market', () => {
 
       assert.equal(volume.symbol, 'TKN');
       assert.equal(volume.volume, 30);
-      assert.equal(volume.volumeExpiration, new Date('2018-06-01T02:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      let blockDate = new Date('2018-06-02T02:00:00.000Z')
+      assert.equal(volume.volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": "1000" }'));
@@ -1789,7 +1790,7 @@ describe('Market', () => {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T01:00:00',
+        timestamp: '2018-06-02T01:00:00',
         transactions,
       };
 
@@ -1809,11 +1810,13 @@ describe('Market', () => {
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 60);
-      assert.equal(metrics[0].volumeExpiration, new Date('2018-06-01T01:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      blockDate = new Date('2018-06-02T02:00:00.000Z');
+      assert.equal(metrics[0].volumeExpiration, blockDate.getTime() / 1000);
 
       assert.equal(metrics[1].symbol, 'BTC');
       assert.equal(metrics[1].volume, 23);
-      assert.equal(metrics[1].volumeExpiration, new Date('2018-06-01T01:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      blockDate = new Date('2018-06-03T01:00:00.000Z');
+      assert.equal(metrics[1].volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
@@ -1825,7 +1828,7 @@ describe('Market', () => {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-03T01:00:00',
+        timestamp: '2018-06-03T01:01:00',
         transactions,
       };
 
@@ -1846,11 +1849,13 @@ describe('Market', () => {
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 9);
-      assert.equal(metrics[0].volumeExpiration, new Date('2018-06-03T01:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      blockDate = new Date('2018-06-04T01:01:00.000Z');
+      assert.equal(metrics[0].volumeExpiration, blockDate.getTime() / 1000);
 
       assert.equal(metrics[1].symbol, 'BTC');
       assert.equal(metrics[1].volume, 15);
-      assert.equal(metrics[1].volumeExpiration, new Date('2018-06-03T01:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      blockDate = new Date('2018-06-04T01:01:00.000Z');
+      assert.equal(metrics[1].volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "harpagon", "quantity": "100", "isSignedWithActiveKey": true }'));
@@ -1863,7 +1868,7 @@ describe('Market', () => {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-04T01:00:00',
+        timestamp: '2018-06-04T01:02:00',
         transactions,
       };
 
@@ -1884,7 +1889,8 @@ describe('Market', () => {
 
       assert.equal(metric.symbol, 'TKN');
       assert.equal(metric.volume, 0);
-      assert.equal(metric.volumeExpiration, new Date('2018-06-04T01:00:00.000Z').setUTCHours(24, 0, 0, 0) / 1000);
+      blockDate = new Date('2018-06-05T01:02:00.000Z');
+      assert.equal(metric.volumeExpiration, blockDate.getTime() / 1000);
       assert.equal(metric.lastPrice, 3);
       assert.equal(metric.highestBid, 3);
       assert.equal(metric.lowestAsk, 4);

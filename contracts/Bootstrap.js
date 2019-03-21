@@ -1363,7 +1363,7 @@ class Bootstrap {
 
         if (metric.volumeExpiration < timestampSec) {
             metric.volume = quantity;
-            metric.volumeExpiration = blockDate.setUTCHours(24, 0, 0, 0) / 1000;
+            metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
         } else {
             metric.volume = api.BigNumber(metric.volume).plus(quantity).toNumber();
         }
@@ -1424,7 +1424,7 @@ class Bootstrap {
 
         if (metric.lastDayPriceExpiration < timestampSec) {
             metric.lastDayPrice = price;
-            metric.lastDayPriceExpiration = blockDate.setUTCHours(24, 0, 0, 0) / 1000;
+            metric.lastDayPriceExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
             metric.priceChangeSteem = "0";
             metric.priceChangePercent = "0%";
         } else {
