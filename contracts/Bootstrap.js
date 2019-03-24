@@ -235,7 +235,7 @@ class Bootstrap {
             && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'number', 'invalid params')) {
-    
+            const finalTo = to.trim();
             let token = await api.db.findOne('tokens', { symbol });
     
             // the symbol must exist
@@ -248,14 +248,14 @@ class Bootstrap {
                 && api.assert(quantity <= (api.BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
     
                 // a valid steem account is between 3 and 16 characters in length
-                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
                     // we made all the required verification, let's now issue the tokens
     
                     let res = await addBalanceVOne(token.issuer, token, quantity, 'balances');
     
-                    if (res === true && to !== token.issuer) {
+                    if (res === true && finalTo !== token.issuer) {
                         if (await subBalanceVOne(token.issuer, token, quantity, 'balances')) {
-                            res = await addBalanceVOne(to, token, quantity, 'balances');
+                            res = await addBalanceVOne(finalTo, token, quantity, 'balances');
     
                             if (res === false) {
                                 await addBalanceVOne(token.issuer, token, quantity, 'balances');
@@ -266,13 +266,13 @@ class Bootstrap {
                     if (res === true) {
                         token.supply = calculateBalanceVOne(token.supply, quantity, token.precision, true);
     
-                        if (to !== 'null') {
+                        if (finalTo !== 'null') {
                             token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, true);
                         }
     
                         await api.db.update('tokens', token);
     
-                        api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+                        api.emit('transferFromContract', { from: 'tokens', to: finalTo, symbol, quantity });
                     }
                 }
             }
@@ -286,7 +286,7 @@ class Bootstrap {
             && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    
+            const finalTo = to.trim();
             let token = await api.db.findOne('tokens', { symbol });
     
             // the symbol must exist
@@ -299,14 +299,14 @@ class Bootstrap {
                 && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
     
                 // a valid steem account is between 3 and 16 characters in length
-                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
                     // we made all the required verification, let's now issue the tokens
     
                     let res = await addBalanceVTwo(token.issuer, token, quantity, 'balances');
     
-                    if (res === true && to !== token.issuer) {
+                    if (res === true && finalTo !== token.issuer) {
                         if (await subBalanceVTwo(token.issuer, token, quantity, 'balances')) {
-                            res = await addBalanceVTwo(to, token, quantity, 'balances');
+                            res = await addBalanceVTwo(finalTo, token, quantity, 'balances');
     
                             if (res === false) {
                                 await addBalanceVTwo(token.issuer, token, quantity, 'balances');
@@ -323,7 +323,7 @@ class Bootstrap {
     
                         await api.db.update('tokens', token);
     
-                        api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+                        api.emit('transferFromContract', { from: 'tokens', to: finalTo, symbol, quantity });
                     }
                 }
             }
@@ -345,10 +345,10 @@ class Bootstrap {
             && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'number', 'invalid params')) {
-    
-            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+            const finalTo = to.trim();
+            if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
                 // a valid steem account is between 3 and 16 characters in length
-                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
                     let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
@@ -358,7 +358,7 @@ class Bootstrap {
                         && api.assert(quantity > 0, 'must transfer positive quantity')) {
     
                         if (await subBalanceVOne(api.sender, token, quantity, 'balances')) {
-                            const res = await addBalanceVOne(to, token, quantity, 'balances');
+                            const res = await addBalanceVOne(finalTo, token, quantity, 'balances');
     
                             if (res === false) {
                                 await addBalanceVOne(api.sender, token, quantity, 'balances');
@@ -366,12 +366,12 @@ class Bootstrap {
                                 return false;
                             }
     
-                            if (to === 'null') {
+                            if (finalTo === 'null') {
                                 token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, false);
                                 await api.db.update('tokens', token);
                             }
     
-                            api.emit('transfer', { from: api.sender, to, symbol, quantity });
+                            api.emit('transfer', { from: api.sender, to: finalTo, symbol, quantity });
     
                             return true;
                         }
@@ -390,10 +390,10 @@ class Bootstrap {
             && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    
-            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+            const finalTo = to.trim();
+            if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
                 // a valid steem account is between 3 and 16 characters in length
-                if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+                if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
                     let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
@@ -403,7 +403,7 @@ class Bootstrap {
                         && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
                         if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
-                            const res = await addBalanceVTwo(to, token, quantity, 'balances');
+                            const res = await addBalanceVTwo(finalTo, token, quantity, 'balances');
     
                             if (res === false) {
                                 await addBalanceVTwo(api.sender, token, quantity, 'balances');
@@ -411,12 +411,12 @@ class Bootstrap {
                                 return false;
                             }
     
-                            if (to === 'null') {
+                            if (finalTo === 'null') {
                                 token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
                                 await api.db.update('tokens', token);
                             }
     
-                            api.emit('transfer', { from: api.sender, to, symbol, quantity });
+                            api.emit('transfer', { from: api.sender, to: finalTo, symbol, quantity });
     
                             return true;
                         }
@@ -443,10 +443,10 @@ class Bootstrap {
             && api.assert(to && typeof to === 'string'
                 && symbol && typeof symbol === 'string'
                 && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    
-            if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+            const finalTo = to.trim();
+            if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
                 // a valid contract account is between 3 and 50 characters in length
-                if (api.assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
+                if (api.assert(finalTo.length >= 3 && finalTo.length <= 50, 'invalid to')) {
                     let token = await api.db.findOne('tokens', { symbol });
     
                     // the symbol must exist
@@ -456,17 +456,17 @@ class Bootstrap {
                         && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
                         if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
-                            const res = await addBalanceVTwo(to, token, quantity, 'contractsBalances');
+                            const res = await addBalanceVTwo(finalTo, token, quantity, 'contractsBalances');
     
                             if (res === false) {
                                 await addBalanceVTwo(api.sender, token, quantity, 'balances');
                             } else {
-                                if (to === 'null') {
+                                if (finalTo === 'null') {
                                     token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
                                     await api.db.update('tokens', token);
                                 }
     
-                                api.emit('transferToContract', { from: api.sender, to, symbol, quantity });
+                                api.emit('transferToContract', { from: api.sender, to: finalTo, symbol, quantity });
                             }
                         }
                     }
@@ -480,19 +480,19 @@ class Bootstrap {
         if (api.assert(api.sender === 'null', 'not authorized')) {
             const { from, to, symbol, quantity, type, isSignedWithActiveKey } = payload;
             const types = ['user', 'contract'];
-    
+            
             if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
                 && api.assert(to && typeof to === 'string'
                     && from && typeof from === 'string'
                     && symbol && typeof symbol === 'string'
                     && type && (types.includes(type))
                     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    
+                const finalTo = to.trim();
                 const table = type === 'user' ? 'balances' : 'contractsBalances';
     
-                if (api.assert(type === 'user' || (type === 'contract' && to !== from), 'cannot transfer to self')) {
+                if (api.assert(type === 'user' || (type === 'contract' && finalTo !== from), 'cannot transfer to self')) {
                     // validate the "to"
-                    let toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
+                    let toValid = type === 'user' ? finalTo.length >= 3 && finalTo.length <= 16 : finalTo.length >= 3 && finalTo.length <= 50;
     
                     // the account must exist
                     if (api.assert(toValid === true, 'invalid to')) {
@@ -505,17 +505,17 @@ class Bootstrap {
                             && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
     
                             if (await subBalanceVTwo(from, token, quantity, 'contractsBalances')) {
-                                const res = await addBalanceVTwo(to, token, quantity, table);
+                                const res = await addBalanceVTwo(finalTo, token, quantity, table);
     
                                 if (res === false) {
                                     await addBalanceVTwo(from, token, quantity, 'contractsBalances');
                                 } else {
-                                    if (to === 'null') {
+                                    if (finalTo === 'null') {
                                         token.circulatingSupply = calculateBalanceVTwo(token.circulatingSupply, quantity, token.precision, false);
                                         await api.db.update('tokens', token);
                                     }
     
-                                    api.emit('transferFromContract', { from, to, symbol, quantity });
+                                    api.emit('transferFromContract', { from, to: finalTo, symbol, quantity });
                                 }
                             }
                         }
