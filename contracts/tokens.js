@@ -228,6 +228,7 @@ const issueVOne = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'number', 'invalid params')) {
+    const finalTo = to.trim();
 
     const token = await api.db.findOne('tokens', { symbol });
 
@@ -241,14 +242,14 @@ const issueVOne = async (payload) => {
       && api.assert(quantity <= (api.BigNumber(token.maxSupply).minus(token.supply).toNumber()), 'quantity exceeds available supply')) {
 
       // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
         // we made all the required verification, let's now issue the tokens
 
         let res = await addBalanceVOne(token.issuer, token, quantity, 'balances');
 
-        if (res === true && to !== token.issuer) {
+        if (res === true && finalTo !== token.issuer) {
           if (await subBalanceVOne(token.issuer, token, quantity, 'balances')) {
-            res = await addBalanceVOne(to, token, quantity, 'balances');
+            res = await addBalanceVOne(finalTo, token, quantity, 'balances');
 
             if (res === false) {
               await addBalanceVOne(token.issuer, token, quantity, 'balances');
@@ -259,13 +260,17 @@ const issueVOne = async (payload) => {
         if (res === true) {
           token.supply = calculateBalanceVOne(token.supply, quantity, token.precision, true);
 
-          if (to !== 'null') {
-            token.circulatingSupply = calculateBalanceVOne(token.circulatingSupply, quantity, token.precision, true);
+          if (finalTo !== 'null') {
+            token.circulatingSupply = calculateBalanceVOne(
+              token.circulatingSupply, quantity, token.precision, true,
+            );
           }
 
           await api.db.update('tokens', token);
 
-          api.emit('transferFromContract', { from: 'tokens', to, symbol, quantity });
+          api.emit('transferFromContract', {
+            from: 'tokens', to: finalTo, symbol, quantity,
+          });
         }
       }
     }
@@ -281,7 +286,7 @@ const issueVTwo = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
+    const finalTo = to.trim();
     const token = await api.db.findOne('tokens', { symbol });
 
     // the symbol must exist
@@ -294,14 +299,14 @@ const issueVTwo = async (payload) => {
       && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
 
       // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
         // we made all the required verification, let's now issue the tokens
 
         let res = await addBalanceVTwo(token.issuer, token, quantity, 'balances');
 
-        if (res === true && to !== token.issuer) {
+        if (res === true && finalTo !== token.issuer) {
           if (await subBalanceVTwo(token.issuer, token, quantity, 'balances')) {
-            res = await addBalanceVTwo(to, token, quantity, 'balances');
+            res = await addBalanceVTwo(finalTo, token, quantity, 'balances');
 
             if (res === false) {
               await addBalanceVTwo(token.issuer, token, quantity, 'balances');
@@ -312,7 +317,7 @@ const issueVTwo = async (payload) => {
         if (res === true) {
           token.supply = calculateBalanceVTwo(token.supply, quantity, token.precision, true);
 
-          if (to !== 'null') {
+          if (finalTo !== 'null') {
             token.circulatingSupply = calculateBalanceVTwo(
               token.circulatingSupply, quantity, token.precision, true,
             );
@@ -321,7 +326,7 @@ const issueVTwo = async (payload) => {
           await api.db.update('tokens', token);
 
           api.emit('transferFromContract', {
-            from: 'tokens', to, symbol, quantity,
+            from: 'tokens', to: finalTo, symbol, quantity,
           });
         }
       }
@@ -346,9 +351,10 @@ const transferVOne = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'number', 'invalid params')) {
-    if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+    const finalTo = to.trim();
+    if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
       // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
         const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
@@ -358,7 +364,7 @@ const transferVOne = async (payload) => {
           && api.assert(quantity > 0, 'must transfer positive quantity')) {
 
           if (await subBalanceVOne(api.sender, token, quantity, 'balances')) {
-            const res = await addBalanceVOne(to, token, quantity, 'balances');
+            const res = await addBalanceVOne(finalTo, token, quantity, 'balances');
 
             if (res === false) {
               await addBalanceVOne(api.sender, token, quantity, 'balances');
@@ -366,7 +372,7 @@ const transferVOne = async (payload) => {
               return false;
             }
 
-            if (to === 'null') {
+            if (finalTo === 'null') {
               token.circulatingSupply = calculateBalanceVOne(
                 token.circulatingSupply, quantity, token.precision, false,
               );
@@ -374,7 +380,7 @@ const transferVOne = async (payload) => {
             }
 
             api.emit('transfer', {
-              from: api.sender, to, symbol, quantity,
+              from: api.sender, to: finalTo, symbol, quantity,
             });
 
             return true;
@@ -396,10 +402,10 @@ const transferVTwo = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
-    if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+    const finalTo = to.trim();
+    if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
       // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(to.length >= 3 && to.length <= 16, 'invalid to')) {
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
         const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
@@ -407,9 +413,8 @@ const transferVTwo = async (payload) => {
         if (api.assert(token !== null, 'symbol does not exist')
           && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
           && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
-
           if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
-            const res = await addBalanceVTwo(to, token, quantity, 'balances');
+            const res = await addBalanceVTwo(finalTo, token, quantity, 'balances');
 
             if (res === false) {
               await addBalanceVTwo(api.sender, token, quantity, 'balances');
@@ -417,7 +422,7 @@ const transferVTwo = async (payload) => {
               return false;
             }
 
-            if (to === 'null') {
+            if (finalTo === 'null') {
               token.circulatingSupply = calculateBalanceVTwo(
                 token.circulatingSupply, quantity, token.precision, false,
               );
@@ -425,7 +430,7 @@ const transferVTwo = async (payload) => {
             }
 
             api.emit('transfer', {
-              from: api.sender, to, symbol, quantity,
+              from: api.sender, to: finalTo, symbol, quantity,
             });
 
             return true;
@@ -455,10 +460,10 @@ actions.transferToContract = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
-    if (api.assert(to !== api.sender, 'cannot transfer to self')) {
+    const finalTo = to.trim();
+    if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
       // a valid contract account is between 3 and 50 characters in length
-      if (api.assert(to.length >= 3 && to.length <= 50, 'invalid to')) {
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 50, 'invalid to')) {
         const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
@@ -466,14 +471,13 @@ actions.transferToContract = async (payload) => {
         if (api.assert(token !== null, 'symbol does not exist')
           && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
           && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
-
           if (await subBalanceVTwo(api.sender, token, quantity, 'balances')) {
-            const res = await addBalanceVTwo(to, token, quantity, 'contractsBalances');
+            const res = await addBalanceVTwo(finalTo, token, quantity, 'contractsBalances');
 
             if (res === false) {
               await addBalanceVTwo(api.sender, token, quantity, 'balances');
             } else {
-              if (to === 'null') {
+              if (finalTo === 'null') {
                 token.circulatingSupply = calculateBalanceVTwo(
                   token.circulatingSupply, quantity, token.precision, false,
                 );
@@ -481,7 +485,7 @@ actions.transferToContract = async (payload) => {
               }
 
               api.emit('transferToContract', {
-                from: api.sender, to, symbol, quantity,
+                from: api.sender, to: finalTo, symbol, quantity,
               });
             }
           }
@@ -505,12 +509,12 @@ actions.transferFromContract = async (payload) => {
         && symbol && typeof symbol === 'string'
         && type && (types.includes(type))
         && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
+      const finalTo = to.trim();
       const table = type === 'user' ? 'balances' : 'contractsBalances';
 
-      if (api.assert(type === 'user' || (type === 'contract' && to !== from), 'cannot transfer to self')) {
+      if (api.assert(type === 'user' || (type === 'contract' && finalTo !== from), 'cannot transfer to self')) {
         // validate the "to"
-        const toValid = type === 'user' ? to.length >= 3 && to.length <= 16 : to.length >= 3 && to.length <= 50;
+        const toValid = type === 'user' ? finalTo.length >= 3 && finalTo.length <= 16 : finalTo.length >= 3 && finalTo.length <= 50;
 
         // the account must exist
         if (api.assert(toValid === true, 'invalid to')) {
@@ -523,12 +527,12 @@ actions.transferFromContract = async (payload) => {
             && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
 
             if (await subBalanceVTwo(from, token, quantity, 'contractsBalances')) {
-              const res = await addBalanceVTwo(to, token, quantity, table);
+              const res = await addBalanceVTwo(finalTo, token, quantity, table);
 
               if (res === false) {
                 await addBalanceVTwo(from, token, quantity, 'contractsBalances');
               } else {
-                if (to === 'null') {
+                if (finalTo === 'null') {
                   token.circulatingSupply = calculateBalanceVTwo(
                     token.circulatingSupply, quantity, token.precision, false,
                   );
@@ -536,7 +540,7 @@ actions.transferFromContract = async (payload) => {
                 }
 
                 api.emit('transferFromContract', {
-                  from, to, symbol, quantity,
+                  from, to: finalTo, symbol, quantity,
                 });
               }
             }
