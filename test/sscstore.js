@@ -109,7 +109,7 @@ const unloadPlugin = (plugin) => {
 let client;
 let db;
 
-const SSC_STORE_QTY = '1';
+const SSC_STORE_QTY = '0.001';
 
 // sscstore
 describe('sscstore smart contract', function () {

@@ -107,7 +107,7 @@ let client;
 let db;
 
 const FORK_BLOCK_NUMBER = 30896500;
-const STEEM_PEGGED_ACCOUNT = 'steemsc';
+const STEEM_PEGGED_ACCOUNT = 'steem-peg';
 
 // STEEMP
 describe('Steem Pegged', function () {
