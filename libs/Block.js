@@ -80,9 +80,7 @@ class Block {
 
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
-
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
-
       currentDatabaseHash = transaction.databaseHash;
     }
 
@@ -140,7 +138,7 @@ class Block {
 
         if (authorizedAccountContractDeployment.includes(sender)) {
           results = await SmartContracts.deploySmartContract( // eslint-disable-line
-            ipc, transaction, this.timestamp,
+            ipc, transaction, this.blockNumber, this.timestamp,
             this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
           );
         } else {
@@ -151,7 +149,7 @@ class Block {
         results = { logs: { errors: ['blockProduction contract not available'] } };
       } else {
         results = await SmartContracts.executeSmartContract(// eslint-disable-line
-          ipc, transaction, this.timestamp,
+          ipc, transaction, this.blockNumber, this.timestamp,
           this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
         );
       }

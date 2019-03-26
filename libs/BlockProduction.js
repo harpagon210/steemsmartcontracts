@@ -17,17 +17,26 @@ class BlockProduction {
     };
   }
 
-  static initialize(database, genesisSteemBlock) {
+  static async initialize(database, genesisSteemBlock) {
     // get the tables created via the tokens contract
-    const tokensTable = database.getCollection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.TOKENS_TABLE}`);
-    const balancesTable = database.getCollection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.BALANCES_TABLE}`);
+    const tokensTable = database.collection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.TOKENS_TABLE}`);
+    const balancesTable = database.collection(`${CONSTANTS.TOKENS_CONTRACT_NAME}_${CONSTANTS.BALANCES_TABLE}`);
 
     if (tokensTable && balancesTable) {
+      /*
       // create the necessary tables
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`, { indices: ['account', 'power'], disableMeta: true });
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`, { indices: ['account'], disableMeta: true });
-      database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`, { indices: ['account'], disableMeta: true });
-      const rewardsTable = database.addCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_REWARDS_TABLE}`, { disableMeta: true });
+      await database.createCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`);
+      let collection = database.collection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_PRODUCERS_TABLE}`);
+      await collection.createIndex({ account: 1, power: 1 });
+
+      await database.createCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`);
+      collection = database.collection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_STAKES_TABLE}`);
+      await collection.createIndex({ account: 1 });
+
+      await database.createCollection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`);
+      collection = database.collection(`${CONSTANTS.CONTRACT_NAME}_${CONSTANTS.BP_VOTES_TABLE}`);
+      await collection.createIndex({ account: 1 });
+
 
       // add the contract to the database
       const bpContract = {
@@ -61,7 +70,7 @@ class BlockProduction {
         proposalSystemBalance: 0,
       };
 
-      rewardsTable.insert(rewardsParams);
+      rewardsTable.insert(rewardsParams); */
 
       // create the utility token
       tokensTable.insert(CONSTANTS.UTILITY_TOKEN);

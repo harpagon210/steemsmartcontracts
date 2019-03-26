@@ -2,6 +2,7 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
+const { MongoClient } = require('mongodb');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -17,6 +18,8 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
@@ -25,6 +28,12 @@ let currentJobId = 0;
 
 function cleanDataFolder() {
   fs.emptyDirSync(conf.dataDirectory);
+}
+
+async function cleanDatabase() {
+  const client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+  let db = await client.db(conf.databaseName);
+  db.dropDatabase();
 }
 
 function send(pluginName, from, message) {
@@ -94,14 +103,62 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+let client;
+let db;
+
 const FORK_BLOCK_NUMBER = 30896500;
 const STEEM_PEGGED_ACCOUNT = 'steemsc';
 
 // STEEMP
-describe('Steem Pegged', () => {
+describe('Steem Pegged', function () {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('buys STEEMP', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -156,7 +213,7 @@ describe('Steem Pegged', () => {
 
   it('withdraws STEEM', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);

@@ -18,7 +18,7 @@ actions.cancel = async (payload) => {
       && id && Number.isInteger(id), 'invalid params')) {
     const table = type === 'buy' ? 'buyBook' : 'sellBook';
     // get order
-    const order = await api.db.findOne(table, { $loki: id });
+    const order = await api.db.findOne(table, { _id: id });
 
     if (api.assert(order, 'order does not exist')
       && order.account === api.sender) {
@@ -181,7 +181,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   }, 1000, offset,
   [
     { index: 'price', descending: false },
-    { index: '$loki', descending: false },
+    { index: '_id', descending: false },
   ]);
 
   do {
@@ -312,7 +312,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       }, 1000, offset,
       [
         { index: 'price', descending: false },
-        { index: '$loki', descending: false },
+        { index: '_id', descending: false },
       ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
@@ -347,7 +347,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   }, 1000, offset,
   [
     { index: 'price', descending: true },
-    { index: '$loki', descending: false },
+    { index: '_id', descending: false },
   ]);
 
   do {
@@ -471,7 +471,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       }, 1000, offset,
       [
         { index: 'price', descending: true },
-        { index: '$loki', descending: false },
+        { index: '_id', descending: false },
       ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));

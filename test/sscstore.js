@@ -3,6 +3,7 @@ const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
 const BigNumber = require('bignumber.js');
+const { MongoClient } = require('mongodb');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -20,6 +21,8 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
@@ -28,6 +31,12 @@ let currentJobId = 0;
 
 function cleanDataFolder() {
   fs.emptyDirSync(conf.dataDirectory);
+}
+
+async function cleanDatabase() {
+  const client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+  let db = await client.db(conf.databaseName);
+  db.dropDatabase();
 }
 
 function send(pluginName, from, message) {
@@ -97,14 +106,61 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+let client;
+let db;
+
 const SSC_STORE_QTY = '1';
 
 // sscstore
-describe('sscstore smart contract', () => {
+describe('sscstore smart contract', function () {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
 
   it('should buy tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -151,7 +207,7 @@ describe('sscstore smart contract', () => {
 
   it('should not buy tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -188,8 +244,8 @@ describe('sscstore smart contract', () => {
       assert.equal(balanceSatoshi, null);
 
       transactions = [];
-      transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1, "disabled": true }'));
-      transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30529000, 'TXID1237', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1, "disabled": true }'));
+      transactions.push(new Transaction(30529000, 'TXID1238', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: 30529000,
@@ -229,7 +285,7 @@ describe('sscstore smart contract', () => {
 
   it('should update params', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -277,7 +333,7 @@ describe('sscstore smart contract', () => {
 
   it('should not update params', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -286,7 +342,7 @@ describe('sscstore smart contract', () => {
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
-      transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1000000, "disabled": false }'));
+      transactions.push(new Transaction(30529000, 'TXID1237', 'Satoshi', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1000000, "disabled": false }'));
 
       let block = {
         refSteemBlockNumber: 30529000,

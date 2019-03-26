@@ -1,6 +1,8 @@
 {
     "chainId": "00000000000000000002",
     "rpcNodePort": 5000,
+    "databaseURL": "mongodb://localhost:27017",
+    "databaseName": "ssc",
     "dataDirectory": "./data/",
     "databaseFileName": "database.db",
     "blocksLogFilePath": "./blocks.log",

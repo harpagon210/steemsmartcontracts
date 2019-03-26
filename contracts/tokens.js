@@ -105,7 +105,7 @@ const createVOne = async (payload) => {
       && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
       && api.assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
       && api.assert(maxSupply > 0, 'maxSupply must be positive')
-      && api.assert(maxSupply <= 1000000000000, 'maxSupply must be lower than 1000000000000')) {
+      && api.assert(api.blockNumber === 0 || (api.blockNumber > 0 && maxSupply <= 1000000000000), 'maxSupply must be lower than 1000000000000')) {
       // check if the token already exists
       const token = await api.db.findOne('tokens', { symbol });
 
@@ -584,7 +584,7 @@ const processUnstake = async (unstake) => {
 
       newUnstake.nextTransactionTimestamp = api.BigNumber(newUnstake.nextTransactionTimestamp)
         .plus(newUnstake.millisecPerPeriod)
-        .integerValue();
+        .toNumber();
 
       await api.db.update('pendingUnstakes', newUnstake);
     }

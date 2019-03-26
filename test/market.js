@@ -2,6 +2,7 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
+const { MongoClient } = require('mongodb');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -17,6 +18,8 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
@@ -25,6 +28,12 @@ let currentJobId = 0;
 
 function cleanDataFolder() {
   fs.emptyDirSync(conf.dataDirectory);
+}
+
+async function cleanDatabase() {
+  const client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+  let db = await client.db(conf.databaseName);
+  db.dropDatabase();
 }
 
 function send(pluginName, from, message) {
@@ -94,15 +103,63 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+let client;
+let db;
+
 const FORK_BLOCK_NUMBER = 30896500;
 const FORK_BLOCK_NUMBER_TWO = 30983000;
 const STEEM_PEGGED_ACCOUNT = 'steemsc';
 
 // Market
-describe('Market', () => {
+describe('Market', function () {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('creates a buy order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -188,7 +245,7 @@ describe('Market', () => {
 
   it('creates buy orders with expirations', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -224,13 +281,14 @@ describe('Market', () => {
         }
       });
 
-      const sellOrders = res.payload;
+      let sellOrders = res.payload;
+      sellOrders.sort((a, b) => a._id - b._id);
 
-      assert.equal(sellOrders[0].txId, 'TXID1237');
+      assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
       assert.equal(sellOrders[0].symbol, 'TKN');
       assert.equal(sellOrders[0].price, 0.001);
-      assert.equal(sellOrders[0].quantity, 3);
+      assert.equal(sellOrders[0].quantity, 1);
       assert.equal(sellOrders[0].timestamp, 1527811200);
       assert.equal(sellOrders[0].expiration, 1527811200 + 2592000);
 
@@ -242,11 +300,11 @@ describe('Market', () => {
       assert.equal(sellOrders[1].timestamp, 1527811200);
       assert.equal(sellOrders[1].expiration, 1527811200 + 10);
 
-      assert.equal(sellOrders[2].txId, 'TXID1235');
+      assert.equal(sellOrders[2].txId, 'TXID1237');
       assert.equal(sellOrders[2].account, 'satoshi');
       assert.equal(sellOrders[2].symbol, 'TKN');
       assert.equal(sellOrders[2].price, 0.001);
-      assert.equal(sellOrders[2].quantity, 1);
+      assert.equal(sellOrders[2].quantity, 3);
       assert.equal(sellOrders[2].timestamp, 1527811200);
       assert.equal(sellOrders[2].expiration, 1527811200 + 2592000);
 
@@ -261,7 +319,7 @@ describe('Market', () => {
 
   it('generates error when trying to create a buy order with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -304,7 +362,7 @@ describe('Market', () => {
 
   it('creates sell orders with expirations', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -342,11 +400,13 @@ describe('Market', () => {
 
       const sellOrders = res.payload;
 
-      assert.equal(sellOrders[0].txId, 'TXID1237');
+      sellOrders.sort((a, b) => a._id - b._id);
+
+      assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
       assert.equal(sellOrders[0].symbol, 'TKN');
       assert.equal(sellOrders[0].price, 0.001);
-      assert.equal(sellOrders[0].quantity, 3);
+      assert.equal(sellOrders[0].quantity, 1);
       assert.equal(sellOrders[0].timestamp, 1527811200);
       assert.equal(sellOrders[0].expiration, 1527811200 + 2592000);
 
@@ -358,11 +418,11 @@ describe('Market', () => {
       assert.equal(sellOrders[1].timestamp, 1527811200);
       assert.equal(sellOrders[1].expiration, 1527811200 + 10);
 
-      assert.equal(sellOrders[2].txId, 'TXID1235');
+      assert.equal(sellOrders[2].txId, 'TXID1237');
       assert.equal(sellOrders[2].account, 'satoshi');
       assert.equal(sellOrders[2].symbol, 'TKN');
       assert.equal(sellOrders[2].price, 0.001);
-      assert.equal(sellOrders[2].quantity, 1);
+      assert.equal(sellOrders[2].quantity, 3);
       assert.equal(sellOrders[2].timestamp, 1527811200);
       assert.equal(sellOrders[2].expiration, 1527811200 + 2592000);
 
@@ -377,7 +437,7 @@ describe('Market', () => {
 
   it('creates a sell order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -463,7 +523,7 @@ describe('Market', () => {
 
   it('generates error when trying to create a sell order with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -506,7 +566,7 @@ describe('Market', () => {
 
   it('cancels a buy order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -639,7 +699,7 @@ describe('Market', () => {
 
   it('cancels a sell order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -775,7 +835,7 @@ describe('Market', () => {
 
   it('buys from the market from one seller', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -812,6 +872,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -877,7 +938,7 @@ describe('Market', () => {
 
   it('buys from the market from several sellers', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -919,6 +980,7 @@ describe('Market', () => {
       });
 
       const balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -963,7 +1025,7 @@ describe('Market', () => {
 
   it('buys from the market partially', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1005,6 +1067,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -1087,7 +1150,7 @@ describe('Market', () => {
 
   it('sells on the market to one buyer', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1127,6 +1190,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1192,7 +1256,7 @@ describe('Market', () => {
 
   it('sells on the market to several buyers', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1237,6 +1301,7 @@ describe('Market', () => {
       });
 
       const balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1281,7 +1346,7 @@ describe('Market', () => {
 
   it('fills a buy order from different sellers', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1326,6 +1391,7 @@ describe('Market', () => {
       });
 
       const balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -1370,7 +1436,7 @@ describe('Market', () => {
 
   it('creates a trade history', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1414,6 +1480,7 @@ describe('Market', () => {
       });
 
       let trades = res.payload;
+      trades.sort((a, b) => a._id - b._id);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1434,14 +1501,14 @@ describe('Market', () => {
       assert.equal(trades[2].timestamp, 1527811200);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": "1000" }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "dan", "quantity": "300", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "BTC", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "BTC", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1335', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1337', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1338', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1339', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "dan", "quantity": "300", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1340', 'satoshi', 'market', 'sell', '{ "symbol": "BTC", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1341', 'vitalik', 'market', 'sell', '{ "symbol": "BTC", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1342', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1343', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
@@ -1465,6 +1532,7 @@ describe('Market', () => {
       });
 
       trades = res.payload;
+      trades.sort((a, b) => a._id - b._id);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1503,10 +1571,10 @@ describe('Market', () => {
       assert.equal(trades[5].timestamp, 1527814800);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1443', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1441', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1442', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1444', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
@@ -1531,6 +1599,7 @@ describe('Market', () => {
       });
 
       trades = res.payload;
+      trades.sort((a, b) => a._id - b._id);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1557,7 +1626,7 @@ describe('Market', () => {
 
   it('maintains the different metrics', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1608,18 +1677,18 @@ describe('Market', () => {
       assert.equal(volume.volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": "1000" }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "dan", "quantity": "300", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "BTC", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "BTC", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1244', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1245', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1246', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1247', 'dan', 'market', 'sell', '{ "symbol": "TKN", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1335', 'harpagon', 'tokens', 'create', '{ "name": "token", "url": "https://TKN.token.com", "symbol": "BTC", "precision": 3, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1337', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1338', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1339', 'harpagon', 'tokens', 'issue', '{ "symbol": "BTC", "to": "dan", "quantity": "300", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1340', 'satoshi', 'market', 'sell', '{ "symbol": "BTC", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1341', 'vitalik', 'market', 'sell', '{ "symbol": "BTC", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1342', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1343', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1344', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1345', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1346', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1347', 'dan', 'market', 'sell', '{ "symbol": "TKN", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
 
 
       block = {
@@ -1655,10 +1724,10 @@ describe('Market', () => {
       assert.equal(metrics[1].volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1443', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1441', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1444', 'harpagon', 'market', 'buy', '{ "symbol": "BTC", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1442', 'dan', 'market', 'sell', '{ "symbol": "BTC", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
@@ -1694,11 +1763,11 @@ describe('Market', () => {
       assert.equal(metrics[1].volumeExpiration, blockDate.getTime() / 1000);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "harpagon", "quantity": "100", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "3", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "2", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1", "price": "5", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1", "price": "4", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1537', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "harpagon", "quantity": "100", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1543', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1544', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "2", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1545', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1", "price": "5", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1546', 'harpagon', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1", "price": "4", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER,
@@ -1742,7 +1811,7 @@ describe('Market', () => {
 
   it('removes an expired sell order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1846,7 +1915,7 @@ describe('Market', () => {
 
   it('removes an expired buy order', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1949,7 +2018,7 @@ describe('Market', () => {
 
   it('removes dust sell orders', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1986,6 +2055,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2037,8 +2107,8 @@ describe('Market', () => {
       assert.equal(sellOrders.length, 0);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1239', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID123710', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER_TWO,
@@ -2063,6 +2133,7 @@ describe('Market', () => {
       });
 
       balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2124,7 +2195,7 @@ describe('Market', () => {
 
   it('removes dust buy orders', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
+      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -2164,6 +2235,7 @@ describe('Market', () => {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2215,8 +2287,8 @@ describe('Market', () => {
       assert.equal(buyOrders.length, 0);
 
       transactions = [];
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1237', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1238', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID1239', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "1.4", "price": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER_TWO, 'TXID12310', 'satoshi', 'market', 'buy', '{ "symbol": "TKN", "quantity": "1", "price": "0.001", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: FORK_BLOCK_NUMBER_TWO,
@@ -2241,6 +2313,7 @@ describe('Market', () => {
       });
 
       balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
