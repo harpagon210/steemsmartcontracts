@@ -98,9 +98,10 @@ class Bootstrap {
     }
 
     actions.transferOwnership = async (payload) => {
-        const { symbol, to } = payload;
+        const { symbol, to, isSignedWithActiveKey } = payload;
   
-        if (api.assert(symbol && typeof symbol === 'string'
+        if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+            && api.assert(symbol && typeof symbol === 'string'
             && to && typeof to === 'string', 'invalid params')) {
             // check if the token exists
             let token = await api.db.findOne('tokens', { symbol });

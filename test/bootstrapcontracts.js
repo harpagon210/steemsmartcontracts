@@ -574,7 +574,7 @@ describe('Tokens smart contract', () => {
       assert.equal(token.symbol, 'TKN');
 
       transactions = [];
-      transactions.push(new Transaction(30529000, 'TXID1234', 'harpagon', 'tokens', 'transferOwnership', '{"symbol":"TKN", "to": "satoshi"}'));
+      transactions.push(new Transaction(30529000, 'TXID1234', 'harpagon', 'tokens', 'transferOwnership', '{ "symbol":"TKN", "to": "satoshi", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: 30529000,
@@ -652,7 +652,7 @@ describe('Tokens smart contract', () => {
       assert.equal(token.symbol, 'TKN');
 
       transactions = [];
-      transactions.push(new Transaction(30529000, 'TXID1234', 'satoshi', 'tokens', 'transferOwnership', '{"symbol":"TKN", "to": "satoshi"}'));
+      transactions.push(new Transaction(30529000, 'TXID1234', 'satoshi', 'tokens', 'transferOwnership', '{ "symbol":"TKN", "to": "satoshi", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: 30529000,
