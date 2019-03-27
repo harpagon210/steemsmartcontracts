@@ -78,6 +78,28 @@ actions.updateMetadata = async (payload) => {
   }
 };
 
+actions.transferOwnership = async (payload) => {
+  const { symbol, to } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+      && to && typeof to === 'string', 'invalid params')) {
+      // check if the token exists
+      let token = await api.db.findOne('tokens', { symbol });
+
+      if (token) {
+          if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
+              const finalTo = to.trim();
+
+              // a valid steem account is between 3 and 16 characters in length
+              if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+                  token.issuer = finalTo
+                  await api.db.update('tokens', token);
+              }
+          }
+      }
+  }
+}
+
 const createVOne = async (payload) => {
   const {
     name, symbol, url, precision, maxSupply, isSignedWithActiveKey,
