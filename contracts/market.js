@@ -544,10 +544,10 @@ const updateVolumeMetric = async (symbol, quantity) => {
   const metric = await getMetric(symbol);
 
   if (metric.volumeExpiration < timestampSec) {
-    metric.volume = quantity;
+    metric.volume = api.BigNumber(quantity).toFixed(3);
     metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
   } else {
-    metric.volume = api.BigNumber(metric.volume).plus(quantity).toNumber();
+    metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
   }
 
   await api.db.update('metrics', metric);
