@@ -371,6 +371,7 @@ actions.find = async (payload, callback) => { // eslint-disable-line no-unused-v
           limit: lim,
           skip: off,
           sort: ind.map(el => [el.index, el.descending === true ? 'desc' : 'asc']),
+          collation: { locale: 'en', numericOrdering: true },
         }).toArray();
       }
     }

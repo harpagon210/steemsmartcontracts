@@ -952,9 +952,11 @@ describe('Market', function () {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "satoshi", "quantity": "200", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "vitalik", "quantity": "100", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "dan", "quantity": "300", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID12390', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "ned", "quantity": "300", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": "2", "price": "1", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1241', 'vitalik', 'market', 'sell', '{ "symbol": "TKN", "quantity": "3", "price": "2", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1242', 'dan', 'market', 'sell', '{ "symbol": "TKN", "quantity": "5", "price": "3", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID12420', 'ned', 'market', 'sell', '{ "symbol": "TKN", "quantity": "5", "price": "10", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1243', 'harpagon', 'market', 'buy', '{ "symbol": "TKN", "quantity": "10", "price": "3", "isSignedWithActiveKey": true }'));
 
       let block = {
