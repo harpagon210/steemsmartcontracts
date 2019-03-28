@@ -26,10 +26,10 @@ let chain = null;
 let saving = false;
 let databaseHash = '';
 
-const initSequence = async (name, startID = 1) => {
+const initSequence = async (name) => {
   const sequences = database.collection('sequences');
 
-  await sequences.insertOne({ _id: name, seq: startID });
+  await sequences.insertOne({ _id: name, seq: 1 });
 };
 
 const getNextSequence = async (name) => {
@@ -77,7 +77,7 @@ async function init(conf, callback) {
   const coll = await getCollection('chain');
 
   if (coll === null) {
-    await initSequence('chain', 0);
+    await initSequence('chain');
     chain = await database.createCollection('chain');
 
     await database.createCollection('transactions');
@@ -210,7 +210,7 @@ actions.getLatestBlockInfo = async (payload, callback) => { // eslint-disable-li
 };
 
 actions.getBlockInfo = async (blockNumber, callback) => {
-  const block = await chain.findOne({ _id: blockNumber });
+  const block = await chain.findOne({ _id: blockNumber + 1 });
 
   if (callback) {
     callback(block);
