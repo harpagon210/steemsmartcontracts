@@ -75,37 +75,46 @@ async function init(conf, callback) {
   try {
     // init the database
     database = new Database(databaseURL);
-    await database.createDatabase(databaseName);
     database.useDatabase(databaseName);
 
-    // get the chain collection and init the chain if not done yet
+    const dbExists = await database.exists();
 
-    chain = database.collection('chain');
-    const chainExists = await chain.exists();
+    if (dbExists === false) {
+      database.useDatabase('_system');
+      await database.createDatabase(databaseName);
+      database.useDatabase(databaseName);
+      // get the chain collection and init the chain if not done yet
 
-    if (chainExists === false) {
       chain = database.collection('chain');
-      await chain.create({
-        keyOptions: {
-          type: 'autoincrement',
-        },
-      });
 
-      let coll = database.collection('transactions');
-      await coll.create({
-        keyOptions: {
-          type: 'autoincrement',
-        },
-      });
-      await coll.createHashIndex('txID', { unique: true });
+      const chainExists = await chain.exists();
 
-      coll = database.collection('contracts');
-      await coll.create({
-        keyOptions: {
-          type: 'autoincrement',
-        },
-      });
-      await coll.createHashIndex('name');
+      if (chainExists === false) {
+        chain = database.collection('chain');
+        await chain.create({
+          keyOptions: {
+            type: 'autoincrement',
+          },
+        });
+
+        let coll = database.collection('transactions');
+        await coll.create({
+          keyOptions: {
+            type: 'autoincrement',
+          },
+        });
+        await coll.createHashIndex('txID', { unique: true });
+
+        coll = database.collection('contracts');
+        await coll.create({
+          keyOptions: {
+            type: 'autoincrement',
+          },
+        });
+        await coll.createHashIndex('name');
+      }
+    } else {
+      chain = database.collection('chain');
     }
 
     callback(null);
