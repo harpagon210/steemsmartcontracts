@@ -192,7 +192,7 @@ const updateTableHash = async (contract, table, record) => {
       const newData = {};
       newData.tables = contractInDb.tables;
       newData.tables[table].hash = SHA256(tableHash + recordHash).toString(enchex);
-
+      // console.log(newData)
       await contracts.update(contractInDb._key, newData);
 
       databaseHash = SHA256(databaseHash + contractInDb.tables[table].hash).toString(enchex);
