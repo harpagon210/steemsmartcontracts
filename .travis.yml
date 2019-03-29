@@ -2,6 +2,7 @@ services:
   - docker
 before_script:
   - docker run -p 8529:8529 -d -e ARANGO_NO_AUTH=1 -e ARANGO_STORAGE_ENGINE=rocksdb arangodb/arangodb:3.4.4
+  - sleep 15
 language: node_js
 node_js:
   - "10.5"
