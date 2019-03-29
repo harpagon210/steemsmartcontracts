@@ -1,12 +1,10 @@
 /* eslint-disable */
 const { fork } = require('child_process');
 const assert = require('assert');
-const fs = require('fs-extra');
-const { MongoClient } = require('mongodb');
+const { Database } = require('arangojs');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
-const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
 //process.env.NODE_ENV = 'test';
@@ -18,23 +16,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
-  databaseURL: "mongodb://localhost:27017",
+  databaseURL: "http://127.0.0.1:8529",
   databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
-
-async function cleanDatabase() {
-  const client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
-  let db = await client.db(conf.databaseName);
-  db.dropDatabase();
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -103,8 +91,7 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-let client;
-let db;
+const db = new Database(conf.databaseURL);
 
 const FORK_BLOCK_NUMBER = 30896500;
 const FORK_BLOCK_NUMBER_TWO = 30983000;
@@ -114,31 +101,14 @@ const STEEM_PEGGED_ACCOUNT = 'steem-peg';
 describe('Market', function () {
   this.timeout(10000);
 
-  before((done) => {
-    new Promise(async (resolve) => {
-      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
-      db = await client.db(conf.databaseName);
-      await db.dropDatabase();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
-  
-  after((done) => {
-    new Promise(async (resolve) => {
-      await client.close();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
-
   beforeEach((done) => {
     new Promise(async (resolve) => {
-      db = await client.db(conf.databaseName);
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
       resolve();
     })
       .then(() => {
@@ -146,15 +116,19 @@ describe('Market', function () {
       })
   });
 
-  afterEach((done) => {
-      // runs after each test in this block
-      new Promise(async (resolve) => {
-        await db.dropDatabase()
-        resolve();
+  after((done) => {
+    new Promise(async (resolve) => {
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
+      resolve();
+    })
+      .then(() => {
+        done()
       })
-        .then(() => {
-          done()
-        })
   });
 
   it('creates a buy order', (done) => {
@@ -282,7 +256,7 @@ describe('Market', function () {
       });
 
       let sellOrders = res.payload;
-      sellOrders.sort((a, b) => a._id - b._id);
+      sellOrders.sort((a, b) => a._key - b._key);
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -400,7 +374,7 @@ describe('Market', function () {
 
       const sellOrders = res.payload;
 
-      sellOrders.sort((a, b) => a._id - b._id);
+      sellOrders.sort((a, b) => a._key - b._key);
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -872,7 +846,8 @@ describe('Market', function () {
       });
 
       let balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -982,7 +957,7 @@ describe('Market', function () {
       });
 
       const balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -1069,7 +1044,7 @@ describe('Market', function () {
       });
 
       let balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -1192,7 +1167,7 @@ describe('Market', function () {
       });
 
       let balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1303,7 +1278,7 @@ describe('Market', function () {
       });
 
       const balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'TKN');
@@ -1393,7 +1368,7 @@ describe('Market', function () {
       });
 
       const balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -1482,7 +1457,7 @@ describe('Market', function () {
       });
 
       let trades = res.payload;
-      trades.sort((a, b) => a._id - b._id);
+      trades.sort((a, b) => a._key - b._key);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1534,7 +1509,7 @@ describe('Market', function () {
       });
 
       trades = res.payload;
-      trades.sort((a, b) => a._id - b._id);
+      trades.sort((a, b) => a._key - b._key);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1601,7 +1576,7 @@ describe('Market', function () {
       });
 
       trades = res.payload;
-      trades.sort((a, b) => a._id - b._id);
+      trades.sort((a, b) => a._key - b._key);
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1714,6 +1689,7 @@ describe('Market', function () {
       });
 
       let metrics = res.payload;
+      metrics.sort((a, b) => a._key - b._key);
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 60);
@@ -1753,6 +1729,7 @@ describe('Market', function () {
       });
 
       metrics = res.payload;
+      metrics.sort((a, b) => a._key - b._key);
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 9);
@@ -2057,7 +2034,7 @@ describe('Market', function () {
       });
 
       let balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2135,7 +2112,7 @@ describe('Market', function () {
       });
 
       balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2237,7 +2214,7 @@ describe('Market', function () {
       });
 
       let balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');
@@ -2315,7 +2292,7 @@ describe('Market', function () {
       });
 
       balances = res.payload;
-      balances.sort((a, b) => a._id - b._id);
+      balances.sort((a, b) => a._key - b._key);
 
       assert.equal(balances[0].account, 'vitalik');
       assert.equal(balances[0].symbol, 'TKN');

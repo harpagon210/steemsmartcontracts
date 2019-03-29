@@ -158,7 +158,7 @@ class SmartContracts {
         }
 
         const newContract = {
-          _id: name,
+          name,
           owner: sender,
           code: codeTemplate,
           codeHash: SHA256(codeTemplate).toString(enchex),

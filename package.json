@@ -11,6 +11,7 @@
   "author": "Harpagon210 <harpagon210@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "arangojs": "^6.10.0",
     "bignumber.js": "^8.0.2",
     "body-parser": "^1.18.3",
     "commander": "^2.19.0",
@@ -25,6 +26,7 @@
     "js-base64": "^2.5.1",
     "line-by-line": "^0.1.6",
     "lokijs": "^1.5.6",
+    "mongo-aql-fixed": "^0.5.11",
     "mongodb": "^3.2.2",
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",

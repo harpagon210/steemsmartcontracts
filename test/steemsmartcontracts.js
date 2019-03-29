@@ -2,8 +2,7 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const { Base64 } = require('js-base64');
-const fs = require('fs-extra');
-const { MongoClient } = require('mongodb');
+const { Database } = require('arangojs');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -19,23 +18,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
-  databaseURL: "mongodb://localhost:27017",
+  databaseURL: "http://127.0.0.1:8529",
   databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
-
-async function cleanDatabase() {
-  const client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
-  let db = await client.db(conf.databaseName);
-  db.dropDatabase();
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -104,38 +93,20 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-let client;
-let db;
+const db = new Database(conf.databaseURL);
 
 // Database
-describe('Database', function() {
+describe('Database', function () {
   this.timeout(10000);
-
-  before((done) => {
-    new Promise(async (resolve) => {
-      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
-      db = await client.db(conf.databaseName);
-      await db.dropDatabase();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
-  
-  after((done) => {
-    new Promise(async (resolve) => {
-      await client.close();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
 
   beforeEach((done) => {
     new Promise(async (resolve) => {
-      db = await client.db(conf.databaseName);
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
       resolve();
     })
       .then(() => {
@@ -143,20 +114,23 @@ describe('Database', function() {
       })
   });
 
-  afterEach((done) => {
-      // runs after each test in this block
-      new Promise(async (resolve) => {
-        await db.dropDatabase()
-        resolve();
+  after((done) => {
+    new Promise(async (resolve) => {
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
+      resolve();
+    })
+      .then(() => {
+        done()
       })
-        .then(() => {
-          done()
-        })
   });
 
   it('should get the genesis block', (done) => {
     new Promise(async (resolve) => {
-      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -175,7 +149,7 @@ describe('Database', function() {
 
   it('should get the latest block', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -227,31 +201,14 @@ describe('Database', function() {
 describe('Smart Contracts', function () {
   this.timeout(10000);
 
-  before((done) => {
-    new Promise(async (resolve) => {
-      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
-      db = await client.db(conf.databaseName);
-      await db.dropDatabase();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
-  
-  after((done) => {
-    new Promise(async (resolve) => {
-      await client.close();
-      resolve();
-    })
-      .then(() => {
-        done()
-      })
-  });
-
   beforeEach((done) => {
     new Promise(async (resolve) => {
-      db = await client.db(conf.databaseName);
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
       resolve();
     })
       .then(() => {
@@ -259,20 +216,23 @@ describe('Smart Contracts', function () {
       })
   });
 
-  afterEach((done) => {
-      // runs after each test in this block
-      new Promise(async (resolve) => {
-        await db.dropDatabase()
-        resolve();
+  after((done) => {
+    new Promise(async (resolve) => {
+      try {
+        await db.dropDatabase(conf.databaseName);
+      } catch (error) {
+
+      }
+
+      resolve();
+    })
+      .then(() => {
+        done()
       })
-        .then(() => {
-          done()
-        })
   });
 
   it('should deploy a basic smart contract', (done) => {
     new Promise(async (resolve) => {
-      
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -308,7 +268,7 @@ describe('Smart Contracts', function () {
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
 
-      assert.equal(contract._id, 'testContract');
+      assert.equal(contract.name, 'testContract');
       assert.equal(contract.owner, 'steemsc');
       resolve()
     })
@@ -321,7 +281,7 @@ describe('Smart Contracts', function () {
 
   it('should create a table during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -377,7 +337,7 @@ describe('Smart Contracts', function () {
 
   it.skip('should create a table with indexes during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -428,7 +388,7 @@ describe('Smart Contracts', function () {
 
   it('should add a record into a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -488,7 +448,7 @@ describe('Smart Contracts', function () {
 
   it('should update a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -561,7 +521,7 @@ describe('Smart Contracts', function () {
 
   it('should remove a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -629,7 +589,7 @@ describe('Smart Contracts', function () {
 
   it('should read the records from a smart contract table via pagination', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -693,8 +653,8 @@ describe('Smart Contracts', function () {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0]._id, 1);
-      assert.equal(users[4]._id, 5);
+      assert.equal(users[0]._key, 1);
+      assert.equal(users[4]._key, 5);
 
       payload = {
         contract: 'usersContract',
@@ -707,8 +667,8 @@ describe('Smart Contracts', function () {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0]._id, 6);
-      assert.equal(users[4]._id, 10);
+      assert.equal(users[0]._key, 6);
+      assert.equal(users[4]._key, 10);
 
       payload = {
         contract: 'usersContract',
@@ -734,7 +694,7 @@ describe('Smart Contracts', function () {
 
   it('should read the records from a smart contract table using an index ascending', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -802,8 +762,8 @@ describe('Smart Contracts', function () {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0]._id, 6);
-      assert.equal(users[4]._id, 2);
+      assert.equal(users[0]._key, 6);
+      assert.equal(users[4]._key, 2);
 
       payload = {
         contract: 'usersContract',
@@ -817,8 +777,8 @@ describe('Smart Contracts', function () {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0]._id, 10);
-      assert.equal(users[4]._id, 5);
+      assert.equal(users[0]._key, 10);
+      assert.equal(users[4]._key, 5);
 
       payload = {
         contract: 'usersContract',
@@ -845,7 +805,7 @@ describe('Smart Contracts', function () {
 
   it('should read the records from a smart contract table using an index descending', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -912,8 +872,8 @@ describe('Smart Contracts', function () {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0]._id, 5);
-      assert.equal(users[4]._id, 10);
+      assert.equal(users[0]._key, 5);
+      assert.equal(users[4]._key, 10);
 
       payload = {
         contract: 'usersContract',
@@ -927,8 +887,8 @@ describe('Smart Contracts', function () {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0]._id, 2);
-      assert.equal(users[4]._id, 6);
+      assert.equal(users[0]._key, 2);
+      assert.equal(users[4]._key, 6);
 
       payload = {
         contract: 'usersContract',
@@ -955,7 +915,7 @@ describe('Smart Contracts', function () {
 
   it('should allow only the owner of the smart contract to perform certain actions', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1037,7 +997,7 @@ describe('Smart Contracts', function () {
 
   it('should perform a search in a smart contract table from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1130,7 +1090,7 @@ describe('Smart Contracts', function () {
 
   it('should execute a smart contract from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1223,7 +1183,7 @@ describe('Smart Contracts', function () {
 
   it('should emit an event from a smart contract', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1279,7 +1239,7 @@ describe('Smart Contracts', function () {
 
   it('should emit an event from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1358,7 +1318,7 @@ describe('Smart Contracts', function () {
 
   it('should log an error during the deployment of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1413,7 +1373,7 @@ describe('Smart Contracts', function () {
 
   it('should log an error during the execution of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1471,7 +1431,7 @@ describe('Smart Contracts', function () {
 
   it('should log an error from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
@@ -1548,7 +1508,7 @@ describe('Smart Contracts', function () {
 
   it('should generate random numbers in a deterministic way', (done) => {
     new Promise(async (resolve) => {
-      
+
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
