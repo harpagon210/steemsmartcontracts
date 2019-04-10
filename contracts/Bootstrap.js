@@ -1046,6 +1046,10 @@ class Bootstrap {
             const nbOrders = sellOrderBook.length;
             let inc = 0;
 
+            if (api.refSteemBlockNumber === 30922591) {
+                api.debug(sellOrderBook)
+              }
+
             while (inc < nbOrders && api.BigNumber(buyOrder.quantity).gt(0)) {
                 const sellOrder = sellOrderBook[inc];
                 if (api.BigNumber(buyOrder.quantity).lte(sellOrder.quantity)) {
@@ -1203,6 +1207,10 @@ class Bootstrap {
             const nbOrders = buyOrderBook.length;
             let inc = 0;
 
+            if (api.refSteemBlockNumber === 30922591) {
+                api.debug(buyOrderBook)
+              }
+
             while (inc < nbOrders && api.BigNumber(sellOrder.quantity).gt(0)) {
                 const buyOrder = buyOrderBook[inc];
                 if (api.BigNumber(sellOrder.quantity).lte(buyOrder.quantity)) {
@@ -1343,7 +1351,27 @@ class Bootstrap {
 
         while (ordersToDelete.length > 0) {
             ordersToDelete.forEach(async (order) => {
+                let quantity;
+                let symbol;
+
+                if (table === 'buyBook') {
+                    symbol = STEEM_PEGGED_SYMBOL;
+                    quantity = order.tokensLocked;
+                } else {
+                    symbol = order.symbol;
+                    quantity = order.quantity;
+                }
+
+                // unlock tokens
+                await api.transferTokens(order.account, symbol, quantity, 'user');
+
                 await api.db.remove(table, order);
+
+                if (table === 'buyBook') {
+                    await updateAskMetric(order.symbol);
+                } else {
+                    await updateBidMetric(order.symbol);
+                }
             });
 
             ordersToDelete = await api.db.find(
