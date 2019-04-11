@@ -63,7 +63,7 @@ async function init(conf, callback) {
 
     // init the main tables
     chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
-    database.addCollection('transactions', { indices: ['txid'], disableMeta: true });
+    database.addCollection('transactions', { unique: ['txid'], disableMeta: true });
     database.addCollection('contracts', { indices: ['name'], disableMeta: true });
 
     callback(null);
