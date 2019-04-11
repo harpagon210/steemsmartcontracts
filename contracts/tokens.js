@@ -688,6 +688,24 @@ actions.enableStaking = async (payload) => {
   }
 };
 
+actions.enableVoting = async (payload) => {
+  const { symbol, nbDays100PercentRegeneration, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
+    && api.assert(nbDays100PercentRegeneration && Number.isInteger(nbDays100PercentRegeneration) && nbDays100PercentRegeneration > 0 && nbDays100PercentRegeneration <= 365, 'nbDays100PercentRegeneration must be an integer between 1 and 365')) {
+    const token = await api.db.findOne('tokens', { symbol });
+
+    if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.issuer === api.sender, 'must be the issuer')
+      && api.assert(token.stakingEnabled === false, 'voting already enabled')) {
+      token.votingEnabled = true;
+      token.nbDays100PercentRegeneration = nbDays100PercentRegeneration;
+      await api.db.update('tokens', token);
+    }
+  }
+};
+
 actions.stake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
 
