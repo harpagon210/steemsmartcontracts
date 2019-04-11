@@ -179,10 +179,10 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       $lte: price,
     },
   }, 1000, offset,
-  [
-    { index: 'price', descending: false },
-    { index: '_id', descending: false },
-  ]);
+    [
+      { index: 'price', descending: false },
+      { index: '_id', descending: false },
+    ]);
 
   do {
     const nbOrders = sellOrderBook.length;
@@ -310,10 +310,10 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           $lte: price,
         },
       }, 1000, offset,
-      [
-        { index: 'price', descending: false },
-        { index: '_id', descending: false },
-      ]);
+        [
+          { index: 'price', descending: false },
+          { index: '_id', descending: false },
+        ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
 
@@ -345,10 +345,10 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       $gte: price,
     },
   }, 1000, offset,
-  [
-    { index: 'price', descending: true },
-    { index: '_id', descending: false },
-  ]);
+    [
+      { index: 'price', descending: true },
+      { index: '_id', descending: false },
+    ]);
 
   do {
     const nbOrders = buyOrderBook.length;
@@ -469,10 +469,10 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           $gte: price,
         },
       }, 1000, offset,
-      [
-        { index: 'price', descending: true },
-        { index: '_id', descending: false },
-      ]);
+        [
+          { index: 'price', descending: true },
+          { index: '_id', descending: false },
+        ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
 
@@ -502,7 +502,27 @@ const removeExpiredOrders = async (table) => {
 
   while (ordersToDelete.length > 0) {
     ordersToDelete.forEach(async (order) => {
+      let quantity;
+      let symbol;
+
+      if (table === 'buyBook') {
+        symbol = STEEM_PEGGED_SYMBOL;
+        quantity = order.tokensLocked;
+      } else {
+        symbol = order.symbol;
+        quantity = order.quantity;
+      }
+
+      // unlock tokens
+      await api.transferTokens(order.account, symbol, quantity, 'user');
+
       await api.db.remove(table, order);
+
+      if (table === 'buyBook') {
+        await updateAskMetric(order.symbol);
+      } else {
+        await updateBidMetric(order.symbol);
+      }
     });
 
     ordersToDelete = await api.db.find(

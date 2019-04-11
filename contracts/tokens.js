@@ -82,22 +82,22 @@ actions.transferOwnership = async (payload) => {
   const { symbol, to, isSignedWithActiveKey } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-      && api.assert(symbol && typeof symbol === 'string'
+    && api.assert(symbol && typeof symbol === 'string'
       && to && typeof to === 'string', 'invalid params')) {
-      // check if the token exists
-      let token = await api.db.findOne('tokens', { symbol });
+    // check if the token exists
+    let token = await api.db.findOne('tokens', { symbol });
 
-      if (token) {
-          if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
-              const finalTo = to.trim();
+    if (token) {
+      if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
+        const finalTo = to.trim();
 
-              // a valid steem account is between 3 and 16 characters in length
-              if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
-                  token.issuer = finalTo
-                  await api.db.update('tokens', token);
-              }
-          }
+        // a valid steem account is between 3 and 16 characters in length
+        if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+          token.issuer = finalTo
+          await api.db.update('tokens', token);
+        }
       }
+    }
   }
 }
 
@@ -219,6 +219,7 @@ const createVTwo = async (payload) => {
           circulatingSupply: '0',
           stakingEnabled: false,
           unstakingCooldown: 1,
+          nbDays100PercentVoteRegeneration: 1,
         };
 
         await api.db.insert('tokens', newToken);
@@ -661,7 +662,7 @@ actions.checkPendingUnstakes = async (payload) => {
             $lte: timestamp,
           },
         });
-  
+
       nbPendingUnstakes = pendingUnstakes.length;
     }
   }
@@ -805,7 +806,7 @@ actions.cancelUnstake = async (payload) => {
   const { txID, isSignedWithActiveKey } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-      && api.assert(txID && typeof txID === 'string', 'invalid params')) {
+    && api.assert(txID && typeof txID === 'string', 'invalid params')) {
     // get unstake
     const unstake = await api.db.findOne('pendingUnstakes', { account: api.sender, txID });
 
@@ -857,7 +858,7 @@ const subStake = async (account, token, quantity) => {
 
 const subBalanceVOne = async (account, token, quantity, table) => {
   const balance = await api.db.findOne(table, { account, symbol: token.symbol });
-  if (api.assert(balance !== null, 'balance does not exist') 
+  if (api.assert(balance !== null, 'balance does not exist')
     && api.assert(balance.balance >= quantity, 'overdrawn balance')) {
     const originalBalance = balance.balance;
 
@@ -924,7 +925,11 @@ const addBalanceVTwo = async (account, token, quantity, table) => {
       symbol: token.symbol,
       balance: quantity,
       stake: '0',
+      delegatedStake: '0',
+      receivedStake: '0',
       pendingUnstake: '0',
+      votingPower: '100',
+      lastVoteTime: 0,
     };
 
     await api.db.insert(table, balance);
@@ -957,6 +962,25 @@ const calculateBalanceVTwo = (balance, quantity, precision, add) => {
   return add
     ? api.BigNumber(balance).plus(quantity).toFixed(precision)
     : api.BigNumber(balance).minus(quantity).toFixed(precision);
+};
+
+const calculateVotingPower = (balance, nbDays100PercentRegeneration, nowTimeSec) => {
+  if (balance.lastVoteTime === 0 || api.BigNumber(balance.votingPower).eq(100)) {
+    return balance.votingPower;
+  }
+
+  const secondsago = nowTimeSec - balance.lastVoteTime;
+  const nbDays100PercentRegenerationSecs = nbDays100PercentRegeneration * 24 * 60 * 60;
+  const regeneratedPower = api.BigNumber(100)
+    .dividedBy(nbDays100PercentRegenerationSecs)
+    .multipliedBy(secondsago)
+    .toFixed(2);
+
+  const newVotingPower = api.BigNumber(balance.votingPower)
+    .plus(regeneratedPower)
+    .toFixed(2);
+
+  return api.BigNumber(newVotingPower).gt(100) ? '100.00' : newVotingPower;
 };
 
 const countDecimals = value => api.BigNumber(value).dp();
