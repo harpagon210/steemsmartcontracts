@@ -94,7 +94,7 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-const STEEM_PEGGED_ACCOUNT = 'steem-peg';
+const STEEM_PEGGED_ACCOUNT = 'steemsc';
 
 // dice
 describe('dice', () => {
