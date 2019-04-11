@@ -140,7 +140,7 @@ class Block {
 
         if (authorizedAccountContractDeployment.includes(sender)) {
           results = await SmartContracts.deploySmartContract( // eslint-disable-line
-            ipc, transaction, this.timestamp,
+            ipc, transaction, this.blockNumber, this.timestamp,
             this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
           );
         } else {
@@ -151,7 +151,7 @@ class Block {
         results = { logs: { errors: ['blockProduction contract not available'] } };
       } else {
         results = await SmartContracts.executeSmartContract(// eslint-disable-line
-          ipc, transaction, this.timestamp,
+          ipc, transaction, this.blockNumber, this.timestamp,
           this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
         );
       }

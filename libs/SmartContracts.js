@@ -15,7 +15,7 @@ const RESERVED_ACTIONS = ['createSSC'];
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
   static async deploySmartContract(
-    ipc, transaction, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+    ipc, transaction, blockNumber, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
   ) {
     try {
       const { transactionId, refSteemBlockNumber, sender } = transaction;
@@ -118,6 +118,7 @@ class SmartContracts {
             action: 'createSSC',
             payload: params ? JSON.parse(JSON.stringify(params)) : null,
             transactionId,
+            blockNumber,
             refSteemBlockNumber,
             steemBlockTimestamp: timestamp,
             db,
@@ -131,6 +132,7 @@ class SmartContracts {
             ) => SmartContracts.executeSmartContractFromSmartContract(
               ipc, logs, sender, params, contractName, actionName,
               JSON.stringify(parameters),
+              blockNumber, timestamp,
               refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
             ),
             // emit an event that will be stored in the logs
@@ -179,7 +181,7 @@ class SmartContracts {
 
   // execute the smart contract and perform actions on the database if needed
   static async executeSmartContract(
-    ipc, transaction, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+    ipc, transaction, blockNumber, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
   ) {
     try {
       const {
@@ -256,6 +258,7 @@ class SmartContracts {
           refSteemBlockNumber,
           steemBlockTimestamp: timestamp,
           transactionId,
+          blockNumber,
           action,
           payload: JSON.parse(JSON.stringify(payloadObj)),
           db,
@@ -269,6 +272,7 @@ class SmartContracts {
           ) => SmartContracts.executeSmartContractFromSmartContract(
             ipc, results, sender, payloadObj, contractName, actionName,
             JSON.stringify(parameters),
+            blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
           ),
           // execute a smart contract from the current smart contract
@@ -278,6 +282,7 @@ class SmartContracts {
           ) => SmartContracts.executeSmartContractFromSmartContract(
             ipc, results, contractOwner, payloadObj, contractName, actionName,
             JSON.stringify(parameters),
+            blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
           ),
           // execute a token transfer from the contract balance
@@ -292,6 +297,7 @@ class SmartContracts {
               symbol,
               type,
             }),
+            blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
           ),
           // emit an event that will be stored in the logs
@@ -352,6 +358,8 @@ class SmartContracts {
   static async executeSmartContractFromSmartContract(
     ipc, originalResults, sender, originalParameters,
     contract, action, parameters,
+    blockNumber,
+    timestamp,
     refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
     jsVMTimeout,
   ) {
@@ -383,6 +391,8 @@ class SmartContracts {
           payload: JSON.stringify(sanitizedParams),
           refSteemBlockNumber,
         },
+        blockNumber,
+        timestamp,
         refSteemBlockId,
         prevRefSteemBlockId,
         jsVMTimeout,

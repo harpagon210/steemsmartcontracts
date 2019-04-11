@@ -89,8 +89,8 @@ actions.buy = async (payload) => {
           order.timestamp = timestampSec;
           order.account = api.sender;
           order.symbol = symbol;
-          order.quantity = quantity;
-          order.price = price;
+          order.quantity = api.BigNumber(quantity).toFixed(token.precision);
+          order.price = api.BigNumber(price).toFixed(3);
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
@@ -146,8 +146,8 @@ actions.sell = async (payload) => {
           order.timestamp = timestampSec;
           order.account = api.sender;
           order.symbol = symbol;
-          order.quantity = quantity;
-          order.price = price;
+          order.quantity = api.BigNumber(quantity).toFixed(token.precision);
+          order.price = api.BigNumber(price).toFixed(3);
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
             : timestampSec + expiration;
@@ -502,7 +502,27 @@ const removeExpiredOrders = async (table) => {
 
   while (ordersToDelete.length > 0) {
     ordersToDelete.forEach(async (order) => {
+      let quantity;
+      let symbol;
+
+      if (table === 'buyBook') {
+        symbol = STEEM_PEGGED_SYMBOL;
+        quantity = order.tokensLocked;
+      } else {
+        symbol = order.symbol;
+        quantity = order.quantity;
+      }
+
+      // unlock tokens
+      await api.transferTokens(order.account, symbol, quantity, 'user');
+
       await api.db.remove(table, order);
+
+      if (table === 'buyBook') {
+        await updateAskMetric(order.symbol);
+      } else {
+        await updateBidMetric(order.symbol);
+      }
     });
 
     ordersToDelete = await api.db.find(
@@ -544,10 +564,10 @@ const updateVolumeMetric = async (symbol, quantity) => {
   const metric = await getMetric(symbol);
 
   if (metric.volumeExpiration < timestampSec) {
-    metric.volume = quantity;
+    metric.volume = api.BigNumber(quantity).toFixed(3);
     metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
   } else {
-    metric.volume = api.BigNumber(metric.volume).plus(quantity).toNumber();
+    metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
   }
 
   await api.db.update('metrics', metric);

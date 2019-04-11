@@ -94,7 +94,7 @@ async function generateGenesisBlock(conf, callback) {
     chain.insert(res.payload);
 
     // initialize the block production tools
-    BlockProduction.initialize(database, genesisSteemBlock);
+    // BlockProduction.initialize(database, genesisSteemBlock);
   }
 
   callback();

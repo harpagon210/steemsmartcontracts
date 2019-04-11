@@ -97,7 +97,7 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-const SSC_STORE_QTY = '1';
+const SSC_STORE_QTY = '0.001';
 
 // sscstore
 describe('sscstore smart contract', () => {
@@ -188,8 +188,8 @@ describe('sscstore smart contract', () => {
       assert.equal(balanceSatoshi, null);
 
       transactions = [];
-      transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1, "disabled": true }'));
-      transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30529000, 'TXID1237', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1, "disabled": true }'));
+      transactions.push(new Transaction(30529000, 'TXID1238', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: 30529000,
@@ -286,7 +286,7 @@ describe('sscstore smart contract', () => {
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
-      transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1000000, "disabled": false }'));
+      transactions.push(new Transaction(30529000, 'TXID1237', 'Satoshi', 'sscstore', 'updateParams', '{ "priceSBD": 0.001, "priceSteem": 0.001, "quantity": 1000000, "disabled": false }'));
 
       let block = {
         refSteemBlockNumber: 30529000,
