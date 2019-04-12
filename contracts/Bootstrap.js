@@ -12,6 +12,7 @@ class Bootstrap {
 
     const FORK_BLOCK_NUMBER = 30896500;
     const FORK_BLOCK_NUMBER_TWO = 30983000;
+    const FORK_BLOCK_NUMBER_THREE = 31991320;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
     const STEEM_PEGGED_ACCOUNT = 'steem-peg';
     const INITIAL_TOKEN_CREATION_FEE = '100';
@@ -870,8 +871,8 @@ class Bootstrap {
     const CONTRACT_NAME = 'market';
 
     actions.createSSC = async (payload) => {
-        await api.db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration']);
-        await api.db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration']);
+        await api.db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
+        await api.db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
         await api.db.createTable('tradesHistory', ['symbol']);
         await api.db.createTable('metrics', ['symbol']);
     };
@@ -883,10 +884,16 @@ class Bootstrap {
 
         if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
             && api.assert(type && types.includes(type)
-                && id && Number.isInteger(id), 'invalid params')) {
+                && id, 'invalid params')) {
             const table = type === 'buy' ? 'buyBook' : 'sellBook';
+            
+            let order = null;
             // get order
-            const order = await api.db.findOne(table, { $loki: id });
+            if (api.assert(api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_THREE} && Number.isInteger(id), 'invalid params')) {
+                order = await api.db.findOne(table, { $loki: id });
+            } else if (api.assert(api.refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_THREE} && typeof id === 'string' && id.length < 50, 'invalid params')) {
+                order = await api.db.findOne(table, { txId: id });
+            }
 
             if (api.assert(order, 'order does not exist')
                 && order.account === api.sender) {
