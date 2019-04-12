@@ -1046,10 +1046,6 @@ class Bootstrap {
             const nbOrders = sellOrderBook.length;
             let inc = 0;
 
-            if (api.refSteemBlockNumber === 30922591) {
-                api.debug(sellOrderBook)
-              }
-
             while (inc < nbOrders && api.BigNumber(buyOrder.quantity).gt(0)) {
                 const sellOrder = sellOrderBook[inc];
                 if (api.BigNumber(buyOrder.quantity).lte(sellOrder.quantity)) {
@@ -1068,10 +1064,26 @@ class Bootstrap {
                         && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
 
                         // transfer the tokens to the buyer
-                        await api.transferTokens(account, symbol, buyOrder.quantity, 'user');
+                        let res = await api.transferTokens(account, symbol, buyOrder.quantity, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(account)
+                            api.debug(symbol)
+                            api.debug(buyOrder.quantity)
+                        }
 
                         // transfer the tokens to the seller
-                        await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        res = await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(sellOrder.account)
+                            api.debug(STEEM_PEGGED_SYMBOL)
+                            api.debug(qtyTokensToSend)
+                        }
 
                         // update the sell order
                         const qtyLeftSellOrder = api.BigNumber(sellOrder.quantity).minus(buyOrder.quantity).toFixed(tokenPrecision);
@@ -1122,10 +1134,26 @@ class Bootstrap {
                         && api.BigNumber(buyOrder.quantity).gt(0), 'the order cannot be filled')) {
 
                         // transfer the tokens to the buyer
-                        await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
+                        let res = await api.transferTokens(account, symbol, sellOrder.quantity, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(account)
+                            api.debug(symbol)
+                            api.debug(sellOrder.quantity)
+                        }
 
                         // transfer the tokens to the seller
-                        await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        res = await api.transferTokens(sellOrder.account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(sellOrder.account)
+                            api.debug(STEEM_PEGGED_SYMBOL)
+                            api.debug(qtyTokensToSend)
+                        }
 
                         // remove the sell order
                         await api.db.remove('sellBook', sellOrder);
@@ -1207,10 +1235,6 @@ class Bootstrap {
             const nbOrders = buyOrderBook.length;
             let inc = 0;
 
-            if (api.refSteemBlockNumber === 30922591) {
-                api.debug(buyOrderBook)
-              }
-
             while (inc < nbOrders && api.BigNumber(sellOrder.quantity).gt(0)) {
                 const buyOrder = buyOrderBook[inc];
                 if (api.BigNumber(sellOrder.quantity).lte(buyOrder.quantity)) {
@@ -1228,10 +1252,26 @@ class Bootstrap {
                     if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
                         && api.BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
                         // transfer the tokens to the buyer
-                        await api.transferTokens(buyOrder.account, symbol, sellOrder.quantity, 'user');
+                        let res = await api.transferTokens(buyOrder.account, symbol, sellOrder.quantity, 'user');
+                        
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(buyOrder.account)
+                            api.debug(symbol)
+                            api.debug(sellOrder.quantity)
+                        }
 
                         // transfer the tokens to the seller
-                        await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        res = await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(account)
+                            api.debug(STEEM_PEGGED_SYMBOL)
+                            api.debug(qtyTokensToSend)
+                        }
 
                         // update the buy order
                         const qtyLeftBuyOrder = api.BigNumber(buyOrder.quantity).minus(sellOrder.quantity).toFixed(tokenPrecision);
@@ -1276,10 +1316,26 @@ class Bootstrap {
                     if (api.assert(api.BigNumber(qtyTokensToSend).gt(0)
                         && api.BigNumber(sellOrder.quantity).gt(0), 'the order cannot be filled')) {
                         // transfer the tokens to the buyer
-                        await api.transferTokens(buyOrder.account, symbol, buyOrder.quantity, 'user');
+                        let res = await api.transferTokens(buyOrder.account, symbol, buyOrder.quantity, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(buyOrder.account)
+                            api.debug(symbol)
+                            api.debug(buyOrder.quantity)
+                        }
 
                         // transfer the tokens to the seller
-                        await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+                        res = await api.transferTokens(account, STEEM_PEGGED_SYMBOL, qtyTokensToSend, 'user');
+
+                        if (res.errors) {
+                            api.debug(res.errors)
+                            api.debug('TXID: ' + api.transactionId)
+                            api.debug(account)
+                            api.debug(STEEM_PEGGED_SYMBOL)
+                            api.debug(qtyTokensToSend)
+                        }
 
                         // remove the buy order
                         await api.db.remove('buyBook', buyOrder);
@@ -1341,6 +1397,7 @@ class Bootstrap {
             .toNumber();
 
         // clean orders
+        let nbOrdersToDelete = 0;
         let ordersToDelete = await api.db.find(
             table,
             {
@@ -1349,8 +1406,10 @@ class Bootstrap {
                 },
             });
 
-        while (ordersToDelete.length > 0) {
-            ordersToDelete.forEach(async (order) => {
+        nbOrdersToDelete = ordersToDelete.length;
+        while (nbOrdersToDelete > 0) {
+            for (let index = 0; index < nbOrdersToDelete; index += 1) {
+                let order = ordersToDelete[index];
                 let quantity;
                 let symbol;
 
@@ -1372,7 +1431,7 @@ class Bootstrap {
                 } else {
                     await updateBidMetric(order.symbol);
                 }
-            });
+            }
 
             ordersToDelete = await api.db.find(
                 table,
@@ -1381,6 +1440,8 @@ class Bootstrap {
                         $lte: timestampSec,
                     },
                 });
+
+            nbOrdersToDelete = ordersToDelete.length;
         }
     }
 
