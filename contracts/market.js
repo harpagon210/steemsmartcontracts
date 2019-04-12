@@ -487,21 +487,24 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
 };
 
 const removeExpiredOrders = async (table) => {
-  const timestampSec = api.BigNumber(new Date(`${api.steemBlockTimestamp}.000Z`).getTime())
+  const timestampSec = api.BigNumber(new Date(api.steemBlockTimestamp + '.000Z').getTime())
     .dividedBy(1000)
     .toNumber();
 
   // clean orders
+  let nbOrdersToDelete = 0;
   let ordersToDelete = await api.db.find(
-    table,
-    {
-      expiration: {
-        $lte: timestampSec,
-      },
-    });
+      table,
+      {
+          expiration: {
+              $lte: timestampSec,
+          },
+      });
 
-  while (ordersToDelete.length > 0) {
-    ordersToDelete.forEach(async (order) => {
+  nbOrdersToDelete = ordersToDelete.length;
+  while (nbOrdersToDelete > 0) {
+    for (let index = 0; index < nbOrdersToDelete; index += 1) {
+      const order = ordersToDelete[index];
       let quantity;
       let symbol;
 
@@ -523,15 +526,17 @@ const removeExpiredOrders = async (table) => {
       } else {
         await updateBidMetric(order.symbol);
       }
-    });
+    }
 
     ordersToDelete = await api.db.find(
       table,
       {
-        expiration: {
-          $lte: timestampSec,
-        },
+          expiration: {
+              $lte: timestampSec,
+          },
       });
+
+    nbOrdersToDelete = ordersToDelete.length;
   }
 };
 
