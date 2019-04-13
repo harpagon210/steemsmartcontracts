@@ -889,13 +889,13 @@ class Bootstrap {
             
             let order = null;
             // get order
-            if (api.assert(api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_THREE} && Number.isInteger(id), 'invalid params')) {
+            if (api.refSteemBlockNumber < ${FORK_BLOCK_NUMBER_THREE} && Number.isInteger(id)) {
                 order = await api.db.findOne(table, { $loki: id });
-            } else if (api.assert(api.refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_THREE} && typeof id === 'string' && id.length < 50, 'invalid params')) {
+            } else if (api.refSteemBlockNumber >= ${FORK_BLOCK_NUMBER_THREE} && typeof id === 'string' && id.length < 50) {
                 order = await api.db.findOne(table, { txId: id });
             }
 
-            if (api.assert(order, 'order does not exist')
+            if (api.assert(order !== null, 'order does not exist or invalid params')
                 && order.account === api.sender) {
                 let quantity;
                 let symbol;
@@ -1474,17 +1474,17 @@ class Bootstrap {
         return metric;
     }
 
-    const updateVolumeMetric = async (symbol, quantity) => {
+    const updateVolumeMetric = async (symbol, quantity, add = true) => {
         const blockDate = new Date(api.steemBlockTimestamp + '.000Z');
         const timestampSec = blockDate.getTime() / 1000;
 
         let metric = await getMetric(symbol);
 
-        if (metric.volumeExpiration < timestampSec) {
-            metric.volume = api.BigNumber(quantity).toFixed(3);
+        if (add === true) {
+            metric.volume = api.BigNumber(metric.volume).toFixed(3);
             metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
         } else {
-            metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
+            metric.volume = api.BigNumber(metric.volume).minus(quantity).toFixed(3);
         }
 
         await api.db.update('metrics', metric);
@@ -1570,10 +1570,13 @@ class Bootstrap {
                 },
             });
 
-        while (tradesToDelete.length > 0) {
-            tradesToDelete.forEach(async (trade) => {
+        let nbTradesToDelete = tradesToDelete.length;
+        while (nbTradesToDelete.length > 0) {
+            for (let index = 0; index < nbTradesToDelete; index += 1) {
+                const trade = tradesToDelete[index];
+                await updateVolumeMetric(trade.symbol, trade.quantity, false);
                 await api.db.remove('tradesHistory', trade);
-            });
+            }
 
             tradesToDelete = await api.db.find(
                 'tradesHistory',
@@ -1583,6 +1586,8 @@ class Bootstrap {
                         $lt: timestampMinus24hrs,
                     },
                 });
+
+            nbTradesToDelete = tradesToDelete.length;
         }
 
         // add order to the history
