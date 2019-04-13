@@ -61,6 +61,8 @@ class SmartContracts {
                 }
                 await actions[api.action](api.payload);
                 done(null);
+              } else {
+                done('invalid action');
               }
             } catch (error) {
               done(error);
