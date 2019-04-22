@@ -9,19 +9,32 @@ class Queue {
       this.pop();
     }
 
-    this.data.unshift(record);
+    this.data.push(record);
   }
 
   pop() {
-    return this.size() > 0 ? this.data.pop() : null;
+    const size = this.size();
+
+    if (size > 0) {
+      const item = this.data[0];
+
+      if (size > 1) {
+        this.data = this.data.slice(1);
+      } else {
+        this.data = [];
+      }
+      return item;
+    }
+
+    return null;
   }
 
   first() {
-    return this.size() > 0 ? this.data[0] : null;
+    return this.size() > 0 ? this.data[this.data.length - 1] : null;
   }
 
   last() {
-    return this.size() > 0 ? this.data[this.data.length - 1] : null;
+    return this.size() > 0 ? this.data[0] : null;
   }
 
   clear() {
