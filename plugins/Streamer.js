@@ -253,7 +253,7 @@ async function getBlock(reject) {
       }
     }
 
-    blockPoller = setTimeout(() => getBlock(reject), 500);
+    blockPoller = setTimeout(() => getBlock(reject), 100);
   } catch (err) {
     reject(err);
   }

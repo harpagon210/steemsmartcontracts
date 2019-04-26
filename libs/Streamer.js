@@ -9,7 +9,7 @@ class ForkException {
 }
 
 class Streamer {
-  constructor(nodeUrl, currentBlock, antiForkBufferMaxSize = 2, pollingTime = 500) {
+  constructor(nodeUrl, currentBlock, antiForkBufferMaxSize = 2, pollingTime = 100) {
     this.antiForkBufferMaxSize = antiForkBufferMaxSize;
     this.buffer = new Queue(antiForkBufferMaxSize);
     this.blocks = new Queue();
@@ -35,7 +35,7 @@ class Streamer {
     try {
       const globProps = await this.client.database.getDynamicGlobalProperties();
       this.headBlockNumber = globProps.head_block_number;
-      this.updaterGlobalProps = setTimeout(() => this.updateGlobalProps(), 3000);
+      this.updaterGlobalProps = setTimeout(() => this.updateGlobalProps(), 10000);
     } catch (ex) {
       console.error('An error occured while trying to fetch the Steem blockchain global properties'); // eslint-disable-line no-console
     }

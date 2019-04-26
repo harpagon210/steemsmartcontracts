@@ -13,6 +13,7 @@ class Bootstrap {
 
     const FORK_BLOCK_NUMBER = 30896500;
     const FORK_BLOCK_NUMBER_TWO = 30983000;
+    const FORK_BLOCK_NUMBER_THREE = 31992326;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
     const STEEM_PEGGED_ACCOUNT = 'steemsc';
     const INITIAL_TOKEN_CREATION_FEE = '0';
@@ -77,6 +78,7 @@ class Bootstrap {
     contractCode = contractCode.toString();
 
     contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_TWO\}\$'/g, FORK_BLOCK_NUMBER_TWO);
+    contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_THREE\}\$'/g, FORK_BLOCK_NUMBER_THREE);
 
     base64ContractCode = Base64.encode(contractCode);
 
