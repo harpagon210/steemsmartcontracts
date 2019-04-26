@@ -1481,25 +1481,21 @@ class Bootstrap {
         const blockDate = new Date(api.steemBlockTimestamp + '.000Z');
         const timestampSec = blockDate.getTime() / 1000;
         let metric = await getMetric(symbol);
-        api.debug('before: ' + metric.volume + symbol)
+
         if (add === true) {
             if (metric.volumeExpiration < timestampSec) {
                 metric.volume = '0.000';
             }
             metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
             metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
-            api.debug('+' + quantity + symbol)
         } else {
             metric.volume = api.BigNumber(metric.volume).minus(quantity).toFixed(3);
-            api.debug('-' + quantity + symbol)
         }
 
         if (api.BigNumber(metric.volume).lt(0)) {
             metric.volume = '0.000';
         }
 
-        api.debug('after: ' + metric.volume + symbol)
-        api.debug('__________________________________')
         await api.db.update('metrics', metric);
     }
 
