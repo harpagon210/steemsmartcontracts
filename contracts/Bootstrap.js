@@ -1483,11 +1483,19 @@ class Bootstrap {
         let metric = await getMetric(symbol);
 
         if (add === true) {
+            if (metric.volumeExpiration < timestampSec) {
+                metric.volume = '0.000';
+            }
             metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
             metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
         } else {
             metric.volume = api.BigNumber(metric.volume).minus(quantity).toFixed(3);
         }
+
+        if (api.BigNumber(metric.volume).lt(0)) {
+            metric.volume = '0.000';
+        }
+
         await api.db.update('metrics', metric);
     }
 

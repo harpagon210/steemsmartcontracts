@@ -1848,12 +1848,12 @@ describe('Market', () => {
       metrics = res.payload;
 
       assert.equal(metrics[0].symbol, 'TKN');
-      assert.equal(metrics[0].volume, 49);
+      assert.equal(metrics[0].volume, 9);
       blockDate = new Date('2018-06-04T01:01:00.000Z');
       assert.equal(metrics[0].volumeExpiration, blockDate.getTime() / 1000);
 
       assert.equal(metrics[1].symbol, 'BTC');
-      assert.equal(metrics[1].volume, 28);
+      assert.equal(metrics[1].volume, 15);
       blockDate = new Date('2018-06-04T01:01:00.000Z');
       assert.equal(metrics[1].volumeExpiration, blockDate.getTime() / 1000);
 
@@ -1887,7 +1887,7 @@ describe('Market', () => {
       const metric = res.payload;
 
       assert.equal(metric.symbol, 'TKN');
-      assert.equal(metric.volume, 49);
+      assert.equal(metric.volume, 9);
       blockDate = new Date('2018-06-04T01:01:00.000Z');
       assert.equal(metric.volumeExpiration, blockDate.getTime() / 1000);
       assert.equal(metric.lastPrice, 3);
