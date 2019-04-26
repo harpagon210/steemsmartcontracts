@@ -1118,7 +1118,7 @@ class Bootstrap {
                         }
 
                         // add the trade to the history
-                        await updateTradesHistory('buy', symbol, buyOrder.quantity, sellOrder.price);
+                        await updateTradesHistory('buy', symbol, buyOrder.quantity, sellOrder.price, qtyTokensToSend);
                         
                         // update the volume
                         volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -1180,7 +1180,7 @@ class Bootstrap {
                         }
 
                         // add the trade to the history
-                        await updateTradesHistory('buy', symbol, sellOrder.quantity, sellOrder.price);
+                        await updateTradesHistory('buy', symbol, sellOrder.quantity, sellOrder.price, qtyTokensToSend);
 
                         // update the volume
                         volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -1301,7 +1301,7 @@ class Bootstrap {
                         }
 
                         // add the trade to the history
-                        await updateTradesHistory('sell', symbol, sellOrder.quantity, buyOrder.price);
+                        await updateTradesHistory('sell', symbol, sellOrder.quantity, buyOrder.price, qtyTokensToSend);
 
                         // update the volume
                         volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -1362,7 +1362,7 @@ class Bootstrap {
                         }
 
                         // add the trade to the history
-                        await updateTradesHistory('sell', symbol, buyOrder.quantity, buyOrder.price);
+                        await updateTradesHistory('sell', symbol, buyOrder.quantity, buyOrder.price, qtyTokensToSend);
 
                         // update the volume
                         volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -1481,21 +1481,25 @@ class Bootstrap {
         const blockDate = new Date(api.steemBlockTimestamp + '.000Z');
         const timestampSec = blockDate.getTime() / 1000;
         let metric = await getMetric(symbol);
-
+        api.debug('before: ' + metric.volume + symbol)
         if (add === true) {
             if (metric.volumeExpiration < timestampSec) {
                 metric.volume = '0.000';
             }
             metric.volume = api.BigNumber(metric.volume).plus(quantity).toFixed(3);
             metric.volumeExpiration = blockDate.setDate(blockDate.getDate() + 1) / 1000;
+            api.debug('+' + quantity + symbol)
         } else {
             metric.volume = api.BigNumber(metric.volume).minus(quantity).toFixed(3);
+            api.debug('-' + quantity + symbol)
         }
 
         if (api.BigNumber(metric.volume).lt(0)) {
             metric.volume = '0.000';
         }
 
+        api.debug('after: ' + metric.volume + symbol)
+        api.debug('__________________________________')
         await api.db.update('metrics', metric);
     }
 
@@ -1563,7 +1567,7 @@ class Bootstrap {
         await api.db.update('metrics', metric);
     }
 
-    const updateTradesHistory = async (type, symbol, quantity, price) => {
+    const updateTradesHistory = async (type, symbol, quantity, price, volume) => {
         const blockDate = new Date(api.steemBlockTimestamp + '.000Z')
         const timestampSec = blockDate.getTime() / 1000
         const timestampMinus24hrs = blockDate.setDate(blockDate.getDate() - 1) / 1000;
@@ -1582,7 +1586,7 @@ class Bootstrap {
         while (nbTradesToDelete > 0) {
             for (let index = 0; index < nbTradesToDelete; index += 1) {
                 const trade = tradesToDelete[index];
-                await updateVolumeMetric(trade.symbol, trade.quantity, false);
+                await updateVolumeMetric(trade.symbol, trade.volume, false);
                 await api.db.remove('tradesHistory', trade);
             }
             tradesToDelete = await api.db.find(
@@ -1602,6 +1606,7 @@ class Bootstrap {
         newTrade.quantity = quantity;
         newTrade.price = price;
         newTrade.timestamp = timestampSec;
+        newTrade.volume = volume;
         await api.db.insert('tradesHistory', newTrade);
         await updatePriceMetrics(symbol, price);
     }
