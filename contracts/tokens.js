@@ -679,7 +679,7 @@ actions.enableStaking = async (payload) => {
 
     if (api.assert(token !== null, 'symbol does not exist')
       && api.assert(token.issuer === api.sender, 'must be the issuer')
-      && api.assert(token.stakingEnabled === false, 'staking already enabled')) {
+      && api.assert(token.stakingEnabled === undefined || token.stakingEnabled === false, 'staking already enabled')) {
       token.stakingEnabled = true;
       token.unstakingCooldown = unstakingCooldown;
       token.numberTransactions = numberTransactions;
