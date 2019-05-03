@@ -7,6 +7,7 @@ const PLUGIN_ACTIONS = {
   GET_TRANSACTION_INFO: 'getTransactionInfo',
   FIND_CONTRACT: 'findContract',
   ADD_CONTRACT: 'addContract',
+  UPDATE_CONTRACT: 'updateContract',
   CREATE_TABLE: 'createTable',
   FIND: 'find',
   FIND_ONE: 'findOne',

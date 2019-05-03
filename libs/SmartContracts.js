@@ -32,14 +32,23 @@ class SmartContracts {
           return { logs: { errors: ['invalid contract name'] } };
         }
 
+        let existingContract = null;
+
         const res = await ipc.send(
           { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name } },
         );
 
-        // for now the contracts are immutable
-        if (res.payload) {
-          // contract.code = code;
-          return { logs: { errors: ['contract already exists'] } };
+        existingContract = res.payload;
+
+        let finalSender = sender;
+
+        // allow "steemsc" to update contracts owned by "null"
+        if (existingContract && finalSender === 'steemsc' && existingContract.owner === 'null') {
+          finalSender = 'null';
+        }
+
+        if (existingContract && existingContract.owner !== finalSender) {
+          return { logs: { errors: ['you are not allowed to update this contract'] } };
         }
 
         // this code template is used to manage the code of the smart contract
@@ -104,6 +113,10 @@ class SmartContracts {
           findContract: contractName => SmartContracts.findContract(ipc, contractName),
           // insert a record in the table of the smart contract
           insert: (table, record) => SmartContracts.dinsert(ipc, name, table, record),
+          // insert a record in the table of the smart contract
+          remove: (table, record) => SmartContracts.remove(ipc, name, table, record),
+          // insert a record in the table of the smart contract
+          update: (table, record) => SmartContracts.update(ipc, name, table, record),
         };
 
         // logs used to store events or errors
@@ -132,7 +145,7 @@ class SmartContracts {
             executeSmartContract: async (
               contractName, actionName, parameters,
             ) => SmartContracts.executeSmartContractFromSmartContract(
-              ipc, logs, sender, params, contractName, actionName,
+              ipc, logs, finalSender, params, contractName, actionName,
               JSON.stringify(parameters),
               blockNumber, timestamp,
               refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
@@ -161,19 +174,31 @@ class SmartContracts {
 
         const newContract = {
           name,
-          owner: sender,
+          owner: finalSender,
           code: codeTemplate,
           codeHash: SHA256(codeTemplate).toString(enchex),
           tables,
         };
 
-        await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_CONTRACT, payload: newContract },
-        );
+        // if contract already exists, update it
+        if (existingContract !== null) {
+          newContract.$loki = existingContract.$loki;
+          newContract.tables = Object.assign(existingContract.tables, newContract.tables);
 
+          await ipc.send(
+            {
+              to: DB_PLUGIN_NAME,
+              action: DB_PLUGIN_ACTIONS.UPDATE_CONTRACT,
+              payload: newContract,
+            },
+          );
+        } else {
+          await ipc.send(
+            { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_CONTRACT, payload: newContract },
+          );
+        }
         return { executedCodeHash: newContract.codeHash, logs };
       }
-
       return { logs: { errors: ['parameters name and code are mandatory and they must be strings'] } };
     } catch (e) {
       // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);

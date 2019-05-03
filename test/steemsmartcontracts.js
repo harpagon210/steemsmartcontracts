@@ -1535,4 +1535,86 @@ describe('Smart Contracts', () => {
         done();
       });
   });
+
+  it('should update a smart contract', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let smartContractCode = `
+        actions.createSSC = async (payload) => {
+          await api.db.createTable('testTable');
+        }
+      `;
+
+      let base64SmartContractCode = Base64.encode(smartContractCode);
+
+      const contractPayload = {
+        name: 'testContract',
+        params: '',
+        code: base64SmartContractCode,
+      };
+
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      smartContractCode = `
+        actions.createSSC = async (payload) => {
+          await api.db.createTable('testUpdateTable');
+        }
+      `;
+
+      base64SmartContractCode = Base64.encode(smartContractCode);
+
+      contractPayload.code = base64SmartContractCode;
+
+      transactions = [];
+      transactions.push(new Transaction(123456790, 'TXID1235', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+
+      block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD3',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:01:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
+      const contract = res.payload;
+
+      assert.notEqual(contract.tables['testContract_testTable'], undefined);
+      assert.notEqual(contract.tables['testContract_testUpdateTable'], undefined);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
+
+      assert.notEqual(res.payload, null);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testUpdateTable' } });
+
+      assert.notEqual(res.payload, null);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
 });

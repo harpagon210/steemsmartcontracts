@@ -135,7 +135,7 @@ class Block {
     });
 
     if (sender && contract && action) {
-      if (contract === 'contract' && action === 'deploy' && payload) {
+      if (contract === 'contract' && (action === 'deploy' || action === 'update') && payload) {
         const authorizedAccountContractDeployment = ['null', 'steemsc', 'steem-peg'];
 
         if (authorizedAccountContractDeployment.includes(sender)) {

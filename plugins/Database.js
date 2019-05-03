@@ -232,6 +232,33 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
 };
 
 /**
+ * update a smart contract in the database
+ * @param {String} name name of the contract
+ * @param {String} owner owner of the contract
+ * @param {String} code code of the contract
+ * @param {String} tables tables linked to the contract
+ */
+actions.updateContract = (payload) => { // eslint-disable-line no-unused-vars
+  const {
+    name,
+    owner,
+    code,
+    tables,
+  } = payload;
+
+  if (name && typeof name === 'string'
+    && owner && typeof owner === 'string'
+    && code && typeof code === 'string'
+    && tables && typeof tables === 'object') {
+    const contracts = database.getCollection('contracts');
+
+    if (contracts.findOne({ name, owner }) !== null) {
+      contracts.update(payload);
+    }
+  }
+};
+
+/**
  * Add a table to the database
  * @param {String} contractName name of the contract
  * @param {String} tableName name of the table
