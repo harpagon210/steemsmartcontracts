@@ -99,7 +99,7 @@ function parseTransactions(refBlockNumber, block) {
             }
           } else if (operation[0] === 'comment_options') {
             id = `ssc-${chainIdentifier}`;
-            sender = operation[1].author;
+            sender = 'null';
             permlink = operation[1].permlink; // eslint-disable-line prefer-destructuring
 
             const extensions = operation[1].extensions; // eslint-disable-line prefer-destructuring
@@ -115,6 +115,7 @@ function parseTransactions(refBlockNumber, block) {
                 contractName: 'comments',
                 contractAction: 'commentOptions',
                 contractPayload: {
+                  author: operation[1].author,
                   maxAcceptedPayout: operation[1].max_accepted_payout,
                   allowVotes: operation[1].allow_votes,
                   allowCurationRewards: operation[1].allow_curation_rewards,
@@ -124,7 +125,7 @@ function parseTransactions(refBlockNumber, block) {
             ];
           } else if (operation[0] === 'vote') {
             id = `ssc-${chainIdentifier}`;
-            sender = operation[1].voter;
+            sender = 'null';
             permlink = operation[1].permlink; // eslint-disable-line prefer-destructuring
 
             sscTransactions = [
@@ -132,6 +133,7 @@ function parseTransactions(refBlockNumber, block) {
                 contractName: 'comments',
                 contractAction: 'vote',
                 contractPayload: {
+                  voter: operation[1].voter,
                   author: operation[1].author,
                   weight: operation[1].weight,
                 },
@@ -169,6 +171,13 @@ function parseTransactions(refBlockNumber, block) {
                   delete contractPayload.permlink;
                 }
 
+                // set the sender to null when calling the comment action
+                // this way we allow people to create comments only via the comment operation
+                if (operation[0] === 'comment' && contractName === 'comments' && contractAction === 'comment') {
+                  contractPayload.author = sender;
+                  sender = 'null';
+                }
+
                 // if multi transactions
                 // append the index of the transaction to the Steem transaction id
                 let SSCtransactionId = block.transaction_ids[i];
@@ -181,7 +190,7 @@ function parseTransactions(refBlockNumber, block) {
                   SSCtransactionId = `${SSCtransactionId}-${index}`;
                 }
 
-                console.log( // eslint-disable-line no-console
+                /*console.log( // eslint-disable-line no-console
                   'sender:',
                   sender,
                   'recipient',
@@ -194,7 +203,7 @@ function parseTransactions(refBlockNumber, block) {
                   contractAction,
                   'contractPayload:',
                   contractPayload,
-                );
+                );*/
 
                 newTransactions.push(
                   new Transaction(

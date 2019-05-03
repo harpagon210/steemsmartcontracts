@@ -66,7 +66,10 @@ async function producePendingTransactions(
     );
 
     await newBlock.produceBlock(ipc, javascriptVMTimeout, activeSigningKey);
-    await addBlock(newBlock);
+
+    if (newBlock.transactions.length > 0 || newBlock.virtualTransactions.length > 0) {
+      await addBlock(newBlock);
+    }
   }
 }
 

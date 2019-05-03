@@ -86,6 +86,9 @@ class Block {
       currentDatabaseHash = transaction.databaseHash;
     }
 
+    // remove comment, comment_options and votes if not relevant
+    this.transactions = this.transactions.filter(value => value.contract !== 'comments' || value.logs === '{}');
+
     // handle virtual transactions
     const virtualTransactions = [];
 
@@ -106,14 +109,16 @@ class Block {
       }
     }
 
-    this.hash = this.calculateHash();
-    // calculate the merkle root of the transactions' hashes and the transactions' database hashes
+    if (this.transactions.length > 0 || this.virtualTransactions.length > 0) {
+      this.hash = this.calculateHash();
+      // calculate the merkle root of the transactions' hashes and the transactions' database hashes
 
-    const merkleRoots = this.calculateMerkleRoot(this.transactions);
-    this.merkleRoot = merkleRoots.hash;
-    this.databaseHash = merkleRoots.databaseHash;
-    const buffMR = Buffer.from(this.merkleRoot, 'hex');
-    this.signature = activeSigningKey.sign(buffMR).toString();
+      const merkleRoots = this.calculateMerkleRoot(this.transactions);
+      this.merkleRoot = merkleRoots.hash;
+      this.databaseHash = merkleRoots.databaseHash;
+      const buffMR = Buffer.from(this.merkleRoot, 'hex');
+      this.signature = activeSigningKey.sign(buffMR).toString();
+    }
   }
 
   async processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash) {
