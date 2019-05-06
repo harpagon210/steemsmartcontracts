@@ -85,7 +85,7 @@ function parseTransactions(refBlockNumber, block) {
             }
           } else if (operation[0] === 'comment') {
             sender = operation[1].author;
-            const commentMeta = JSON.parse(operation[1].json_metadata);
+            const commentMeta = operation[1].json_metadata !== '' ? JSON.parse(operation[1].json_metadata) : null;
 
             if (commentMeta && commentMeta.ssc) {
               id = commentMeta.ssc.id; // eslint-disable-line prefer-destructuring
@@ -190,7 +190,7 @@ function parseTransactions(refBlockNumber, block) {
                   SSCtransactionId = `${SSCtransactionId}-${index}`;
                 }
 
-                /*console.log( // eslint-disable-line no-console
+                /* console.log( // eslint-disable-line no-console
                   'sender:',
                   sender,
                   'recipient',
@@ -203,7 +203,7 @@ function parseTransactions(refBlockNumber, block) {
                   contractAction,
                   'contractPayload:',
                   contractPayload,
-                );*/
+                ); */
 
                 newTransactions.push(
                   new Transaction(
