@@ -114,6 +114,7 @@ class Bootstrap {
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'updateMetadata', '{"symbol":"STEEMP", "metadata": { "desc": "STEEM backed by the steem-engine team" }}'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'create', '{ "name": "BITCOIN Pegged", "symbol": "BTCP", "precision": 8, "maxSupply": 1000000000000 }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'updateMetadata', '{"symbol":"BTCP", "metadata": { "desc": "BITCOIN backed by the steem-engine team" }}'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'ltcp', 'tokens', 'create', '{ "name": "LITECOIN Pegged", "symbol": "LTCP", "precision": 8, "maxSupply": 1000000000000 }'));
