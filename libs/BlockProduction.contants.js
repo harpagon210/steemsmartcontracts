@@ -7,7 +7,7 @@ const REGISTER_NODE_ACTION = 'registerNode'; // action to register a block produ
 const VOTE = 'vote'; // vote for a block producer
 const UNVOTE = 'unvote'; // unvote for a block producer
 
-const UTILITY_TOKEN_SYMBOL = 'SSC';
+const UTILITY_TOKEN_SYMBOL = 'ENG';
 const UTILITY_TOKEN_NAME = 'Steem Smart Contract Token';
 const UTILITY_TOKEN_METADA = '{}';
 const UTILITY_TOKEN_PRECISION = 8;

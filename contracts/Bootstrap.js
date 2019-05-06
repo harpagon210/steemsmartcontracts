@@ -15,10 +15,10 @@ class Bootstrap {
     const FORK_BLOCK_NUMBER_TWO = 30983000;
     const FORK_BLOCK_NUMBER_THREE = 31992326;
     const ACCOUNT_RECEIVING_FEES = 'steemsc';
-    const STEEM_PEGGED_ACCOUNT = 'steemsc';
-    const INITIAL_TOKEN_CREATION_FEE = '0';
+    const STEEM_PEGGED_ACCOUNT = 'steem-peg';
+    const INITIAL_TOKEN_CREATION_FEE = '100';
     const SSC_STORE_PRICE = '0.001';
-    const SSC_STORE_QTY = '1';
+    const SSC_STORE_QTY = '0.001';
 
     // tokens contract
     contractCode = await fs.readFileSync('./contracts/tokens.js');
@@ -91,7 +91,7 @@ class Bootstrap {
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // dice contract
-    contractCode = await fs.readFileSync('./contracts/dice.js');
+    /* contractCode = await fs.readFileSync('./contracts/dice.js');
     contractCode = contractCode.toString();
 
     base64ContractCode = Base64.encode(contractCode);
@@ -102,15 +102,17 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    transactions.push(new Transaction(
+      genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    */
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "SSC", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"SSC", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "SSC", "to": "steemsc", "quantity": 2000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "SSC", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "SSC", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "ENG", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"ENG", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemsc", "quantity": 2000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'create', '{ "name": "BITCOIN Pegged", "symbol": "BTCP", "precision": 8, "maxSupply": 1000000000000 }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'updateMetadata', '{"symbol":"BTCP", "metadata": { "desc": "BITCOIN backed by the steem-engine team" }}'));

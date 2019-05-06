@@ -97,7 +97,7 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-const SSC_STORE_QTY = '1';
+const SSC_STORE_QTY = '0.001';
 
 // sscstore
 describe('sscstore smart contract', () => {
