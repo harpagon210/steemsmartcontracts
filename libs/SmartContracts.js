@@ -117,6 +117,8 @@ class SmartContracts {
           remove: (table, record) => SmartContracts.remove(ipc, name, table, record),
           // insert a record in the table of the smart contract
           update: (table, record) => SmartContracts.update(ipc, name, table, record),
+          // check if a table exists
+          tableExists: table => SmartContracts.tableExists(ipc, name, table),
         };
 
         // logs used to store events or errors
@@ -580,6 +582,19 @@ class SmartContracts {
         contract: contractName,
         table,
         record,
+      },
+    });
+
+    return res.payload;
+  }
+
+  static async tableExists(ipc, contractName, table) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.TABLE_EXISTS,
+      payload: {
+        contract: contractName,
+        table,
       },
     });
 

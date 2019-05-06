@@ -24,6 +24,7 @@ const PLUGIN_ACTIONS = {
   GENERATE_GENESIS_BLOCK: 'generateGenesisBlock',
   INIT_DATABASE_HASH: 'initDatabaseHash',
   GET_DATABASE_HASH: 'getDatabaseHash',
+  TABLE_EXISTS: 'tableExists',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;

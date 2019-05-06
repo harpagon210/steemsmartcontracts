@@ -2,15 +2,19 @@
 //const api = {}
 
 actions.createSSC = async (payload) => {
-  await api.db.createTable('tokens', ['symbol']);
-  await api.db.createTable('balances', ['account']);
-  await api.db.createTable('contractsBalances', ['account']);
-  await api.db.createTable('params');
-  await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
+  let tableExists = await api.db.tableExists('tokens');
+  if (tableExists === false) {
+    await api.db.createTable('tokens', ['symbol']);
+    await api.db.createTable('balances', ['account']);
+    await api.db.createTable('contractsBalances', ['account']);
+    await api.db.createTable('params');
 
-  const params = {};
-  params.tokenCreationFee = '0';
-  await api.db.insert('params', params);
+    const params = {};
+    params.tokenCreationFee = '0';
+    await api.db.insert('params', params);
+  }
+
+  await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
 };
 
 actions.updateParams = async (payload) => {

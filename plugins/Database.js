@@ -463,6 +463,26 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
 };
 
 /**
+ * check if a table exists
+ * @param {String} contract contract name
+ * @param {String} table table name
+ * @returns {Object} returns true if the table exists, false otherwise
+ */
+actions.tableExists = (payload) => { // eslint-disable-line no-unused-vars
+  const { contract, table } = payload;
+  const finalTableName = `${contract}_${table}`;
+  const contractInDb = actions.findContract({ name: contract });
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
+    const tableInDb = database.getCollection(finalTableName);
+    if (tableInDb) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * retrieve records from the table
  * @param {String} table table name
  * @param {JSON} query query to perform on the table
