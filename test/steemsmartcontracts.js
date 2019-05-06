@@ -141,7 +141,7 @@ describe('Database', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'contract', 'deploy', ''));
 
       block = new Block(
         '2018-06-01T00:00:00',
@@ -561,14 +561,14 @@ describe('Smart Contracts', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc2', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc3', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc4', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc5', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc6', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc7', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc8', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc9', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', ''));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -668,14 +668,14 @@ describe('Smart Contracts', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": 2 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -779,14 +779,14 @@ describe('Smart Contracts', () => {
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": 2 }'));
       transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -906,7 +906,7 @@ describe('Smart Contracts', () => {
       assert.equal(user, null);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
 
       block = {
         refSteemBlockNumber: 123456789,
@@ -996,10 +996,10 @@ describe('Smart Contracts', () => {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'booksContract', 'addBook', '{ "title": "The Awesome Book" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'booksContract', 'addBook', '{ "title": "The Awesome Book" }'));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -1090,7 +1090,7 @@ describe('Smart Contracts', () => {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
 
@@ -1219,7 +1219,7 @@ describe('Smart Contracts', () => {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
 
@@ -1411,7 +1411,7 @@ describe('Smart Contracts', () => {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
 
@@ -1503,7 +1503,7 @@ describe('Smart Contracts', () => {
       assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'random', 'generateRandomNumbers', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
 
       block = {
         refSteemBlockNumber: 123456789,
@@ -1518,14 +1518,96 @@ describe('Smart Contracts', () => {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
       latestBlock = res.payload;
 
-      txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
+      txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1236');
 
       logs = JSON.parse(txs[0].logs);
 
       assert.equal(logs.events[0].event, 'random_generated');
-      assert.equal(logs.events[0].data.generatedRandom, 0.04779785670324099);
+      assert.equal(logs.events[0].data.generatedRandom, 0.02979556650325206);
       assert.equal(logs.events[1].event, 'random_generated');
-      assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
+      assert.equal(logs.events[1].data.generatedRandom, 0.8985215841304178);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should update a smart contract', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let smartContractCode = `
+        actions.createSSC = async (payload) => {
+          await api.db.createTable('testTable');
+        }
+      `;
+
+      let base64SmartContractCode = Base64.encode(smartContractCode);
+
+      const contractPayload = {
+        name: 'testContract',
+        params: '',
+        code: base64SmartContractCode,
+      };
+
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      smartContractCode = `
+        actions.createSSC = async (payload) => {
+          await api.db.createTable('testUpdateTable');
+        }
+      `;
+
+      base64SmartContractCode = Base64.encode(smartContractCode);
+
+      contractPayload.code = base64SmartContractCode;
+
+      transactions = [];
+      transactions.push(new Transaction(123456790, 'TXID1235', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+
+      block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD3',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:01:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
+      const contract = res.payload;
+
+      assert.notEqual(contract.tables['testContract_testTable'], undefined);
+      assert.notEqual(contract.tables['testContract_testUpdateTable'], undefined);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
+
+      assert.notEqual(res.payload, null);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testUpdateTable' } });
+
+      assert.notEqual(res.payload, null);
 
       resolve();
     })

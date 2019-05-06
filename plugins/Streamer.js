@@ -44,12 +44,18 @@ function parseTransactions(refBlockNumber, block) {
     for (let indexOp = 0; indexOp < nbOperations; indexOp += 1) {
       const operation = block.transactions[i].operations[indexOp];
 
-      if (operation[0] === 'custom_json' || operation[0] === 'transfer' || operation[0] === 'comment') {
+      if (operation[0] === 'custom_json'
+        || operation[0] === 'transfer'
+        || operation[0] === 'comment'
+        || operation[0] === 'comment_options'
+        || operation[0] === 'vote'
+      ) {
         try {
           let id = null;
           let sender = null;
           let recipient = null;
           let amount = null;
+          let permlink = null;
           let sscTransactions = [];
           let isSignedWithActiveKey = null;
 
@@ -79,10 +85,60 @@ function parseTransactions(refBlockNumber, block) {
             }
           } else if (operation[0] === 'comment') {
             sender = operation[1].author;
-            const transferParams = JSON.parse(operation[1].body);
-            id = transferParams.id; // eslint-disable-line prefer-destructuring
-            sscTransactions = Array.isArray(transferParams.json)
-              ? transferParams.json : [transferParams.json];
+            const commentMeta = operation[1].json_metadata !== '' ? JSON.parse(operation[1].json_metadata) : null;
+
+            if (commentMeta && commentMeta.ssc) {
+              id = commentMeta.ssc.id; // eslint-disable-line prefer-destructuring
+              sscTransactions = commentMeta.ssc.transactions;
+              permlink = operation[1].permlink; // eslint-disable-line prefer-destructuring
+            } else {
+              const commentBody = JSON.parse(operation[1].body);
+              id = commentBody.id; // eslint-disable-line prefer-destructuring
+              sscTransactions = Array.isArray(commentBody.json)
+                ? commentBody.json : [commentBody.json];
+            }
+          } else if (operation[0] === 'comment_options') {
+            id = `ssc-${chainIdentifier}`;
+            sender = 'null';
+            permlink = operation[1].permlink; // eslint-disable-line prefer-destructuring
+
+            const extensions = operation[1].extensions; // eslint-disable-line prefer-destructuring
+            let beneficiaries = [];
+            if (extensions
+              && extensions[0] && extensions[0].length > 1
+              && extensions[0][1].beneficiaries) {
+              beneficiaries = extensions[0][1].beneficiaries; // eslint-disable-line
+            }
+
+            sscTransactions = [
+              {
+                contractName: 'comments',
+                contractAction: 'commentOptions',
+                contractPayload: {
+                  author: operation[1].author,
+                  maxAcceptedPayout: operation[1].max_accepted_payout,
+                  allowVotes: operation[1].allow_votes,
+                  allowCurationRewards: operation[1].allow_curation_rewards,
+                  beneficiaries,
+                },
+              },
+            ];
+          } else if (operation[0] === 'vote') {
+            id = `ssc-${chainIdentifier}`;
+            sender = 'null';
+            permlink = operation[1].permlink; // eslint-disable-line prefer-destructuring
+
+            sscTransactions = [
+              {
+                contractName: 'comments',
+                contractAction: 'vote',
+                contractPayload: {
+                  voter: operation[1].voter,
+                  author: operation[1].author,
+                  weight: operation[1].weight,
+                },
+              },
+            ];
           }
 
           if (id && id === `ssc-${chainIdentifier}` && sscTransactions.length > 0) {
@@ -94,24 +150,10 @@ function parseTransactions(refBlockNumber, block) {
               if (contractName && typeof contractName === 'string'
                 && contractAction && typeof contractAction === 'string'
                 && contractPayload && typeof contractPayload === 'object') {
-                console.log( // eslint-disable-line no-console
-                  'sender:',
-                  sender,
-                  'recipient',
-                  recipient,
-                  'amount',
-                  amount,
-                  'contractName:',
-                  contractName,
-                  'contractAction:',
-                  contractAction,
-                  'contractPayload:',
-                  contractPayload,
-                );
-
                 contractPayload.recipient = recipient;
                 contractPayload.amountSTEEMSBD = amount;
                 contractPayload.isSignedWithActiveKey = isSignedWithActiveKey;
+                contractPayload.permlink = permlink;
 
                 if (recipient === null) {
                   delete contractPayload.recipient;
@@ -125,6 +167,17 @@ function parseTransactions(refBlockNumber, block) {
                   delete contractPayload.isSignedWithActiveKey;
                 }
 
+                if (permlink === null) {
+                  delete contractPayload.permlink;
+                }
+
+                // set the sender to null when calling the comment action
+                // this way we allow people to create comments only via the comment operation
+                if (operation[0] === 'comment' && contractName === 'comments' && contractAction === 'comment') {
+                  contractPayload.author = sender;
+                  sender = 'null';
+                }
+
                 // if multi transactions
                 // append the index of the transaction to the Steem transaction id
                 let SSCtransactionId = block.transaction_ids[i];
@@ -136,6 +189,21 @@ function parseTransactions(refBlockNumber, block) {
                 if (nbTransactions > 1) {
                   SSCtransactionId = `${SSCtransactionId}-${index}`;
                 }
+
+                /* console.log( // eslint-disable-line no-console
+                  'sender:',
+                  sender,
+                  'recipient',
+                  recipient,
+                  'amount',
+                  amount,
+                  'contractName:',
+                  contractName,
+                  'contractAction:',
+                  contractAction,
+                  'contractPayload:',
+                  contractPayload,
+                ); */
 
                 newTransactions.push(
                   new Transaction(

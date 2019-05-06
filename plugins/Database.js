@@ -63,7 +63,7 @@ async function init(conf, callback) {
 
     // init the main tables
     chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
-    database.addCollection('transactions', { indices: ['txid'], disableMeta: true });
+    database.addCollection('transactions', { unique: ['txid'], disableMeta: true });
     database.addCollection('contracts', { indices: ['name'], disableMeta: true });
 
     callback(null);
@@ -94,7 +94,7 @@ async function generateGenesisBlock(conf, callback) {
     chain.insert(res.payload);
 
     // initialize the block production tools
-    BlockProduction.initialize(database, genesisSteemBlock);
+    // BlockProduction.initialize(database, genesisSteemBlock);
   }
 
   callback();
@@ -228,6 +228,33 @@ actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
     && tables && typeof tables === 'object') {
     const contracts = database.getCollection('contracts');
     contracts.insert(payload);
+  }
+};
+
+/**
+ * update a smart contract in the database
+ * @param {String} name name of the contract
+ * @param {String} owner owner of the contract
+ * @param {String} code code of the contract
+ * @param {String} tables tables linked to the contract
+ */
+actions.updateContract = (payload) => { // eslint-disable-line no-unused-vars
+  const {
+    name,
+    owner,
+    code,
+    tables,
+  } = payload;
+
+  if (name && typeof name === 'string'
+    && owner && typeof owner === 'string'
+    && code && typeof code === 'string'
+    && tables && typeof tables === 'object') {
+    const contracts = database.getCollection('contracts');
+
+    if (contracts.findOne({ name, owner }) !== null) {
+      contracts.update(payload);
+    }
   }
 };
 
@@ -433,6 +460,26 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
   }
 
   return null;
+};
+
+/**
+ * check if a table exists
+ * @param {String} contract contract name
+ * @param {String} table table name
+ * @returns {Object} returns true if the table exists, false otherwise
+ */
+actions.tableExists = (payload) => { // eslint-disable-line no-unused-vars
+  const { contract, table } = payload;
+  const finalTableName = `${contract}_${table}`;
+  const contractInDb = actions.findContract({ name: contract });
+  if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
+    const tableInDb = database.getCollection(finalTableName);
+    if (tableInDb) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 /**

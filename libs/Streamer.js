@@ -9,7 +9,7 @@ class ForkException {
 }
 
 class Streamer {
-  constructor(nodeUrl, currentBlock, antiForkBufferMaxSize = 2, pollingTime = 100) {
+  constructor(nodeUrl, currentBlock, antiForkBufferMaxSize = 2, pollingTime = 200) {
     this.antiForkBufferMaxSize = antiForkBufferMaxSize;
     this.buffer = new Queue(antiForkBufferMaxSize);
     this.blocks = new Queue();

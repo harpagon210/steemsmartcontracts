@@ -7,6 +7,7 @@ const PLUGIN_ACTIONS = {
   GET_TRANSACTION_INFO: 'getTransactionInfo',
   FIND_CONTRACT: 'findContract',
   ADD_CONTRACT: 'addContract',
+  UPDATE_CONTRACT: 'updateContract',
   CREATE_TABLE: 'createTable',
   FIND: 'find',
   FIND_ONE: 'findOne',
@@ -23,6 +24,7 @@ const PLUGIN_ACTIONS = {
   GENERATE_GENESIS_BLOCK: 'generateGenesisBlock',
   INIT_DATABASE_HASH: 'initDatabaseHash',
   GET_DATABASE_HASH: 'getDatabaseHash',
+  TABLE_EXISTS: 'tableExists',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;
