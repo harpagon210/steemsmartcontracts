@@ -104,7 +104,8 @@ class Block {
       currentDatabaseHash = transaction.databaseHash;
 
       // if there are outputs in the virtual transaction we save the transaction into the block
-      if (transaction.logs !== '{}') {
+      // the "unknown error" errors are removed as they are related to a non existing action
+      if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
         this.virtualTransactions.push(transaction);
       }
     }
