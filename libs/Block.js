@@ -112,8 +112,9 @@ class Block {
     if (this.transactions.length > 0 || this.virtualTransactions.length > 0) {
       this.hash = this.calculateHash();
       // calculate the merkle root of the transactions' hashes and the transactions' database hashes
+      const finalTransactions = this.transactions.concat(this.virtualTransactions);
 
-      const merkleRoots = this.calculateMerkleRoot(this.transactions);
+      const merkleRoots = this.calculateMerkleRoot(finalTransactions);
       this.merkleRoot = merkleRoots.hash;
       this.databaseHash = merkleRoots.databaseHash;
       const buffMR = Buffer.from(this.merkleRoot, 'hex');

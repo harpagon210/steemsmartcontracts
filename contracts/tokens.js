@@ -14,7 +14,10 @@ actions.createSSC = async (payload) => {
     await api.db.insert('params', params);
   }
 
-  await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
+  tableExists = await api.db.tableExists('pendingUnstakes');
+  if (tableExists === false) {
+    await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
+  }
 };
 
 actions.updateParams = async (payload) => {
