@@ -6,7 +6,7 @@ const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
-const { Bootstrap } = require('../contracts/Bootstrap');
+const { Bootstrap } = require('../contracts/bootstrap/Bootstrap');
 
 const PLUGIN_PATH = require.resolve(__filename);
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Blockchain.constants');

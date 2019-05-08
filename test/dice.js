@@ -97,7 +97,7 @@ const unloadPlugin = (plugin) => {
 const STEEM_PEGGED_ACCOUNT = 'steemsc';
 
 // dice
-describe('dice', () => {
+describe.skip('dice', () => {
   it('makes you win', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();

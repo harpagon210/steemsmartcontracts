@@ -104,7 +104,8 @@ class Block {
       currentDatabaseHash = transaction.databaseHash;
 
       // if there are outputs in the virtual transaction we save the transaction into the block
-      if (transaction.logs !== '{}') {
+      // the "unknown error" errors are removed as they are related to a non existing action
+      if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
         this.virtualTransactions.push(transaction);
       }
     }
@@ -112,8 +113,9 @@ class Block {
     if (this.transactions.length > 0 || this.virtualTransactions.length > 0) {
       this.hash = this.calculateHash();
       // calculate the merkle root of the transactions' hashes and the transactions' database hashes
+      const finalTransactions = this.transactions.concat(this.virtualTransactions);
 
-      const merkleRoots = this.calculateMerkleRoot(this.transactions);
+      const merkleRoots = this.calculateMerkleRoot(finalTransactions);
       this.merkleRoot = merkleRoots.hash;
       this.databaseHash = merkleRoots.databaseHash;
       const buffMR = Buffer.from(this.merkleRoot, 'hex');

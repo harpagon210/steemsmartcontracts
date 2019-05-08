@@ -1,7 +1,7 @@
 const { Base64 } = require('js-base64');
 const fs = require('fs-extra');
-const { Transaction } = require('../libs/Transaction');
-const BP_CONSTANTS = require('../libs/BlockProduction.contants').CONSTANTS;
+const { Transaction } = require('../../libs/Transaction');
+const BP_CONSTANTS = require('../../libs/BlockProduction.contants').CONSTANTS;
 
 class Bootstrap {
   static async getBootstrapTransactions(genesisSteemBlock) {
@@ -21,7 +21,7 @@ class Bootstrap {
     const SSC_STORE_QTY = '1';
 
     // tokens contract
-    contractCode = await fs.readFileSync('./contracts/tokens.js');
+    contractCode = await fs.readFileSync('./contracts/bootstrap/tokens.js');
     contractCode = contractCode.toString();
 
     contractCode = contractCode.replace(/'\$\{BP_CONSTANTS.UTILITY_TOKEN_PRECISION\}\$'/g, BP_CONSTANTS.UTILITY_TOKEN_PRECISION);
@@ -39,7 +39,7 @@ class Bootstrap {
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // sscstore contract
-    contractCode = await fs.readFileSync('./contracts/sscstore.js');
+    contractCode = await fs.readFileSync('./contracts/bootstrap/sscstore.js');
     contractCode = contractCode.toString();
 
     contractCode = contractCode.replace(/'\$\{BP_CONSTANTS.UTILITY_TOKEN_PRECISION\}\$'/g, BP_CONSTANTS.UTILITY_TOKEN_PRECISION);
@@ -59,7 +59,7 @@ class Bootstrap {
     transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // steem-pegged asset contract
-    contractCode = await fs.readFileSync('./contracts/steempegged.js');
+    contractCode = await fs.readFileSync('./contracts/bootstrap/steempegged.js');
     contractCode = contractCode.toString();
 
     contractCode = contractCode.replace(/'\$\{ACCOUNT_RECEIVING_FEES\}\$'/g, ACCOUNT_RECEIVING_FEES);
@@ -74,7 +74,7 @@ class Bootstrap {
 
     transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
-    contractCode = await fs.readFileSync('./contracts/market.js');
+    contractCode = await fs.readFileSync('./contracts/bootstrap/market.js');
     contractCode = contractCode.toString();
 
     contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_TWO\}\$'/g, FORK_BLOCK_NUMBER_TWO);
@@ -91,7 +91,7 @@ class Bootstrap {
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // dice contract
-    contractCode = await fs.readFileSync('./contracts/dice.js');
+    /* contractCode = await fs.readFileSync('./contracts/bootstrap/dice.js');
     contractCode = contractCode.toString();
 
     base64ContractCode = Base64.encode(contractCode);
@@ -102,8 +102,9 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-
+    transactions.push(new Transaction(
+      genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    */
 
     // bootstrap transactions
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "SSC", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
