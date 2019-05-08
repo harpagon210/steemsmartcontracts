@@ -210,7 +210,7 @@ describe('smart tokens', function () {
       });
 
       let token = res.payload;
-      console.log(token)
+
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
       assert.equal(token.stakingEnabled, false);
