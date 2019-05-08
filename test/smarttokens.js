@@ -144,14 +144,6 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res2 = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {
-        }
-      });
-
-      console.log(res2.payload.transactions)
-
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
         payload: {
@@ -164,7 +156,6 @@ describe('smart tokens', function () {
       });
 
       let token = res.payload;
-      console.log(token)
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
       assert.equal(token.stakingEnabled, true);

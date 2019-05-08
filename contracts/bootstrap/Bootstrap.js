@@ -106,6 +106,7 @@ class Bootstrap {
       genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
     */
 
+
     // bootstrap transactions
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "SSC", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"SSC", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}'));
