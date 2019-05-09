@@ -18,27 +18,6 @@ actions.createSSC = async (payload) => {
   if (tableExists === false) {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
-
-  // to remove on next contract update
-  const balancesWithStake = await api.db.find('balances', {
-    stake: {
-      $gt: 0,
-    },
-  });
-
-  const nbBalances = balancesWithStake.length;
-
-  for (let index = 0; index < nbBalances; index += 1) {
-    const balance = balancesWithStake[index];
-    const token = await api.db.findOne('tokens', { symbol: balance.symbol });
-
-    if (token.totalStaked === undefined || api.BigNumber(token.totalStaked).lte('0')) {
-      token.totalStaked = '0';
-    }
-
-    token.totalStaked = calculateBalance(token.totalStaked, balance.stake, token.precision, true);
-    await api.db.update('tokens', token);
-  }
 };
 
 actions.updateParams = async (payload) => {
