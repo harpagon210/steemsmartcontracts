@@ -112,8 +112,6 @@ let contractPayload = {
   code: base64ContractCode,
 };
 
-console.log(contractPayload)
-
 // tokens
 describe('Tokens smart contract', () => {
   it('creates a token', (done) => {
