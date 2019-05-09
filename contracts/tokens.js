@@ -683,6 +683,10 @@ const addStake = async (account, token, quantity) => {
 
   balance.stake = calculateBalance(balance.stake, quantity, token.precision, true);
   if (api.assert(api.BigNumber(balance.stake).gt(originalStake), 'cannot add')) {
+    if (balance.pendingUnstake === undefined) {
+      balance.pendingUnstake = '0';
+    }
+
     await api.db.update('balances', balance);
 
     if (token.totalStaked === undefined) {
