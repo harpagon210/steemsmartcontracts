@@ -658,14 +658,15 @@ actions.cancelUnstake = async (payload) => {
 const addStake = async (account, token, quantity) => {
   const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
 
-  const originalStake = balance.stake === undefined ? '0' : balance.stake;
+  if (balance.stake === undefined) {
+    balance.stake = '0';
+    balance.pendingUnstake = '0';
+  }
+
+  const originalStake = balance.stake;
 
   balance.stake = calculateBalance(balance.stake, quantity, token.precision, true);
   if (api.assert(api.BigNumber(balance.stake).gt(originalStake), 'cannot add')) {
-    if (balance.pendingUnstake === undefined) {
-      balance.pendingUnstake = '0';
-    }
-
     await api.db.update('balances', balance);
 
     if (token.totalStaked === undefined) {
