@@ -100,7 +100,11 @@ actions.transferOwnership = async (payload) => {
 
         // a valid steem account is between 3 and 16 characters in length
         if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
-          token.issuer = finalTo
+          token.issuer = finalTo;
+          if (token.creator === undefined) {
+            token.creator = api.sender;
+          }
+
           await api.db.update('tokens', token);
         }
       }
@@ -505,26 +509,6 @@ actions.enableStaking = async (payload) => {
   }
 };
 
-/*
-actions.enableVoting = async (payload) => {
-  const { symbol, nbDays100PercentRegeneration, isSignedWithActiveKey } = payload;
-
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
-    && api.assert(nbDays100PercentRegeneration && Number.isInteger(nbDays100PercentRegeneration) && nbDays100PercentRegeneration > 0 && nbDays100PercentRegeneration <= 365, 'nbDays100PercentRegeneration must be an integer between 1 and 365')) {
-    const token = await api.db.findOne('tokens', { symbol });
-
-    if (api.assert(token !== null, 'symbol does not exist')
-      && api.assert(token.issuer === api.sender, 'must be the issuer')
-      && api.assert(token.stakingEnabled === false, 'voting already enabled')) {
-      token.votingEnabled = true;
-      token.nbDays100PercentRegeneration = nbDays100PercentRegeneration;
-      await api.db.update('tokens', token);
-    }
-  }
-};
-*/
-
 actions.stake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
 
@@ -706,6 +690,84 @@ const subStake = async (account, token, quantity) => {
   return false;
 };
 
+actions.enableVoting = async (payload) => {
+
+  /*
+
+  0 < vote_regeneration_seconds <= SMT_VESTING_WITHDRAW_INTERVAL_SECONDS
+  0 <= reverse_auction_window_seconds + SMT_UPVOTE_LOCKOUT < cashout_window_seconds <= SMT_VESTING_WITHDRAW_INTERVAL_SECONDS
+  votes_per_regeneration_period * 86400 / vote_regeneration_period <= SMT_MAX_NOMINAL_VOTES_PER_DAY
+  votes_per_regeneration_period <= SMT_MAX_VOTES_PER_REGENERATION
+
+  */
+
+  const {
+    symbol,
+    voteRegenerationPeriodSeconds,
+    votesPerRegenerationPeriod,
+    cashoutWindowSeconds,
+    reverseAuctionWindowSeconds,
+    voteDustThreshold,
+    contentConstant,
+    allowCurationRewards,
+    percentCurationRewards,
+    percentContentRewards,
+    authorRewardCurve,
+    curationRewardCurve,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
+    && api.assert(voteRegenerationPeriodSeconds && Number.isInteger(voteRegenerationPeriodSeconds) && voteRegenerationPeriodSeconds > 0 && voteRegenerationPeriodSeconds <= 31536000, 'voteRegenerationPeriodSeconds must be an integer between 1 and 31536000')) {
+    const token = await api.db.findOne('tokens', { symbol });
+
+    if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.issuer === api.sender, 'must be the issuer')
+      && api.assert(token.votingEnabled === undefined || token.votingEnabled === false, 'voting already enabled')) {
+      // transfer ownership of the token to null
+      token.issuer = 'null';
+      if (token.creator === undefined) {
+        // save the account that created the token in the first place
+        token.creator = api.sender;
+      }
+      token.votingEnabled = true;
+      token.voteRegenerationPeriodSeconds = voteRegenerationPeriodSeconds;
+      token.votesPerRegenerationPeriod = votesPerRegenerationPeriod;
+      token.cashoutWindowSeconds = cashoutWindowSeconds;
+      token.reverseAuctionWindowSeconds = reverseAuctionWindowSeconds;
+      token.voteDustThreshold = voteDustThreshold;
+      token.contentConstant = contentConstant;
+      token.allowCurationRewards = allowCurationRewards;
+      token.percentCurationRewards = percentCurationRewards;
+      token.percentContentRewards = percentContentRewards;
+      token.authorRewardCurve = authorRewardCurve;
+      token.curationRewardCurve = curationRewardCurve;
+      await api.db.update('tokens', token);
+    }
+  }
+};
+
+actions.updateVotingPower = async (payload) => {
+  if (api.sender !== 'null') return;
+
+  const {
+    account,
+    symbol,
+    votingPower,
+    lastVoteTime,
+  } = payload;
+
+  const balance = await api.db.findOne('balances', { account, symbol });
+
+  if (balance) {
+    balance.votingPower = votingPower;
+    balance.lastVoteTime = lastVoteTime;
+
+    await api.db.update('balances', balance);
+  }
+};
+
 const subBalance = async (account, token, quantity, table) => {
   const balance = await api.db.findOne(table, { account, symbol: token.symbol });
 
@@ -760,25 +822,6 @@ const calculateBalance = (balance, quantity, precision, add) => {
   return add
     ? api.BigNumber(balance).plus(quantity).toFixed(precision)
     : api.BigNumber(balance).minus(quantity).toFixed(precision);
-};
-
-const calculateVotingPower = (balance, nbDays100PercentRegeneration, nowTimeSec) => {
-  if (balance.lastVoteTime === 0 || api.BigNumber(balance.votingPower).eq(100)) {
-    return balance.votingPower;
-  }
-
-  const secondsago = nowTimeSec - balance.lastVoteTime;
-  const nbDays100PercentRegenerationSecs = nbDays100PercentRegeneration * 24 * 60 * 60;
-  const regeneratedPower = api.BigNumber(100)
-    .dividedBy(nbDays100PercentRegenerationSecs)
-    .multipliedBy(secondsago)
-    .toFixed(2);
-
-  const newVotingPower = api.BigNumber(balance.votingPower)
-    .plus(regeneratedPower)
-    .toFixed(2);
-
-  return api.BigNumber(newVotingPower).gt(100) ? '100.00' : newVotingPower;
 };
 
 const countDecimals = value => api.BigNumber(value).dp();

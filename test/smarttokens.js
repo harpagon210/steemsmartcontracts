@@ -113,9 +113,344 @@ let contractPayload = {
   code: base64ContractCode,
 };
 
+contractCode = fs.readFileSync('./contracts/comments.js');
+contractCode = contractCode.toString();
+base64ContractCode = Base64.encode(contractCode);
+
+let commentsContractPayload = {
+  name: 'comments',
+  params: '',
+  code: base64ContractCode,
+};
+
 // smart tokens
 describe('smart tokens', function () {
-  this.timeout(30000);
+  //this.timeout(30000);
+
+  it('should enable voting', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const votingParams = {
+        symbol: 'TKN',
+        voteRegenerationPeriodSeconds: 60 * 60 * 24 * 5, // 5 days
+        votesPerRegenerationPeriod: 50,
+        cashoutWindowSeconds: 60 * 60 * 24 * 7, // 7 days
+        reverseAuctionWindowSeconds: 60 * 60 * 12, // 12 hours
+        voteDustThreshold: '0',
+        contentConstant: '0',
+        allowCurationRewards: true,
+        percentCurationRewards: 25,
+        percentContentRewards: '0',
+        authorRewardCurve: 'linear',
+        curationRewardCurve: 'squareRoot',
+        isSignedWithActiveKey: true,
+      };
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(commentsContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'harpagon', 'tokens', 'enableVoting', JSON.stringify(votingParams)));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let token = res.payload;
+
+      assert.equal(token.symbol, 'TKN');
+      assert.equal(token.issuer, 'null');
+      assert.equal(token.creator, 'harpagon');
+      assert.equal(token.stakingEnabled, true);
+      assert.equal(token.unstakingCooldown, 7);
+      assert.equal(token.votingEnabled, true);
+      assert.equal(token.voteRegenerationPeriodSeconds, votingParams.voteRegenerationPeriodSeconds);
+      assert.equal(token.votesPerRegenerationPeriod, votingParams.votesPerRegenerationPeriod);
+      assert.equal(token.cashoutWindowSeconds, votingParams.cashoutWindowSeconds);
+      assert.equal(token.reverseAuctionWindowSeconds, votingParams.reverseAuctionWindowSeconds);
+      assert.equal(token.voteDustThreshold, votingParams.voteDustThreshold);
+      assert.equal(token.contentConstant, votingParams.contentConstant);
+      assert.equal(token.allowCurationRewards, votingParams.allowCurationRewards);
+      assert.equal(token.percentCurationRewards, votingParams.percentCurationRewards);
+      assert.equal(token.percentContentRewards, votingParams.percentContentRewards);
+      assert.equal(token.authorRewardCurve, votingParams.authorRewardCurve);
+      assert.equal(token.curationRewardCurve, votingParams.curationRewardCurve);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should add a comment', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const votingParams = {
+        symbol: 'TKN',
+        voteRegenerationPeriodSeconds: 60 * 60 * 24 * 5, // 5 days
+        votesPerRegenerationPeriod: 50,
+        cashoutWindowSeconds: 60 * 60 * 24 * 7, // 7 days
+        reverseAuctionWindowSeconds: 60 * 60 * 12, // 12 hours
+        voteDustThreshold: '0',
+        contentConstant: '0',
+        allowCurationRewards: true,
+        percentCurationRewards: 25,
+        percentContentRewards: '0',
+        authorRewardCurve: 'linear',
+        curationRewardCurve: 'squareRoot',
+        isSignedWithActiveKey: true,
+      };
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(commentsContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'harpagon', 'tokens', 'enableVoting', JSON.stringify(votingParams)));
+
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "NKT", "precision": 8, "maxSupply": "1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID12310', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "NKT", "unstakingCooldown": 30, "numberTransactions": 4, "isSignedWithActiveKey": true }'));
+      votingParams.symbol = 'NKT'
+      votingParams.cashoutWindowSeconds = 60 * 60 * 24 * 3; // 3 days
+      transactions.push(new Transaction(12345678901, 'TXID12311', 'harpagon', 'tokens', 'enableVoting', JSON.stringify(votingParams)));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1339', 'null', 'comments', 'comment', '{ "author": "satoshi", "permlink": "what-is-bitcoin", "votableAssets": ["TKN", "NKT"] }'));
+
+      block = {
+        refSteemBlockNumber: 12345678902,
+        refSteemBlockId: 'ABCD2',
+        prevRefSteemBlockId: 'ABCD3',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'comments',
+          table: 'comments',
+          query: {
+            commentID: 'satoshi/what-is-bitcoin'
+          }
+        }
+      });
+
+      let comment = res.payload;
+
+      assert.equal(comment.commentID, 'satoshi/what-is-bitcoin');
+      assert.equal(comment.created, 1527811200);
+      assert.equal(comment.votableAssets[0].symbol, 'TKN');
+      assert.equal(comment.votableAssets[0].cashoutTime, 1528416000);
+      assert.equal(comment.votableAssets[0].netRshares, '0');
+      assert.equal(comment.votableAssets[0].absRshares, '0');
+      assert.equal(comment.votableAssets[0].totalVoteWeight, '0');
+      assert.equal(comment.votableAssets[0].rewardWeight, '0');
+      assert.equal(comment.votableAssets[1].symbol, 'NKT');
+      assert.equal(comment.votableAssets[1].cashoutTime, 1528070400);
+      assert.equal(comment.votableAssets[1].netRshares, '0');
+      assert.equal(comment.votableAssets[1].absRshares, '0');
+      assert.equal(comment.votableAssets[1].totalVoteWeight, '0');
+      assert.equal(comment.votableAssets[1].rewardWeight, '0');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should vote for a comment', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const votingParams = {
+        symbol: 'TKN',
+        voteRegenerationPeriodSeconds: 60 * 60 * 24 * 5, // 5 days
+        votesPerRegenerationPeriod: 50,
+        cashoutWindowSeconds: 60 * 60 * 24 * 7, // 7 days
+        reverseAuctionWindowSeconds: 60 * 60 * 12, // 12 hours
+        voteDustThreshold: '0',
+        contentConstant: '0',
+        allowCurationRewards: true,
+        percentCurationRewards: 25,
+        percentContentRewards: '0',
+        authorRewardCurve: 'linear',
+        curationRewardCurve: 'squareRoot',
+        isSignedWithActiveKey: true,
+      };
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(commentsContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "10000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID12312', 'harpagon', 'tokens', 'issue', `{ "symbol": "TKN", "to": "dan", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'harpagon', 'tokens', 'enableVoting', JSON.stringify(votingParams)));
+
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'harpagon', 'tokens', 'create', '{ "name": "token", "symbol": "NKT", "precision": 8, "maxSupply": "10000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID12310', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "NKT", "unstakingCooldown": 30, "numberTransactions": 4, "isSignedWithActiveKey": true }'));
+      votingParams.symbol = 'NKT'
+      votingParams.cashoutWindowSeconds = 60 * 60 * 24 * 3; // 3 days
+      transactions.push(new Transaction(12345678901, 'TXID12311', 'harpagon', 'tokens', 'enableVoting', JSON.stringify(votingParams)));
+
+      transactions.push(new Transaction(12345678901, 'TXID12313', 'dan', 'tokens', 'stake', `{ "symbol": "TKN", "quantity": "1000", "isSignedWithActiveKey": true }`));
+
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1339', 'null', 'comments', 'comment', '{ "author": "satoshi", "permlink": "what-is-bitcoin", "votableAssets": ["TKN", "NKT"] }'));
+
+      block = {
+        refSteemBlockNumber: 12345678902,
+        refSteemBlockId: 'ABCD2',
+        prevRefSteemBlockId: 'ABCD3',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1340', 'null', 'comments', 'vote', '{ "voter": "dan", "author": "satoshi", "permlink": "what-is-bitcoin", "weight": 10000 }'));
+
+      block = {
+        refSteemBlockNumber: 12345678903,
+        refSteemBlockId: 'ABCD2',
+        prevRefSteemBlockId: 'ABCD3',
+        timestamp: '2018-06-02T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res2 = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
+        payload: {
+        }
+      });
+
+      console.log(res2.payload.transactions)
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'comments',
+          table: 'comments',
+          query: {
+            commentID: 'satoshi/what-is-bitcoin'
+          }
+        }
+      });
+
+      let comment = res.payload;
+
+      console.log(comment)
+
+      /*assert.equal(comment.commentID, 'satoshi/what-is-bitcoin');
+      assert.equal(comment.created, 1527811200);
+      assert.equal(comment.votableAssets[0].symbol, 'TKN');
+      assert.equal(comment.votableAssets[0].cashoutTime, 1528416000);
+      assert.equal(comment.votableAssets[0].netRshares, '0');
+      assert.equal(comment.votableAssets[0].absRshares, '0');
+      assert.equal(comment.votableAssets[0].totalVoteWeight, '0');
+      assert.equal(comment.votableAssets[0].rewardWeight, '0');
+      assert.equal(comment.votableAssets[1].symbol, 'NKT');
+      assert.equal(comment.votableAssets[1].cashoutTime, 1528070400);
+      assert.equal(comment.votableAssets[1].netRshares, '0');
+      assert.equal(comment.votableAssets[1].absRshares, '0');
+      assert.equal(comment.votableAssets[1].totalVoteWeight, '0');
+      assert.equal(comment.votableAssets[1].rewardWeight, '0');*/
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'comments',
+          table: 'commentVotes',
+          query: {
+            voter: 'dan',
+            symbol: 'TKN',
+            commentID: 'satoshi/what-is-bitcoin'
+          }
+        }
+      });
+
+      let commentVote = res.payload;
+
+      console.log(commentVote)
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
 
   it('should enable staking', (done) => {
     new Promise(async (resolve) => {
