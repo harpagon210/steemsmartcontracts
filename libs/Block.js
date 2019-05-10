@@ -87,7 +87,7 @@ class Block {
     }
 
     // remove comment, comment_options and votes if not relevant
-    //this.transactions = this.transactions.filter(value => value.contract !== 'comments' || value.logs === '{}');
+    this.transactions = this.transactions.filter(value => value.contract !== 'comments' || value.logs === '{}');
 
     // handle virtual transactions
     const virtualTransactions = [];
