@@ -112,16 +112,6 @@ actions.vote = async (payload) => {
       const token = await api.db.findOneInTable('tokens', 'tokens', { symbol });
 
       if (api.assert(token && token.votingEnabled === true, 'voting not enabled')) {
-        // check if the voter already voted for the comment
-        let vote = await api.db.findOne('commentVotes', { commentID, voter, symbol });
-
-        // update vote?
-        if (vote !== null) {
-          // TODO
-        } else {
-          // TODO
-        }
-
         const votableAssetIndex = comment.votableAssets.findIndex(t => t.symbol === symbol);
         const votableAsset = comment.votableAssets[votableAssetIndex];
 
@@ -178,7 +168,100 @@ actions.vote = async (payload) => {
                 .toFixed(token.precision);
             }
 
-            if (api.assert(weight !== 0, 'weight cannot be 0')) {
+            // check if the voter already voted for the comment
+            let commentVote = await api.db.findOne('commentVotes', { commentID, voter, symbol });
+
+            // update vote?
+            if (commentVote === null) {
+              if (api.assert(weight !== 0, 'weight cannot be 0')) {
+                // update voting power
+                const newVotingPower = api.BigNumber(currentVotingPower)
+                  .minus(usedPower)
+                  .toFixed(2);
+  
+                await api.executeSmartContract('tokens', 'updateVotingPower', {
+                  account: voter,
+                  symbol,
+                  votingPower: newVotingPower,
+                  lastVoteTime: nowTimeSec,
+                });
+  
+                const rshares = weight < 0 ? `-${absRshares}` : absRshares;
+                const oldVoteRshares = votableAsset.voteRshares;
+  
+                votableAsset.netRshares = api.BigNumber(votableAsset.netRshares)
+                  .plus(rshares)
+                  .toFixed(token.precision);
+  
+                votableAsset.absRshares = api.BigNumber(votableAsset.absRshares)
+                  .plus(absRshares)
+                  .toFixed(token.precision);
+  
+                if (api.BigNumber(rshares).gt(0)) {
+                  votableAsset.voteRshares = api.BigNumber(votableAsset.voteRshares)
+                    .plus(rshares)
+                    .toFixed(token.precision);
+                }
+  
+                if (api.BigNumber(rshares).gt(0)) {
+                  votableAsset.netVotes += 1;
+                } else {
+                  votableAsset.netVotes -= 1;
+                }
+  
+                let maxVoteWeight = 0;
+  
+                commentVote = {
+                  voter,
+                  commentID,
+                  symbol,
+                  rshares,
+                  votePercent: weight,
+                  lastUpdate: nowTimeSec,
+                  numChanges: 0,
+                };
+  
+                let curationRewardEligible = api.BigNumber(rshares).gt(0)
+                  && votableAsset.lastPayout === null
+                  && token.allowCurationRewards === true;
+  
+  
+                if (curationRewardEligible === true) {
+                  curationRewardEligible = token.percentCurationRewards > 0;
+                }
+  
+                if (curationRewardEligible === true) {
+                  const oldWeight = evaluateRewardCurve(oldVoteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
+                  const newWeight = evaluateRewardCurve(votableAsset.voteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
+                  commentVote.weight = api.BigNumber(newWeight).minus(oldWeight).toFixed(token.precision);
+                  maxVoteWeight = commentVote.weight;
+
+  
+                  // discount weight by time
+                  let w = maxVoteWeight;
+                  const deltaT = Math.min(
+                    commentVote.lastUpdate - comment.created,
+                    token.reverseAuctionWindowSeconds,
+                  );
+  
+                  w = api.BigNumber(w).multipliedBy(deltaT).toFixed(token.precision);
+                  w = api.BigNumber(w).dividedBy(token.reverseAuctionWindowSeconds).toFixed(token.precision);
+                  commentVote.weight = w;
+                } else {
+                  commentVote.weight = 0;
+                }
+
+                if (api.BigNumber(maxVoteWeight).gt(0)) {
+                  votableAsset.totalVoteWeight = api.BigNumber(votableAsset.totalVoteWeight)
+                    .plus(maxVoteWeight)
+                    .toFixed(token.precision);
+                }
+
+                await api.db.update('comments', comment);
+                await api.db.insert('commentVotes', commentVote);
+              }
+            } else if (api.assert(commentVote.numChanges < 5, 'voter has used the maximum number of vote changes on this comment')
+              && api.assert(commentVote.percent !== weight, 'your current vote on this comment is identical to this vote')) {
               // update voting power
               const newVotingPower = api.BigNumber(currentVotingPower)
                 .minus(usedPower)
@@ -191,80 +274,57 @@ actions.vote = async (payload) => {
                 lastVoteTime: nowTimeSec,
               });
 
-              const rshares = weight < 0 ? `-${absRshares}` : absRshares;
-              const oldVoteRshares = votableAsset.voteRshares;
+              let oldRshares = api.BigNumber(votableAsset.netRshares).lt(0) ? '0.00' : votableAsset.netRshares;
 
               votableAsset.netRshares = api.BigNumber(votableAsset.netRshares)
-                .plus(rshares)
+                .minus(commentVote.rshares)
+                .toFixed(token.precision);
+
+              votableAsset.netRshares = api.BigNumber(votableAsset.netRshares)
+                .minus(rshares)
                 .toFixed(token.precision);
 
               votableAsset.absRshares = api.BigNumber(votableAsset.absRshares)
                 .plus(absRshares)
                 .toFixed(token.precision);
 
-              if (api.BigNumber(rshares).gt(0)) {
-                votableAsset.voteRshares = api.BigNumber(votableAsset.voteRshares)
-                  .plus(rshares)
-                  .toFixed(token.precision);
-              }
-
-              if (api.BigNumber(rshares).gt(0)) {
+              if (api.BigNumber(rshares).gt(0) && api.BigNumber(commentVote.rshares).lt(0)) {
+                votableAsset.netVotes += 2;
+              } else if (api.BigNumber(rshares).gt(0) && api.BigNumber(commentVote.rshares).eq(0)) {
                 votableAsset.netVotes += 1;
-              } else {
+              } else if (api.BigNumber(rshares).eq(0) && api.BigNumber(commentVote.rshares).lt(0)) {
+                votableAsset.netVotes += 1;
+              } else if (api.BigNumber(rshares).eq(0) && api.BigNumber(commentVote.rshares).gt(0)) {
                 votableAsset.netVotes -= 1;
-              }
+              } else if (api.BigNumber(rshares).lt(0) && api.BigNumber(commentVote.rshares).eq(0)) {
+                votableAsset.netVotes -= 1;
+              } else if (api.BigNumber(rshares).lt(0) && api.BigNumber(commentVote.rshares).gt(0)) {
+                votableAsset.netVotes -= 2;
+              } 
 
-              let maxVoteWeight = 0;
+              let newRshares = api.BigNumber(votableAsset.netRshares).lt(0) ? '0.00' : votableAsset.netRshares;
 
-              const commentVote = {
-                voter,
-                commentID,
-                symbol,
-                rshares,
-                votePercent: weight,
-                lastUpdate: nowTimeSec,
-              };
+              /// calculate rshares2 value
+              newRshares = evaluateRewardCurve(newRshares, token.curationRewardCurve, token.contentConstant, token.precision);
 
-              let curationRewardEligible = api.BigNumber(rshares).gt(0)
-                && votableAsset.lastPayout === null
-                && token.allowCurationRewards === true;
+              oldRshares = evaluateRewardCurve(oldRshares, token.curationRewardCurve, token.contentConstant, token.precision);
 
+              votableAsset.totalVoteWeight = api.BigNumber(votableAsset.totalVoteWeight)
+                .minus(commentVote.weight)
+                .toFixed(token.precision);
 
-              if (curationRewardEligible === true) {
-                curationRewardEligible = token.percentCurationRewards > 0;
-              }
+              votableAsset.totalVoteWeight = api.BigNumber(votableAsset.totalVoteWeight)
+                .minus(commentVote.weight)
+                .toFixed(token.precision);
 
-              if (curationRewardEligible === true) {
-                const oldWeight = evaluateRewardCurve(oldVoteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
-                const newWeight = evaluateRewardCurve(votableAsset.voteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
-                commentVote.weight = api.BigNumber(newWeight).minus(oldWeight).toFixed(token.precision);
-                maxVoteWeight = commentVote.weight;
-
-                api.debug('oldWeight: ' + oldWeight)
-                api.debug('newWeight: ' + newWeight)
-
-                // discount weight by time
-                let w = maxVoteWeight;
-                const deltaT = Math.min(
-                  commentVote.lastUpdate - comment.created,
-                  token.reverseAuctionWindowSeconds,
-                );
-
-                w = api.BigNumber(w).multipliedBy(deltaT).toFixed(token.precision);
-                w = api.BigNumber(w).dividedBy(token.reverseAuctionWindowSeconds).toFixed(token.precision);
-                commentVote.weight = w;
-              } else {
-                commentVote.weight = 0;
-              }
-
-              if (api.BigNumber(maxVoteWeight).gt(0)) {
-                votableAsset.totalVoteWeight = api.BigNumber(votableAsset.totalVoteWeight)
-                  .plus(maxVoteWeight)
-                  .toFixed(token.precision);
-              }
+              commentVote.rshares = rshares;
+              commentVote.weight = 0;
+              commentVote.votePercent = weight;
+              commentVote.lastUpdate = nowTimeSec;
+              commentVote.numChanges += 1;
 
               await api.db.update('comments', comment);
-              await api.db.insert('commentVotes', commentVote);
+              await api.db.update('commentVotes', commentVote);
             }
           }
         }
