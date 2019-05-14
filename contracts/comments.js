@@ -21,14 +21,13 @@ const approxSqrt = (num) => {
 
   // Loop until a good enough approximation is found.
   do {
-    lastGuess = guess; // store the previous guess
+    // store the previous guess
+    lastGuess = guess;
 
-    // find a new guess by averaging the old one with
-    // the original number divided by the old guess.
+    // find a new guess by averaging the old one with the original number divided by the old guess.
     guess = (num / guess + guess) / 2;
 
-    // Loop again if the product isn't close enough to
-    // the original number.
+    // Loop again if the product isn't close enough to the original number.
   } while (Math.abs(lastGuess - guess) > 5e-15);
 
   return guess; // return the approximate square root
@@ -37,24 +36,35 @@ const approxSqrt = (num) => {
 const evaluateRewardCurve = (rshares, curve, contentConstant, precision) => {
   let result = '0';
   switch (curve) {
+    // Quadratic: c(r) = rˆ2 + 2rs
     case 'quadratic': {
-      const rsharesPlusS = api.BigNumber(rshares).plus(contentConstant);
-      const squareContentConstant = api.BigNumber(contentConstant).multipliedBy(
-        contentConstant,
-      );
+      const rsharesPlusS = api.BigNumber(rshares)
+        .plus(contentConstant);
+      const squareContentConstant = api.BigNumber(contentConstant)
+        .multipliedBy(contentConstant);
 
-      result = api.BigNumber(rsharesPlusS)
+      const squareRsharesPlusS = api.BigNumber(rsharesPlusS)
+        .multipliedBy(rsharesPlusS);
+
+      result = api.BigNumber(squareRsharesPlusS)
         .minus(squareContentConstant)
         .toFixed(precision);
       break;
     }
-    case 'boundedCuration':
-      // const twoAlpha = contentConstant * 2;
-      // result = uint128_t( rshares.lo, 0 ) / (api.BigNumber(twoAlpha).plus(rshares));
+    // Bounded: c(r) = r / (r + 2s)
+    case 'boundedCuration': {
+      const twoAlpha = contentConstant * 2;
+      const div = api.BigNumber(rshares).plus(twoAlpha);
+      result = api.BigNumber(rshares)
+        .dividedBy(div)
+        .toFixed(precision);
       break;
+    }
+    // Linear: c(r) = r
     case 'linear':
       result = rshares;
       break;
+    // Square-root: c(r) = sqrt(r)
     case 'squareRoot':
       result = approxSqrt(rshares);
       break;
