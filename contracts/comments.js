@@ -1,4 +1,7 @@
-actions.createSSC = async (payload) => {
+/* eslint-disable no-await-in-loop */
+/* global actions, api */
+
+actions.createSSC = async () => {
   await api.db.createTable('params');
   await api.db.createTable('comments', ['commentID']);
   await api.db.createTable('commentVotes', ['commentID']);
@@ -24,8 +27,8 @@ const approxSqrt = (num) => {
     // the original number divided by the old guess.
     guess = (num / guess + guess) / 2;
 
-  // Loop again if the product isn't close enough to
-  // the original number.
+    // Loop again if the product isn't close enough to
+    // the original number.
   } while (Math.abs(lastGuess - guess) > 5e-15);
 
   return guess; // return the approximate square root
@@ -106,8 +109,11 @@ actions.vote = async (payload) => {
       },
     });
 
+    api.assert(balances.length > 0, 'no balance available');
+
     for (let index = 0; index < balances.length; index += 1) {
       const balance = balances[index];
+
       const { symbol, lastVoteTime, votingPower } = balance;
       const token = await api.db.findOneInTable('tokens', 'tokens', { symbol });
 
@@ -127,7 +133,7 @@ actions.vote = async (payload) => {
           .multipliedBy(secondsago)
           .toFixed(2);
 
-        const balanceVotingPower = votingPower === undefined ? '100.00' : '0.00';
+        const balanceVotingPower = votingPower === undefined ? '100.00' : votingPower;
 
         let currentVotingPower = api.BigNumber(balanceVotingPower)
           .plus(regeneratedPower)
@@ -148,7 +154,7 @@ actions.vote = async (payload) => {
 
           const usedPower = api.BigNumber(weightedPower)
             .dividedBy(token.votesPerRegenerationPeriod)
-            .toFixed(2);
+            .toFixed(2, api.BigNumber.ROUND_UP);
 
           if (api.assert(api.BigNumber(usedPower).lte(currentVotingPower), `no voting power available for token ${symbol}`)) {
             let absRshares = api.BigNumber(balance.stake)
@@ -171,46 +177,45 @@ actions.vote = async (payload) => {
             // check if the voter already voted for the comment
             let commentVote = await api.db.findOne('commentVotes', { commentID, voter, symbol });
 
-            // update vote?
             if (commentVote === null) {
               if (api.assert(weight !== 0, 'weight cannot be 0')) {
                 // update voting power
                 const newVotingPower = api.BigNumber(currentVotingPower)
                   .minus(usedPower)
                   .toFixed(2);
-  
+
                 await api.executeSmartContract('tokens', 'updateVotingPower', {
                   account: voter,
                   symbol,
                   votingPower: newVotingPower,
                   lastVoteTime: nowTimeSec,
                 });
-  
+
                 const rshares = weight < 0 ? `-${absRshares}` : absRshares;
                 const oldVoteRshares = votableAsset.voteRshares;
-  
+
                 votableAsset.netRshares = api.BigNumber(votableAsset.netRshares)
                   .plus(rshares)
                   .toFixed(token.precision);
-  
+
                 votableAsset.absRshares = api.BigNumber(votableAsset.absRshares)
                   .plus(absRshares)
                   .toFixed(token.precision);
-  
+
                 if (api.BigNumber(rshares).gt(0)) {
                   votableAsset.voteRshares = api.BigNumber(votableAsset.voteRshares)
                     .plus(rshares)
                     .toFixed(token.precision);
                 }
-  
+
                 if (api.BigNumber(rshares).gt(0)) {
                   votableAsset.netVotes += 1;
                 } else {
                   votableAsset.netVotes -= 1;
                 }
-  
+
                 let maxVoteWeight = 0;
-  
+
                 commentVote = {
                   voter,
                   commentID,
@@ -220,32 +225,44 @@ actions.vote = async (payload) => {
                   lastUpdate: nowTimeSec,
                   numChanges: 0,
                 };
-  
+
                 let curationRewardEligible = api.BigNumber(rshares).gt(0)
                   && votableAsset.lastPayout === null
                   && token.allowCurationRewards === true;
-  
-  
+
+
                 if (curationRewardEligible === true) {
                   curationRewardEligible = token.percentCurationRewards > 0;
                 }
-  
+
                 if (curationRewardEligible === true) {
-                  const oldWeight = evaluateRewardCurve(oldVoteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
-                  const newWeight = evaluateRewardCurve(votableAsset.voteRshares, token.curationRewardCurve, token.contentConstant, token.precision);
-                  commentVote.weight = api.BigNumber(newWeight).minus(oldWeight).toFixed(token.precision);
+                  const oldWeight = evaluateRewardCurve(
+                    oldVoteRshares,
+                    token.curationRewardCurve,
+                    token.contentConstant,
+                    token.precision,
+                  );
+                  const newWeight = evaluateRewardCurve(
+                    votableAsset.voteRshares,
+                    token.curationRewardCurve,
+                    token.contentConstant,
+                    token.precision,
+                  );
+                  commentVote.weight = api.BigNumber(newWeight)
+                    .minus(oldWeight)
+                    .toFixed(token.precision);
                   maxVoteWeight = commentVote.weight;
 
-  
-                  // discount weight by time
                   let w = maxVoteWeight;
                   const deltaT = Math.min(
                     commentVote.lastUpdate - comment.created,
                     token.reverseAuctionWindowSeconds,
                   );
-  
+
                   w = api.BigNumber(w).multipliedBy(deltaT).toFixed(token.precision);
-                  w = api.BigNumber(w).dividedBy(token.reverseAuctionWindowSeconds).toFixed(token.precision);
+                  w = api.BigNumber(w)
+                    .dividedBy(token.reverseAuctionWindowSeconds)
+                    .toFixed(token.precision);
                   commentVote.weight = w;
                 } else {
                   commentVote.weight = 0;
@@ -261,7 +278,7 @@ actions.vote = async (payload) => {
                 await api.db.insert('commentVotes', commentVote);
               }
             } else if (api.assert(commentVote.numChanges < 5, 'voter has used the maximum number of vote changes on this comment')
-              && api.assert(commentVote.percent !== weight, 'your current vote on this comment is identical to this vote')) {
+              && api.assert(commentVote.votePercent !== weight, 'your current vote on this comment is identical to this vote')) {
               // update voting power
               const newVotingPower = api.BigNumber(currentVotingPower)
                 .minus(usedPower)
@@ -274,6 +291,7 @@ actions.vote = async (payload) => {
                 lastVoteTime: nowTimeSec,
               });
 
+              const rshares = weight < 0 ? `-${absRshares}` : absRshares;
               let oldRshares = api.BigNumber(votableAsset.netRshares).lt(0) ? '0.00' : votableAsset.netRshares;
 
               votableAsset.netRshares = api.BigNumber(votableAsset.netRshares)
@@ -300,14 +318,23 @@ actions.vote = async (payload) => {
                 votableAsset.netVotes -= 1;
               } else if (api.BigNumber(rshares).lt(0) && api.BigNumber(commentVote.rshares).gt(0)) {
                 votableAsset.netVotes -= 2;
-              } 
+              }
 
               let newRshares = api.BigNumber(votableAsset.netRshares).lt(0) ? '0.00' : votableAsset.netRshares;
 
-              /// calculate rshares2 value
-              newRshares = evaluateRewardCurve(newRshares, token.curationRewardCurve, token.contentConstant, token.precision);
+              newRshares = evaluateRewardCurve(
+                newRshares,
+                token.curationRewardCurve,
+                token.contentConstant,
+                token.precision,
+              );
 
-              oldRshares = evaluateRewardCurve(oldRshares, token.curationRewardCurve, token.contentConstant, token.precision);
+              oldRshares = evaluateRewardCurve(
+                oldRshares,
+                token.curationRewardCurve,
+                token.contentConstant,
+                token.precision,
+              );
 
               votableAsset.totalVoteWeight = api.BigNumber(votableAsset.totalVoteWeight)
                 .minus(commentVote.weight)
