@@ -1,6 +1,9 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 
+const STEEM_UPVOTE_LOCKOUT_SECONDS = 60 * 60 * 12; // 12 hours
+const STEEM_MAX_VOTE_CHANGES = 5;
+
 actions.createSSC = async () => {
   await api.db.createTable('params');
   await api.db.createTable('comments', ['commentID']);
@@ -177,10 +180,10 @@ actions.vote = async (payload) => {
 
             const cashoutDelta = votableAsset.cashoutTime - nowTimeSec;
 
-            if (cashoutDelta < token.reverseAuctionWindowSeconds) {
+            if (cashoutDelta < STEEM_UPVOTE_LOCKOUT_SECONDS) {
               absRshares = api.BigNumber(absRshares)
                 .multipliedBy(cashoutDelta)
-                .dividedBy(token.reverseAuctionWindowSeconds)
+                .dividedBy(STEEM_UPVOTE_LOCKOUT_SECONDS)
                 .toFixed(token.precision);
             }
 
@@ -286,8 +289,16 @@ actions.vote = async (payload) => {
 
                 await api.db.update('comments', comment);
                 await api.db.insert('commentVotes', commentVote);
+
+                const activeComment = await api.db.findOne('activeComments', { commentID, symbol });
+                activeComment.netRshares = votableAsset.netRshares;
+                activeComment.absRshares = votableAsset.absRshares;
+                activeComment.voteRshares = votableAsset.voteRshares;
+                activeComment.totalVoteWeight = votableAsset.totalVoteWeight;
+                activeComment.netVotes = votableAsset.netVotes;
+                await api.db.update('activeComments', activeComment);
               }
-            } else if (api.assert(commentVote.numChanges < 5, 'voter has used the maximum number of vote changes on this comment')
+            } else if (api.assert(commentVote.numChanges < STEEM_MAX_VOTE_CHANGES, 'voter has used the maximum number of vote changes on this comment')
               && api.assert(commentVote.votePercent !== weight, 'your current vote on this comment is identical to this vote')) {
               // update voting power
               const newVotingPower = api.BigNumber(currentVotingPower)
@@ -362,6 +373,14 @@ actions.vote = async (payload) => {
 
               await api.db.update('comments', comment);
               await api.db.update('commentVotes', commentVote);
+
+              const activeComment = await api.db.findOne('activeComments', { commentID, symbol });
+              activeComment.netRshares = votableAsset.netRshares;
+              activeComment.absRshares = votableAsset.absRshares;
+              activeComment.voteRshares = votableAsset.voteRshares;
+              activeComment.totalVoteWeight = votableAsset.totalVoteWeight;
+              activeComment.netVotes = votableAsset.netVotes;
+              await api.db.update('activeComments', activeComment);
             }
           }
         }
