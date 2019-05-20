@@ -64,7 +64,7 @@ function replayFile(callback) {
           let finalPrevRefSteemBlockId = prevRefSteemBlockId;
 
           if (blockNumber !== 0) {
-            currentSteemBlock = transactions[0].refSteemBlockNumber;
+            currentSteemBlock = refSteemBlockNumber;
             currentBlock = blockNumber;
             console.log(`replaying block ${currentBlock} / ${lastBockNumber}`); // eslint-disable-line no-console
 
