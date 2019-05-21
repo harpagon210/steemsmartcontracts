@@ -136,9 +136,6 @@ let mktContractPayload = {
   code: base64ContractCode,
 };
 
-console.log(mktContractPayload)
-
-
 // Market
 describe('Market', () => {
   it('creates a buy order', (done) => {
