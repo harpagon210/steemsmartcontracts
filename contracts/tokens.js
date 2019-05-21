@@ -18,6 +18,14 @@ actions.createSSC = async (payload) => {
   if (tableExists === false) {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
+
+  // update STEEMP decimal places
+  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
+
+  if (token && token.precision < 8) {
+    token.precision = 8;
+    await api.db.update('tokens', token);
+  }
 };
 
 actions.updateParams = async (payload) => {
