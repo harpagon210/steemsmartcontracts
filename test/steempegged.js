@@ -8,6 +8,8 @@ const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
+const BP_CONSTANTS = require('../libs/BlockProduction.contants').CONSTANTS;
+
 //process.env.NODE_ENV = 'test';
 
 const conf = {
@@ -94,8 +96,34 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+let contractCode = fs.readFileSync('./contracts/tokens.js');
+contractCode = contractCode.toString();
+
+contractCode = contractCode.replace(/'\$\{BP_CONSTANTS.UTILITY_TOKEN_PRECISION\}\$'/g, BP_CONSTANTS.UTILITY_TOKEN_PRECISION);
+contractCode = contractCode.replace(/'\$\{BP_CONSTANTS.UTILITY_TOKEN_SYMBOL\}\$'/g, BP_CONSTANTS.UTILITY_TOKEN_SYMBOL);
+
+let base64ContractCode = Base64.encode(contractCode);
+
+let tknContractPayload = {
+  name: 'tokens',
+  params: '',
+  code: base64ContractCode,
+};
+
 const FORK_BLOCK_NUMBER = 30896500;
 const STEEM_PEGGED_ACCOUNT = 'steem-peg';
+const ACCOUNT_RECEIVING_FEES = 'steemsc';
+
+contractCode = fs.readFileSync('./contracts/steempegged.js');
+contractCode = contractCode.toString();
+contractCode = contractCode.replace(/'\$\{ACCOUNT_RECEIVING_FEES\}\$'/g, ACCOUNT_RECEIVING_FEES);
+base64ContractCode = Base64.encode(contractCode);
+
+let spContractPayload = {
+  name: 'steempegged',
+  params: '',
+  code: base64ContractCode,
+};
 
 // STEEMP
 describe('Steem Pegged', () => {
@@ -109,6 +137,8 @@ describe('Steem Pegged', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.002 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }`));
 
@@ -164,6 +194,8 @@ describe('Steem Pegged', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.003 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1238', 'harpagon', 'steempegged', 'withdraw', '{ "quantity": "0.002", "isSignedWithActiveKey": true }'));
@@ -250,6 +282,73 @@ describe('Steem Pegged', () => {
       assert.equal(withdrawals[5].recipient, 'steemsc');
       assert.equal(withdrawals[5].memo, 'fee tx TXID1239');
       assert.equal(withdrawals[5].quantity, 0.003);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not withdraw STEEM', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1233', STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.003 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'satoshi', 'steempegged', 'withdraw', '{ "quantity": "0.001", "isSignedWithActiveKey": true }'));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            symbol: 'STEEMP',
+            account: 'satoshi'
+          }
+        }
+      });
+
+      let balance = res.payload;
+
+      assert.equal(balance.balance, 0.87);
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.symbol, 'STEEMP');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'steempegged',
+          table: 'withdrawals',
+          query: {
+            'recipient': 'satoshi'
+          }
+        }
+      });
+
+      let withdrawals = res.payload;
+      assert.equal(withdrawals.length, 0);
 
       resolve();
     })
