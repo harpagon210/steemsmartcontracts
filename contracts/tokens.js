@@ -1,7 +1,7 @@
-//const actions = {}
-//const api = {}
+/* eslint-disable no-await-in-loop */
+/* global actions, api */
 
-actions.createSSC = async (payload) => {
+actions.createSSC = async () => {
   let tableExists = await api.db.tableExists('tokens');
   if (tableExists === false) {
     await api.db.createTable('tokens', ['symbol']);
@@ -17,6 +17,14 @@ actions.createSSC = async (payload) => {
   tableExists = await api.db.tableExists('pendingUnstakes');
   if (tableExists === false) {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
+  }
+
+  // update STEEMP decimal places
+  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
+
+  if (token && token.precision < 8) {
+    token.precision = 8;
+    await api.db.update('tokens', token);
   }
 };
 
@@ -69,7 +77,6 @@ actions.updateMetadata = async (payload) => {
 
     if (token) {
       if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
-
         try {
           const finalMetadata = JSON.stringify(metadata);
 
@@ -92,7 +99,7 @@ actions.transferOwnership = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
       && to && typeof to === 'string', 'invalid params')) {
     // check if the token exists
-    let token = await api.db.findOne('tokens', { symbol });
+    const token = await api.db.findOne('tokens', { symbol });
 
     if (token) {
       if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
@@ -100,7 +107,7 @@ actions.transferOwnership = async (payload) => {
 
         // a valid steem account is between 3 and 16 characters in length
         if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
-          token.issuer = finalTo
+          token.issuer = finalTo;
           await api.db.update('tokens', token);
         }
       }
@@ -130,7 +137,6 @@ actions.create = async (payload) => {
       && (url === undefined || (url && typeof url === 'string'))
       && ((precision && typeof precision === 'number') || precision === 0)
       && maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN(), 'invalid params')) {
-
     // the precision must be between 0 and 8 and must be an integer
     // the max supply must be positive
     if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
@@ -138,8 +144,7 @@ actions.create = async (payload) => {
       && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
       && api.assert((precision >= 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')
       && api.assert(api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
-      && api.assert(api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), 'maxSupply must be lower than ' + Number.MAX_SAFE_INTEGER)) {
-
+      && api.assert(api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`)) {
       // check if the token already exists
       const token = await api.db.findOne('tokens', { symbol });
 
@@ -450,7 +455,7 @@ const processUnstake = async (unstake) => {
   }
 };
 
-actions.checkPendingUnstakes = async (payload) => {
+actions.checkPendingUnstakes = async () => {
   if (api.assert(api.sender === 'null', 'not authorized')) {
     const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
     const timestamp = blockDate.getTime();
@@ -477,15 +482,21 @@ actions.checkPendingUnstakes = async (payload) => {
           nextTransactionTimestamp: {
             $lte: timestamp,
           },
-        });
-  
+        },
+      );
+
       nbPendingUnstakes = pendingUnstakes.length;
     }
   }
 };
 
 actions.enableStaking = async (payload) => {
-  const { symbol, unstakingCooldown, numberTransactions, isSignedWithActiveKey } = payload;
+  const {
+    symbol,
+    unstakingCooldown,
+    numberTransactions,
+    isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
@@ -504,26 +515,6 @@ actions.enableStaking = async (payload) => {
     }
   }
 };
-
-/*
-actions.enableVoting = async (payload) => {
-  const { symbol, nbDays100PercentRegeneration, isSignedWithActiveKey } = payload;
-
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
-    && api.assert(nbDays100PercentRegeneration && Number.isInteger(nbDays100PercentRegeneration) && nbDays100PercentRegeneration > 0 && nbDays100PercentRegeneration <= 365, 'nbDays100PercentRegeneration must be an integer between 1 and 365')) {
-    const token = await api.db.findOne('tokens', { symbol });
-
-    if (api.assert(token !== null, 'symbol does not exist')
-      && api.assert(token.issuer === api.sender, 'must be the issuer')
-      && api.assert(token.stakingEnabled === false, 'voting already enabled')) {
-      token.votingEnabled = true;
-      token.nbDays100PercentRegeneration = nbDays100PercentRegeneration;
-      await api.db.update('tokens', token);
-    }
-  }
-};
-*/
 
 actions.stake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
@@ -760,25 +751,6 @@ const calculateBalance = (balance, quantity, precision, add) => {
   return add
     ? api.BigNumber(balance).plus(quantity).toFixed(precision)
     : api.BigNumber(balance).minus(quantity).toFixed(precision);
-};
-
-const calculateVotingPower = (balance, nbDays100PercentRegeneration, nowTimeSec) => {
-  if (balance.lastVoteTime === 0 || api.BigNumber(balance.votingPower).eq(100)) {
-    return balance.votingPower;
-  }
-
-  const secondsago = nowTimeSec - balance.lastVoteTime;
-  const nbDays100PercentRegenerationSecs = nbDays100PercentRegeneration * 24 * 60 * 60;
-  const regeneratedPower = api.BigNumber(100)
-    .dividedBy(nbDays100PercentRegenerationSecs)
-    .multipliedBy(secondsago)
-    .toFixed(2);
-
-  const newVotingPower = api.BigNumber(balance.votingPower)
-    .plus(regeneratedPower)
-    .toFixed(2);
-
-  return api.BigNumber(newVotingPower).gt(100) ? '100.00' : newVotingPower;
 };
 
 const countDecimals = value => api.BigNumber(value).dp();
