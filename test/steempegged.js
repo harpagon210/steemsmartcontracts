@@ -307,6 +307,7 @@ describe('Steem Pegged', () => {
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.003 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1237', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "0.879 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1239', 'satoshi', 'steempegged', 'withdraw', '{ "quantity": "0.001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(FORK_BLOCK_NUMBER, 'TXID1240', 'satoshi', 'steempegged', 'withdraw', '{ "quantity": "0.0021", "isSignedWithActiveKey": true }'));
 
       let block = {
         refSteemBlockNumber: 1,

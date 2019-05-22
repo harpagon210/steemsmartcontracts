@@ -50,7 +50,8 @@ actions.withdraw = async (payload) => {
   const { quantity, isSignedWithActiveKey } = payload;
 
   if (api.assert(quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN()
-    && isSignedWithActiveKey, 'invalid params')
+    && isSignedWithActiveKey
+    && api.BigNumber(quantity).dp() <= 3, 'invalid params')
     && api.assert(api.BigNumber(quantity).gte(0.002), 'minimum withdrawal is 0.002')
   ) {
     // calculate the 1% fee (with a min of 0.001 STEEM)
