@@ -92,8 +92,9 @@ class Block {
     // handle virtual transactions
     const virtualTransactions = [];
 
-    // check the pending unstakings
+    // check the pending unstakings and undelegation
     virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
+    virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {

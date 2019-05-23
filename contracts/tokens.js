@@ -751,8 +751,6 @@ const balanceTemplate = {
   symbol: null,
   balance: '0',
   stake: '0',
-  delegatedStake: '0',
-  receivedStake: '0',
   pendingUnstake: '0',
   delegationsIn: '0',
   delegationsOut: '0',
@@ -860,6 +858,24 @@ actions.delegate = async (payload) => {
         && api.assert(api.BigNumber(quantity).gt(0), 'must delegate positive quantity')) {
         const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
 
+        if (balanceFrom.stake === undefined) {
+          // update old balances with new properties
+          balanceFrom.stake = '0';
+          balanceFrom.pendingUnstake = '0';
+          balanceFrom.delegationsIn = '0';
+          balanceFrom.delegationsOut = '0';
+          balanceFrom.pendingUndelegations = '0';
+        } else if (balanceFrom.delegationsIn === undefined) {
+          // update old balances with new properties
+          balanceFrom.delegationsIn = '0';
+          balanceFrom.delegationsOut = '0';
+          balanceFrom.pendingUndelegations = '0';
+          if (balanceFrom.delegatedStake) {
+            delete balanceFrom.delegatedStake;
+            delete balanceFrom.receivedStake;
+          }
+        }
+
         if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')
           && api.assert(api.BigNumber(balanceFrom.stake).gte(quantity), 'overdrawn stake')) {
           let balanceTo = await api.db.findOne('balances', { account: to, symbol });
@@ -870,6 +886,23 @@ actions.delegate = async (payload) => {
             balanceTo.symbol = symbol;
 
             balanceTo = await api.db.insert('balances', balanceTo);
+          } else if (balanceTo.stake === undefined) {
+            // update old balances with new properties
+            balanceTo.stake = '0';
+            balanceTo.pendingUnstake = '0';
+            balanceTo.delegationsIn = '0';
+            balanceTo.delegationsOut = '0';
+            balanceTo.pendingUndelegations = '0';
+          } else if (balanceTo.delegationsIn === undefined) {
+            // update old balances with new properties
+            balanceTo.delegationsIn = '0';
+            balanceTo.delegationsOut = '0';
+            balanceTo.pendingUndelegations = '0';
+
+            if (balanceTo.delegatedStake) {
+              delete balanceTo.delegatedStake;
+              delete balanceTo.receivedStake;
+            }
           }
 
           // look for an existing delegation
@@ -900,6 +933,8 @@ actions.delegate = async (payload) => {
             delegation.quantity = quantity;
 
             await api.db.insert('delegations', delegation);
+
+            api.emit('delegate', { to, symbol, quantity });
           } else if (api.assert(api.BigNumber(delegation.quantity).lt(quantity), 'new delegation must higher than the existing one')) {
             // if a delegation already exists, it can only be increased
             // to decrease a delegation an undelegation is required
@@ -930,6 +965,7 @@ actions.delegate = async (payload) => {
             );
 
             await api.db.update('delegations', delegation);
+            api.emit('updateDelegate', { to, symbol, quantity });
           }
         }
       }
@@ -972,6 +1008,16 @@ actions.undelegate = async (payload) => {
 
             if (api.assert(delegation !== null, 'delegation does not exist')
               && api.assert(api.BigNumber(delegation.quantity).gte(quantity), 'overdrawn delegation')) {
+              // update balanceFrom
+              balanceFrom.pendingUndelegations = calculateBalance(
+                balanceFrom.pendingUndelegations, quantity, token.precision, true,
+              );
+              balanceFrom.delegationsOut = calculateBalance(
+                balanceFrom.delegationsOut, quantity, token.precision, false,
+              );
+
+              await api.db.update('balances', balanceFrom);
+
               // update balanceTo
               balanceTo.delegationsIn = calculateBalance(
                 balanceTo.delegationsIn, quantity, token.precision, false,
@@ -985,7 +1031,7 @@ actions.undelegate = async (payload) => {
               );
 
               if (api.BigNumber(delegation.quantity).gt(0)) {
-                await api.db.insert('delegations', delegation);
+                await api.db.update('delegations', delegation);
               } else {
                 await api.db.remove('delegations', delegation);
               }
@@ -1005,10 +1051,82 @@ actions.undelegate = async (payload) => {
               };
 
               await api.db.insert('pendingUndelegations', undelegation);
+
+              api.emit('undelegateStart', { to, symbol, quantity });
             }
           }
         }
       }
+    }
+  }
+};
+
+const processUndelegation = async (undelegation) => {
+  const {
+    account,
+    symbol,
+    quantity,
+  } = undelegation;
+
+  const balance = await api.db.findOne('balances', { account, symbol });
+  const token = await api.db.findOne('tokens', { symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')) {
+    const originalStake = balance.stake;
+    const originalPendingUndelegations = balance.pendingUndelegations;
+
+    // update the balance
+    balance.stake = calculateBalance(
+      balance.stake, quantity, token.precision, true,
+    );
+    balance.pendingUndelegations = calculateBalance(
+      balance.pendingUndelegations, quantity, token.precision, false,
+    );
+
+    if (api.assert(api.BigNumber(balance.pendingUndelegations).lt(originalPendingUndelegations)
+        && api.BigNumber(balance.stake).gt(originalStake), 'cannot subtract')) {
+      await api.db.update('balances', balance);
+
+      // remove pendingUndelegation
+      await api.db.remove('pendingUndelegations', undelegation);
+
+      api.emit('undelegateDone', { account, symbol, quantity });
+    }
+  }
+};
+
+actions.checkPendingUndelegations = async () => {
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+    const timestamp = blockDate.getTime();
+
+    // get all the pending unstakes that are ready to be released
+    let pendingUndelegations = await api.db.find(
+      'pendingUndelegations',
+      {
+        completeTimestamp: {
+          $lte: timestamp,
+        },
+      },
+    );
+
+    let nbPendingUndelegations = pendingUndelegations.length;
+    while (nbPendingUndelegations > 0) {
+      for (let index = 0; index < nbPendingUndelegations; index += 1) {
+        const pendingUndelegation = pendingUndelegations[index];
+        await processUndelegation(pendingUndelegation);
+      }
+
+      pendingUndelegations = await api.db.find(
+        'pendingUndelegations',
+        {
+          completeTimestamp: {
+            $lte: timestamp,
+          },
+        },
+      );
+
+      nbPendingUndelegations = pendingUndelegations.length;
     }
   }
 };
