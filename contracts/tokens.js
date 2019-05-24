@@ -805,6 +805,7 @@ actions.enableDelegation = async (payload) => {
 
     if (api.assert(token !== null, 'symbol does not exist')
       && api.assert(token.issuer === api.sender, 'must be the issuer')
+      && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(token.delegationEnabled === undefined || token.delegationEnabled === false, 'delegation already enabled')) {
       token.delegationEnabled = true;
       token.undelegationCooldown = undelegationCooldown;
