@@ -386,6 +386,88 @@ describe('smart tokens', function () {
       });
   });
 
+  it('should not delegate tokens', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "az", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'delegate', '{ "symbol": "NKT", "quantity": "0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.000000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 7, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "-0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'ned', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      
+
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: {
+            account: 'satoshi',
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      let balance = res.payload;
+
+      assert.equal(balance.symbol, 'TKN');
+      assert.equal(balance.account, 'satoshi');
+      assert.equal(balance.balance, 100);
+      assert.equal(balance.stake, 0);
+      assert.equal(balance.delegationsOut, 0);
+      assert.equal(balance.delegationsIn, 0);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
+        payload: {}
+      });
+
+      let txs = res.payload.transactions;
+
+      assert.equal(JSON.parse(txs[5].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(txs[6].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(txs[7].logs).errors[0], 'symbol precision mismatch');
+      assert.equal(JSON.parse(txs[8].logs).errors[0], 'delegation not enabled');
+      assert.equal(JSON.parse(txs[10].logs).errors[0], 'must delegate positive quantity');
+      assert.equal(JSON.parse(txs[11].logs).errors[0], 'balanceFrom does not exist');
+      assert.equal(JSON.parse(txs[12].logs).errors[0], 'overdrawn stake');
+      // TODO: assert.equal(JSON.parse(txs[8].logs).errors[0], 'new delegation must higher than the existing one');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
   it('should undelegate tokens', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();

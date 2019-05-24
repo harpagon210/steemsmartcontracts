@@ -860,26 +860,26 @@ actions.delegate = async (payload) => {
         && api.assert(api.BigNumber(quantity).gt(0), 'must delegate positive quantity')) {
         const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
 
-        if (balanceFrom.stake === undefined) {
-          // update old balances with new properties
-          balanceFrom.stake = '0';
-          balanceFrom.pendingUnstake = '0';
-          balanceFrom.delegationsIn = '0';
-          balanceFrom.delegationsOut = '0';
-          balanceFrom.pendingUndelegations = '0';
-        } else if (balanceFrom.delegationsIn === undefined) {
-          // update old balances with new properties
-          balanceFrom.delegationsIn = '0';
-          balanceFrom.delegationsOut = '0';
-          balanceFrom.pendingUndelegations = '0';
-          if (balanceFrom.delegatedStake) {
-            delete balanceFrom.delegatedStake;
-            delete balanceFrom.receivedStake;
-          }
-        }
-
         if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')
           && api.assert(api.BigNumber(balanceFrom.stake).gte(quantity), 'overdrawn stake')) {
+          if (balanceFrom.stake === undefined) {
+            // update old balances with new properties
+            balanceFrom.stake = '0';
+            balanceFrom.pendingUnstake = '0';
+            balanceFrom.delegationsIn = '0';
+            balanceFrom.delegationsOut = '0';
+            balanceFrom.pendingUndelegations = '0';
+          } else if (balanceFrom.delegationsIn === undefined) {
+            // update old balances with new properties
+            balanceFrom.delegationsIn = '0';
+            balanceFrom.delegationsOut = '0';
+            balanceFrom.pendingUndelegations = '0';
+            if (balanceFrom.delegatedStake) {
+              delete balanceFrom.delegatedStake;
+              delete balanceFrom.receivedStake;
+            }
+          }
+
           let balanceTo = await api.db.findOne('balances', { account: to, symbol });
 
           if (balanceTo === null) {
