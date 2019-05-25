@@ -132,7 +132,8 @@ actions.create = async (payload) => {
     : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
 
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-    && api.assert(name && typeof name === 'string'
+      && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+      && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
       && ((precision && typeof precision === 'number') || precision === 0)
