@@ -143,7 +143,7 @@ class Block {
 
     if (sender && contract && action) {
       if (contract === 'contract' && (action === 'deploy' || action === 'update') && payload) {
-        const authorizedAccountContractDeployment = ['null', 'steemsc', 'steem-peg'];
+        const authorizedAccountContractDeployment = ['null', 'rocketx'];
 
         if (authorizedAccountContractDeployment.includes(sender)) {
           results = await SmartContracts.deploySmartContract( // eslint-disable-line

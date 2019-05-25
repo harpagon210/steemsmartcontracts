@@ -1,5 +1,5 @@
 {
-  "name": "steemsmartcontracts",
+  "name": "rocketx-ssc",
   "version": "0.1.0",
   "description": "",
   "main": "app.js",
@@ -8,7 +8,7 @@
     "test": "./node_modules/mocha/bin/mocha  --recursive"
   },
   "keywords": [],
-  "author": "Harpagon210 <harpagon210@gmail.com>",
+  "author": "",
   "license": "MIT",
   "dependencies": {
     "bignumber.js": "^8.0.2",

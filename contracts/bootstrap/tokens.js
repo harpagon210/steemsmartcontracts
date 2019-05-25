@@ -10,7 +10,7 @@ actions.createSSC = async (payload) => {
     await api.db.createTable('params');
 
     const params = {};
-    params.tokenCreationFee = '0';
+    params.tokenCreationFee = '100';
     await api.db.insert('params', params);
   }
 
@@ -581,7 +581,7 @@ actions.transferFromContract = async (payload) => {
 
 const subBalanceVOne = async (account, token, quantity, table) => {
   const balance = await api.db.findOne(table, { account, symbol: token.symbol });
-  if (api.assert(balance !== null, 'balance does not exist') 
+  if (api.assert(balance !== null, 'balance does not exist')
     && api.assert(balance.balance >= quantity, 'overdrawn balance')) {
     const originalBalance = balance.balance;
 

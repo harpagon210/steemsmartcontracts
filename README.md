@@ -1,8 +1,8 @@
-# Steem Smart Contracts [![Build Status](https://travis-ci.org/harpagon210/steemsmartcontracts.svg?branch=master)](https://travis-ci.org/harpagon210/steemsmartcontracts)[![Coverage Status](https://coveralls.io/repos/github/harpagon210/steemsmartcontracts/badge.svg?branch=master)](https://coveralls.io/github/harpagon210/steemsmartcontracts?branch=master)
+# Rocketx Steem Smart Contracts 
 
  ## 1.  What is it?
 
-Steem Smart Contracts is a sidechain powered by Steem, it allows you to perform actions on a decentralized database via the power of Smart Contracts.
+Rocketx-SSC is a sidechain powered by Steem, it allows you to perform actions on a decentralized database via the power of Smart Contracts.
 
  ## 2.  How does it work?
 
@@ -17,11 +17,11 @@ This is actually pretty easy, you basically need a Steem account and that's it. 
 
 ## 4. Setup a Steem Smart Contracts node
 
-see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki/How-to-setup-a-Steem-Smart-Contracts-node
+see wiki: https://github.com/freedomexio/rocketx-ssc/wiki/How-to-setup-a-RocketX-SSC-node
 
 ## 5. Tests
 * npm run test
 
 ## 6. Usage/docs
 
-* see wiki: https://github.com/harpagon210/steemsmartcontracts/wiki
+* see wiki: https://github.com/freedomexio/rocketx-ssc/wiki

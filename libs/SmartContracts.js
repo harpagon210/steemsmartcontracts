@@ -42,8 +42,8 @@ class SmartContracts {
 
         let finalSender = sender;
 
-        // allow "steemsc" to update contracts owned by "null"
-        if (existingContract && finalSender === 'steemsc' && existingContract.owner === 'null') {
+        // allow "rocketx" to update contracts owned by "null"
+        if (existingContract && finalSender === 'rocketx' && existingContract.owner === 'null') {
           finalSender = 'null';
         }
 
