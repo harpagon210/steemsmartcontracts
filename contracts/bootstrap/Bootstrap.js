@@ -11,12 +11,7 @@ class Bootstrap {
     let base64ContractCode;
     let contractPayload;
 
-    const FORK_BLOCK_NUMBER = 30896500;
-    const FORK_BLOCK_NUMBER_TWO = 30983000;
-    const FORK_BLOCK_NUMBER_THREE = 31992326;
-    const ACCOUNT_RECEIVING_FEES = 'steemsc';
-    const STEEM_PEGGED_ACCOUNT = 'steem-peg';
-    const INITIAL_TOKEN_CREATION_FEE = '100';
+    const FORK_BLOCK_NUMBER = 33255083;
     const SSC_STORE_PRICE = '0.001';
     const SSC_STORE_QTY = '0.001';
 
@@ -36,7 +31,7 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'rocketx', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
     // sscstore contract
     contractCode = await fs.readFileSync('./contracts/bootstrap/sscstore.js');
@@ -56,75 +51,13 @@ class Bootstrap {
       code: base64ContractCode,
     };
 
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-
-    // steem-pegged asset contract
-    contractCode = await fs.readFileSync('./contracts/bootstrap/steempegged.js');
-    contractCode = contractCode.toString();
-
-    contractCode = contractCode.replace(/'\$\{ACCOUNT_RECEIVING_FEES\}\$'/g, ACCOUNT_RECEIVING_FEES);
-
-    base64ContractCode = Base64.encode(contractCode);
-
-    contractPayload = {
-      name: 'steempegged',
-      params: '',
-      code: base64ContractCode,
-    };
-
-    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
-
-    contractCode = await fs.readFileSync('./contracts/bootstrap/market.js');
-    contractCode = contractCode.toString();
-
-    contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_TWO\}\$'/g, FORK_BLOCK_NUMBER_TWO);
-    contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_THREE\}\$'/g, FORK_BLOCK_NUMBER_THREE);
-
-    base64ContractCode = Base64.encode(contractCode);
-
-    contractPayload = {
-      name: 'market',
-      params: '',
-      code: base64ContractCode,
-    };
-
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
-
-    // dice contract
-    /* contractCode = await fs.readFileSync('./contracts/bootstrap/dice.js');
-    contractCode = contractCode.toString();
-
-    base64ContractCode = Base64.encode(contractCode);
-
-    contractPayload = {
-      name: 'dice',
-      params: '',
-      code: base64ContractCode,
-    };
-
-    transactions.push(new Transaction(
-      genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    */
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'rocketx', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "ENG", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"ENG", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemsc", "quantity": 2000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'updateMetadata', '{"symbol":"STEEMP", "metadata": { "desc": "STEEM backed by the steem-engine team" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "BITCOIN Pegged", "symbol": "BTCP", "precision": 8, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'updateMetadata', '{"symbol":"BTCP", "metadata": { "desc": "BITCOIN backed by the steem-engine team" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'ltcp', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "LITECOIN Pegged", "symbol": "LTCP", "precision": 8, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'ltcp', 'tokens', 'updateMetadata', '{"symbol":"LTCP", "metadata": { "desc": "LITECOIN backed by the steem-engine team" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'dogep', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "DOGECOIN Pegged", "symbol": "DOGEP", "precision": 8, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'dogep', 'tokens', 'updateMetadata', '{"symbol":"DOGEP", "metadata": { "desc": "DOGECOIN backed by the steem-engine team" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'bchp', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "BITCOIN CASH Pegged", "symbol": "BCHP", "precision": 8, "maxSupply": 1000000000000 }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'bchp', 'tokens', 'updateMetadata', '{"symbol":"BCHP", "metadata": { "desc": "BITCOIN CASH backed by the steem-engine team" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'steemsc', 'tokens', 'updateParams', `{ "tokenCreationFee": "${INITIAL_TOKEN_CREATION_FEE}" }`));
-    transactions.push(new Transaction(genesisSteemBlock, 0, STEEM_PEGGED_ACCOUNT, 'tokens', 'issue', `{ "symbol": "STEEMP", "to": "${STEEM_PEGGED_ACCOUNT}", "quantity": 1000000000000, "isSignedWithActiveKey": true }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "RocketX", "symbol": "ROX", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"ROX", "metadata": { "url":"https://freedomex.io", "icon": "https://steemitimages.com/p/2r8F9rTBenJQfQgENfxADE6EVYabczqmSF5KeWefV5WL9WEVrMmPXB4iSZohFEWpEyn59TtaBZ7DfzERwCqS77VC4s38kVvb2PsBg57eAb7PriX4wMGh6KFVw1c9rvVV8", "desc": "ROX is the native token for the RocketX platform" }}'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ROX", "to": "rocketx", "quantity": 1000000000, "isSignedWithActiveKey": true }'));
 
     return transactions;
   }

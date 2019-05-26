@@ -7,12 +7,12 @@ const REGISTER_NODE_ACTION = 'registerNode'; // action to register a block produ
 const VOTE = 'vote'; // vote for a block producer
 const UNVOTE = 'unvote'; // unvote for a block producer
 
-const UTILITY_TOKEN_SYMBOL = 'ENG';
-const UTILITY_TOKEN_NAME = 'Steem Smart Contract Token';
+const UTILITY_TOKEN_SYMBOL = 'ROX';
+const UTILITY_TOKEN_NAME = 'Rocketx';
 const UTILITY_TOKEN_METADA = '{}';
 const UTILITY_TOKEN_PRECISION = 8;
 const MINIMUM_TOKEN_VALUE = 0.00000001;
-const UTILITY_TOKEN_INITIAL_SUPPLY = 4000000;
+const UTILITY_TOKEN_INITIAL_SUPPLY = 1000000000;
 
 const CONSTANTS = {
   CONTRACT_NAME,
@@ -70,7 +70,7 @@ const CONSTANTS = {
   // initial balances definition, UTILITY_TOKEN_SYMBOL will be minted and issued to these accounts
   INITIAL_BALANCES: [
     {
-      account: 'steemsc',
+      account: 'rocketx',
       symbol: UTILITY_TOKEN_SYMBOL,
       balance: UTILITY_TOKEN_INITIAL_SUPPLY,
     },

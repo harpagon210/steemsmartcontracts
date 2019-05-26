@@ -1,5 +1,5 @@
 {
-    "chainId": "00000000000000000002",
+    "chainId": "dapptestnet",
     "rpcNodePort": 5000,
     "dataDirectory": "./data/",
     "databaseFileName": "database.db",
@@ -12,6 +12,6 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 29056257,
-    "genesisSteemBlock": 29056257
+    "startSteemBlock": 33255082,
+    "genesisSteemBlock": 33255082
 }
