@@ -1,4 +1,7 @@
-# RocketX Steem Smart Contracts 
+# RocketX Steem Smart Contracts
+
+![](https://i.imgur.com/MxrXqDy.png)
+
  ## 1.  What is it?
 
 RocketX Steem Smart Contracts is a sidechain powered by Steem, it allows you to perform actions on a decentralized database via the power of Smart Contracts.
