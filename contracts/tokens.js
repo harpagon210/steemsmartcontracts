@@ -574,28 +574,35 @@ actions.updateStakingParams = async (payload) => {
 */
 
 actions.stake = async (payload) => {
-  const { symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    symbol,
+    quantity,
+    to,
+    isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
+    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     // a valid steem account is between 3 and 16 characters in length
     const token = await api.db.findOne('tokens', { symbol });
 
+    const finalTo = to.trim();
+
     // the symbol must exist
     // then we need to check that the quantity is correct
-    if (api.assert(token !== null, 'symbol does not exist')
+    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')
+      && api.assert(token !== null, 'symbol does not exist')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
       if (await subBalance(api.sender, token, quantity, 'balances')) {
-        const res = await addStake(api.sender, token, quantity);
+        const res = await addStake(finalTo, token, quantity);
 
         if (res === false) {
           await addBalance(api.sender, token, quantity, 'balances');
         } else {
-          api.emit('stake', { account: api.sender, symbol, quantity });
+          api.emit('stake', { account: finalTo, symbol, quantity });
         }
       }
     }
@@ -703,8 +710,27 @@ actions.cancelUnstake = async (payload) => {
   }
 };
 
+const balanceTemplate = {
+  account: null,
+  symbol: null,
+  balance: '0',
+  stake: '0',
+  pendingUnstake: '0',
+  delegationsIn: '0',
+  delegationsOut: '0',
+  pendingUndelegations: '0',
+};
+
 const addStake = async (account, token, quantity) => {
-  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+  let balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+
+  if (balance === null) {
+    balance = balanceTemplate;
+    balance.account = account;
+    balance.symbol = token.symbol;
+
+    balance = await api.db.insert('balances', balance);
+  }
 
   if (balance.stake === undefined) {
     balance.stake = '0';
@@ -771,17 +797,6 @@ const subBalance = async (account, token, quantity, table) => {
   }
 
   return false;
-};
-
-const balanceTemplate = {
-  account: null,
-  symbol: null,
-  balance: '0',
-  stake: '0',
-  pendingUnstake: '0',
-  delegationsIn: '0',
-  delegationsOut: '0',
-  pendingUndelegations: '0',
 };
 
 const addBalance = async (account, token, quantity, table) => {
@@ -891,7 +906,7 @@ actions.delegate = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && to && typeof to === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    const finalTo = to;
+    const finalTo = to.trim();
     // a valid steem account is between 3 and 16 characters in length
     if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
       const token = await api.db.findOne('tokens', { symbol });
@@ -1031,7 +1046,7 @@ actions.undelegate = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && to && typeof to === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    const finalTo = to;
+    const finalTo = to.trim();
     // a valid steem account is between 3 and 16 characters in length
     if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
       const token = await api.db.findOne('tokens', { symbol });
