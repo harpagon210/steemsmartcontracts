@@ -11,14 +11,14 @@ actions.createSSC = async () => {
 
     const params = {};
     params.tokenCreationFee = '0';
-    params.updateStakingParamsFee = '100';
-    params.updateDelegationParamsFee = '100';
+    // params.updateStakingParamsFee = '100';
+    // params.updateDelegationParamsFee = '100';
     await api.db.insert('params', params);
   } else {
-    const params = await api.db.findOne('params', {});
+    /* const params = await api.db.findOne('params', {});
     params.updateStakingParamsFee = '100';
     params.updateDelegationParamsFee = '100';
-    await api.db.update('params', params);
+    await api.db.update('params', params); */
   }
 
   tableExists = await api.db.tableExists('pendingUnstakes');
@@ -44,13 +44,13 @@ actions.createSSC = async () => {
 actions.updateParams = async (payload) => {
   if (api.sender !== api.owner) return;
 
-  const { tokenCreationFee, updateStakingParamsFee, updateDelegationParamsFee } = payload;
+  const { tokenCreationFee /* , updateStakingParamsFee, updateDelegationParamsFee */ } = payload;
 
   const params = await api.db.findOne('params', {});
 
   params.tokenCreationFee = tokenCreationFee;
-  params.updateStakingParamsFee = updateStakingParamsFee;
-  params.updateDelegationParamsFee = updateDelegationParamsFee;
+  // params.updateStakingParamsFee = updateStakingParamsFee;
+  // params.updateDelegationParamsFee = updateDelegationParamsFee;
 
   await api.db.update('params', params);
 };
@@ -532,6 +532,7 @@ actions.enableStaking = async (payload) => {
   }
 };
 
+/*
 actions.updateStakingParams = async (payload) => {
   const {
     symbol,
@@ -570,6 +571,7 @@ actions.updateStakingParams = async (payload) => {
     }
   }
 };
+*/
 
 actions.stake = async (payload) => {
   const { symbol, quantity, isSignedWithActiveKey } = payload;
@@ -838,6 +840,7 @@ actions.enableDelegation = async (payload) => {
   }
 };
 
+/*
 actions.updateDelegationParams = async (payload) => {
   const {
     symbol,
@@ -873,6 +876,8 @@ actions.updateDelegationParams = async (payload) => {
     }
   }
 };
+
+*/
 
 actions.delegate = async (payload) => {
   const {
