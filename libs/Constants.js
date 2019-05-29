@@ -1,0 +1,22 @@
+const CONSTANTS = {
+  // utility token definition
+  UTILITY_TOKEN_SYMBOL: 'ENG',
+  UTILITY_TOKEN_PRECISION: 8,
+
+  // pegged token definition
+  STEEM_PEGGED_SYMBOL: 'STEEMP',
+  STEEM_PEGGED_ACCOUNT: 'steem-peg',
+
+  // default values
+  ACCOUNT_RECEIVING_FEES: 'steemsc',
+  INITIAL_TOKEN_CREATION_FEE: '100',
+  SSC_STORE_PRICE: '0.001',
+  SSC_STORE_QTY: '0.001',
+
+  // forks definitions
+  FORK_BLOCK_NUMBER: 30896500,
+  FORK_BLOCK_NUMBER_TWO: 30983000,
+  FORK_BLOCK_NUMBER_THREE: 31992326,
+};
+
+module.exports.CONSTANTS = CONSTANTS;

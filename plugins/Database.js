@@ -5,7 +5,6 @@ const enchex = require('crypto-js/enc-hex');
 const validator = require('validator');
 const lfsa = require('../libs/loki-fs-structured-adapter');
 const { IPC } = require('../libs/IPC');
-const { BlockProduction } = require('../libs/BlockProduction');
 
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
