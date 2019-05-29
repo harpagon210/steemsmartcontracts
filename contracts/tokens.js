@@ -11,7 +11,14 @@ actions.createSSC = async () => {
 
     const params = {};
     params.tokenCreationFee = '0';
+    params.updateStakingParamsFee = '100';
+    params.updateDelegationParamsFee = '100';
     await api.db.insert('params', params);
+  } else {
+    const params = await api.db.findOne('params', {});
+    params.updateStakingParamsFee = '100';
+    params.updateDelegationParamsFee = '100';
+    await api.db.update('params', params);
   }
 
   tableExists = await api.db.tableExists('pendingUnstakes');
@@ -37,11 +44,13 @@ actions.createSSC = async () => {
 actions.updateParams = async (payload) => {
   if (api.sender !== api.owner) return;
 
-  const { tokenCreationFee } = payload;
+  const { tokenCreationFee, updateStakingParamsFee, updateDelegationParamsFee } = payload;
 
   const params = await api.db.findOne('params', {});
 
-  params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed('${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}$') : tokenCreationFee;
+  params.tokenCreationFee = tokenCreationFee;
+  params.updateStakingParamsFee = updateStakingParamsFee;
+  params.updateDelegationParamsFee = updateDelegationParamsFee;
 
   await api.db.update('params', params);
 };
@@ -531,7 +540,15 @@ actions.updateStakingParams = async (payload) => {
     isSignedWithActiveKey,
   } = payload;
 
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { updateStakingParamsFee } = params;
+
+  // get api.sender's UTILITY_TOKEN_SYMBOL balance
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (api.assert(api.BigNumber(utilityTokenBalance.balance).gte(updateStakingParamsFee), 'you must have enough tokens to cover the fees')
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
     && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 365, 'unstakingCooldown must be an integer between 1 and 365')
     && api.assert(numberTransactions && Number.isInteger(numberTransactions) && numberTransactions > 0 && numberTransactions <= 365, 'numberTransactions must be an integer between 1 and 365')) {
@@ -543,6 +560,13 @@ actions.updateStakingParams = async (payload) => {
       token.unstakingCooldown = unstakingCooldown;
       token.numberTransactions = numberTransactions;
       await api.db.update('tokens', token);
+
+      // burn the token creation fees
+      if (api.BigNumber(updateStakingParamsFee).gt(0)) {
+        await actions.transfer({
+          to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateStakingParamsFee, isSignedWithActiveKey,
+        });
+      }
     }
   }
 };
@@ -821,7 +845,15 @@ actions.updateDelegationParams = async (payload) => {
     isSignedWithActiveKey,
   } = payload;
 
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { updateDelegationParamsFee } = params;
+
+  // get api.sender's UTILITY_TOKEN_SYMBOL balance
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (api.assert(api.BigNumber(utilityTokenBalance.balance).gte(updateDelegationParamsFee), 'you must have enough tokens to cover the fees')
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
     && api.assert(undelegationCooldown && Number.isInteger(undelegationCooldown) && undelegationCooldown > 0 && undelegationCooldown <= 365, 'undelegationCooldown must be an integer between 1 and 365')) {
     const token = await api.db.findOne('tokens', { symbol });
@@ -831,6 +863,13 @@ actions.updateDelegationParams = async (payload) => {
       && api.assert(token.delegationEnabled === true, 'delegation not enabled')) {
       token.undelegationCooldown = undelegationCooldown;
       await api.db.update('tokens', token);
+
+      // burn the token creation fees
+      if (api.BigNumber(updateDelegationParamsFee).gt(0)) {
+        await actions.transfer({
+          to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateDelegationParamsFee, isSignedWithActiveKey,
+        });
+      }
     }
   }
 };
