@@ -1001,7 +1001,7 @@ actions.undelegate = async (payload) => {
         const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
 
         if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')
-          && api.assert(api.BigNumber(balanceFrom.delegationsOut).gte(quantity), 'nothing to undelegate')) {
+          && api.assert(api.BigNumber(balanceFrom.delegationsOut).gte(quantity), 'overdrawn delegation')) {
           const balanceTo = await api.db.findOne('balances', { account: to, symbol });
 
           if (api.assert(balanceTo !== null, 'balanceTo does not exist')) {
