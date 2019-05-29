@@ -99,11 +99,11 @@ class Bootstrap {
 
 
     // bootstrap transactions
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "ENG", "precision": 8, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', '{"symbol":"ENG", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemsc", "quantity": 2000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }'));
-    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', '{ "symbol": "ENG", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }'));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "precision": ${CONSTANTS.UTILITY_TOKEN_PRECISION}, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', `{"symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "steemsc", "quantity": 2000000, "isSignedWithActiveKey": true }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": 1000000, "isSignedWithActiveKey": true }`));
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'issue', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "steemmonsters", "quantity": 1000000, "isSignedWithActiveKey": true }`));
     transactions.push(new Transaction(genesisSteemBlock, 0, CONSTANTS.STEEM_PEGGED_ACCOUNT, 'tokens', 'create', '{ "name": "STEEM Pegged", "symbol": "STEEMP", "precision": 3, "maxSupply": 1000000000000 }'));
     transactions.push(new Transaction(genesisSteemBlock, 0, CONSTANTS.STEEM_PEGGED_ACCOUNT, 'tokens', 'updateMetadata', '{"symbol":"STEEMP", "metadata": { "desc": "STEEM backed by the steem-engine team" }}'));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'btcpeg', 'tokens', 'create', '{ "name": "BITCOIN Pegged", "symbol": "BTCP", "precision": 8, "maxSupply": 1000000000000 }'));
