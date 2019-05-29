@@ -140,7 +140,7 @@ actions.create = async (payload) => {
   const { tokenCreationFee } = params;
 
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
-  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
   const authorizedCreation = api.BigNumber(tokenCreationFee).lte(0)
     ? true
@@ -191,7 +191,7 @@ actions.create = async (payload) => {
         // burn the token creation fees
         if (api.BigNumber(tokenCreationFee).gt(0)) {
           await actions.transfer({
-            to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey,
+            to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey,
           });
         }
       }
@@ -546,7 +546,7 @@ actions.updateStakingParams = async (payload) => {
   const { updateStakingParamsFee } = params;
 
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
-  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
   if (api.assert(api.BigNumber(utilityTokenBalance.balance).gte(updateStakingParamsFee), 'you must have enough tokens to cover the fees')
     && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
@@ -565,7 +565,7 @@ actions.updateStakingParams = async (payload) => {
       // burn the token creation fees
       if (api.BigNumber(updateStakingParamsFee).gt(0)) {
         await actions.transfer({
-          to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateStakingParamsFee, isSignedWithActiveKey,
+          to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateStakingParamsFee, isSignedWithActiveKey,
         });
       }
     }
@@ -853,7 +853,7 @@ actions.updateDelegationParams = async (payload) => {
   const { updateDelegationParamsFee } = params;
 
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
-  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
   if (api.assert(api.BigNumber(utilityTokenBalance.balance).gte(updateDelegationParamsFee), 'you must have enough tokens to cover the fees')
     && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
@@ -870,7 +870,7 @@ actions.updateDelegationParams = async (payload) => {
       // burn the token creation fees
       if (api.BigNumber(updateDelegationParamsFee).gt(0)) {
         await actions.transfer({
-          to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateDelegationParamsFee, isSignedWithActiveKey,
+          to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: updateDelegationParamsFee, isSignedWithActiveKey,
         });
       }
     }

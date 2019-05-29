@@ -9,7 +9,7 @@ const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
-const BP_CONSTANTS = require('../libs/BlockProduction.contants').CONSTANTS;
+const { CONSTANTS } = require('../libs/Constants');
 
 //process.env.NODE_ENV = 'test';
 
@@ -97,8 +97,6 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-const SSC_STORE_QTY = '0.001';
-
 // sscstore
 describe('sscstore smart contract', () => {
 
@@ -131,14 +129,14 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
+            symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
 
       const balanceSatoshi = res.payload;
 
-      assert.equal(balanceSatoshi.balance, SSC_STORE_QTY);
+      assert.equal(balanceSatoshi.balance, CONSTANTS.SSC_STORE_QTY);
 
       resolve();
     })
@@ -178,7 +176,7 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
+            symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
@@ -208,7 +206,7 @@ describe('sscstore smart contract', () => {
           table: 'balances',
           query: {
             account: 'Satoshi',
-            symbol: BP_CONSTANTS.UTILITY_TOKEN_SYMBOL
+            symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
         }
       });
