@@ -2,17 +2,14 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
-const BigNumber = require('bignumber.js');
+const { MongoClient } = require('mongodb');
 const { Base64 } = require('js-base64');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
-const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
-
-//process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",
@@ -21,15 +18,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -117,10 +112,52 @@ let contractPayload = {
 describe('smart tokens', function () {
   this.timeout(30000);
 
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('should enable delegation', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -174,8 +211,7 @@ describe('smart tokens', function () {
 
   it('should not enable delegation', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -228,8 +264,7 @@ describe('smart tokens', function () {
 
   it('should delegate tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -334,6 +369,7 @@ describe('smart tokens', function () {
       });
 
       balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'satoshi');
@@ -369,12 +405,12 @@ describe('smart tokens', function () {
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
-      assert.equal(delegations[0].to, 'ned');
+      assert.equal(delegations[0].to, 'vitalik');
       assert.equal(delegations[0].quantity, '0.00000002');
 
       assert.equal(delegations[1].symbol, 'TKN');
       assert.equal(delegations[1].from, 'satoshi');
-      assert.equal(delegations[1].to, 'vitalik');
+      assert.equal(delegations[1].to, 'ned');
       assert.equal(delegations[1].quantity, '0.00000002');
 
       resolve();
@@ -388,8 +424,7 @@ describe('smart tokens', function () {
 
   it('should not delegate tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -491,8 +526,7 @@ describe('smart tokens', function () {
 
   it('should undelegate tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -534,6 +568,8 @@ describe('smart tokens', function () {
       });
 
       let balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
+
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].balance, "99.99999997");
@@ -569,13 +605,13 @@ describe('smart tokens', function () {
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
-      assert.equal(delegations[0].to, 'ned');
-      assert.equal(delegations[0].quantity, '0.00000001');
+      assert.equal(delegations[0].to, 'vitalik');
+      assert.equal(delegations[0].quantity, '0.00000002');
 
       assert.equal(delegations[1].symbol, 'TKN');
       assert.equal(delegations[1].from, 'satoshi');
-      assert.equal(delegations[1].to, 'vitalik');
-      assert.equal(delegations[1].quantity, '0.00000002');
+      assert.equal(delegations[1].to, 'ned');
+      assert.equal(delegations[1].quantity, '0.00000001');
 
       transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1242', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
@@ -605,6 +641,7 @@ describe('smart tokens', function () {
       });
 
       balances = res.payload;
+      balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'satoshi');
@@ -682,8 +719,7 @@ describe('smart tokens', function () {
 
   it('should not undelegate tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -751,8 +787,7 @@ describe('smart tokens', function () {
 
   it('should process the pending undelegations', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -870,8 +905,7 @@ describe('smart tokens', function () {
 
   it('should enable staking', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -922,8 +956,7 @@ describe('smart tokens', function () {
 
   it('should not enable staking', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -988,8 +1021,7 @@ describe('smart tokens', function () {
 
   it('should not enable staking again', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1050,8 +1082,7 @@ describe('smart tokens', function () {
 
   it('should stake tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1180,8 +1211,7 @@ describe('smart tokens', function () {
 
   it('should not stake tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1252,8 +1282,7 @@ describe('smart tokens', function () {
 
   it('should start the unstake process', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1363,8 +1392,7 @@ describe('smart tokens', function () {
 
   it('should not start the unstake process', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1433,8 +1461,7 @@ describe('smart tokens', function () {
 
   it('should cancel an unstake', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1592,8 +1619,7 @@ describe('smart tokens', function () {
 
   it('should not cancel an unstake', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1757,8 +1783,7 @@ describe('smart tokens', function () {
 
   it('should process the pending unstakes', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1962,8 +1987,7 @@ describe('smart tokens', function () {
 
   it.skip('should process thousands of pending unstakes', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -2236,8 +2260,7 @@ describe('smart tokens', function () {
 
   it('should process the pending unstakes (with multi transactions)', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 

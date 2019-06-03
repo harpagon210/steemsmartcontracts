@@ -80,7 +80,6 @@ class Block {
 
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
-
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
 
       currentDatabaseHash = transaction.databaseHash;

@@ -1,13 +1,13 @@
 /* eslint-disable */
 const { fork } = require('child_process');
 const assert = require('assert');
-const fs = require('fs-extra');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 const { CONSTANTS } = require('../libs/Constants');
+const { MongoClient } = require('mongodb');
 
 //process.env.NODE_ENV = 'test';
 
@@ -18,15 +18,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -96,11 +94,55 @@ const unloadPlugin = (plugin) => {
 }
 
 // dice
-describe.skip('dice', () => {
+describe.skip('dice', function() {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('makes you win', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -140,8 +182,7 @@ describe.skip('dice', () => {
 
   it('makes you lose', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 

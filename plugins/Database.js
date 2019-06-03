@@ -1,9 +1,8 @@
-const fs = require('fs-extra');
-const Loki = require('lokijs');
+/* eslint-disable no-await-in-loop */
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const validator = require('validator');
-const lfsa = require('../libs/loki-fs-structured-adapter');
+const { MongoClient } = require('mongodb');
 const { IPC } = require('../libs/IPC');
 
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
@@ -22,61 +21,75 @@ let chain = null;
 let saving = false;
 let databaseHash = '';
 
+const initSequence = async (name, startID = 1) => {
+  const sequences = database.collection('sequences');
+
+  await sequences.insertOne({ _id: name, seq: startID });
+};
+
+const getNextSequence = async (name) => {
+  const sequences = database.collection('sequences');
+
+  const sequence = await sequences.findOneAndUpdate(
+    { _id: name }, { $inc: { seq: 1 } }, { new: true },
+  );
+
+  return sequence.value.seq;
+};
+
+const getLastSequence = async (name) => {
+  const sequences = database.collection('sequences');
+
+  const sequence = await sequences.findOne({ _id: name });
+
+  return sequence.seq;
+};
+
+const getCollection = async name => new Promise((resolve) => {
+  database.collection(name, { strict: true }, (err, collection) => {
+    // collection does not exist
+    if (err) {
+      resolve(null);
+    }
+    resolve(collection);
+  });
+});
+
 // load the database from the filesystem
-async function init(conf, callback) {
+const init = async (conf, callback) => {
   const {
-    autosaveInterval,
-    databaseFileName,
-    dataDirectory,
+    databaseURL,
+    databaseName,
   } = conf;
 
-  const databaseFilePath = dataDirectory + databaseFileName;
-
   // init the database
-  database = new Loki(databaseFilePath, {
-    adapter: new lfsa(), // eslint-disable-line new-cap
-    autosave: autosaveInterval > 0,
-    autosaveInterval,
-  });
+  const client = await MongoClient.connect(databaseURL, { useNewUrlParser: true });
+  database = await client.db(databaseName);
+  // await database.dropDatabase();
+  // return
+  // get the chain collection and init the chain if not done yet
 
-  // check if the app has already be run
-  if (fs.pathExistsSync(databaseFilePath)) {
-    // load the database from the filesystem to the RAM
-    database.loadDatabase({}, (errorDb) => {
-      if (errorDb) {
-        callback(errorDb);
-      }
+  const coll = await getCollection('chain');
 
-      // if the chain or the contracts collection doesn't exist we return an error
-      chain = database.getCollection('chain');
-      const contracts = database.getCollection('contracts');
-      if (chain === null || contracts === null) {
-        callback('The database is missing either the chain or the contracts table');
-      }
+  if (coll === null) {
+    await initSequence('chain', 0);
+    chain = await database.createCollection('chain');
 
-      callback(null);
-    });
+    await database.createCollection('transactions');
+    await database.createCollection('contracts');
   } else {
-    // create the data directory if necessary and empty it if files exists
-    fs.emptyDirSync(dataDirectory);
-
-    // init the main tables
-    chain = database.addCollection('chain', { indices: ['blockNumber'], disableMeta: true });
-    database.addCollection('transactions', { unique: ['txid'], disableMeta: true });
-    database.addCollection('contracts', { indices: ['name'], disableMeta: true });
-
-    callback(null);
+    chain = coll;
   }
-}
+  callback(null);
+};
 
-async function generateGenesisBlock(conf, callback) {
+const generateGenesisBlock = async (conf, callback) => {
   const {
     chainId,
     genesisSteemBlock,
   } = conf;
-
   // check if genesis block hasn't been generated already
-  const genBlock = actions.getBlockInfo(0);
+  let genBlock = await actions.getBlockInfo(0);
 
   if (!genBlock) {
     // insert the genesis block
@@ -90,55 +103,49 @@ async function generateGenesisBlock(conf, callback) {
         },
       },
     );
-    chain.insert(res.payload);
+    genBlock = res.payload;
 
-    // initialize the block production tools
-    // BlockProduction.initialize(database, genesisSteemBlock);
+    genBlock._id = await getNextSequence('chain'); // eslint-disable-line no-underscore-dangle
+
+    await chain.insertOne(genBlock);
   }
 
   callback();
-}
+};
 
 // save the blockchain as well as the database on the filesystem
 actions.save = (callback) => {
   saving = true;
 
-  // save the database from the RAM to the filesystem
-  database.saveDatabase((err) => {
-    saving = false;
-    if (err) {
-      callback(err);
-    }
-
-    callback(null);
-  });
+  saving = false;
+  callback(null);
 };
 
 // save the blockchain as well as the database on the filesystem
-function stop(callback) {
+const stop = (callback) => {
   actions.save(callback);
-}
+};
 
-function addTransactions(block) {
-  const transactionsTable = database.getCollection('transactions');
+const addTransactions = async (block) => {
+  const transactionsTable = database.collection('transactions');
   const { transactions } = block;
   const nbTransactions = transactions.length;
 
   for (let index = 0; index < nbTransactions; index += 1) {
     const transaction = transactions[index];
     const transactionToSave = {
-      txid: transaction.transactionId,
+      _id: transaction.transactionId,
       blockNumber: block.blockNumber,
       index,
     };
 
-    transactionsTable.insert(transactionToSave);
+    await transactionsTable.insertOne(transactionToSave); // eslint-disable-line no-await-in-loop
   }
-}
+};
 
-function updateTableHash(contract, table, record) {
-  const contracts = database.getCollection('contracts');
-  const contractInDb = contracts.findOne({ name: contract });
+const updateTableHash = async (contract, table, record) => {
+  const contracts = database.collection('contracts');
+  const contractInDb = await contracts.findOne({ _id: contract });
 
   if (contractInDb && contractInDb.tables[table] !== undefined) {
     const recordHash = SHA256(JSON.stringify(record)).toString(enchex);
@@ -146,116 +153,149 @@ function updateTableHash(contract, table, record) {
 
     contractInDb.tables[table].hash = SHA256(tableHash + recordHash).toString(enchex);
 
-    contracts.update(contractInDb);
+    await contracts.updateOne({ _id: contract }, { $set: contractInDb });
 
     databaseHash = SHA256(databaseHash + contractInDb.tables[table].hash).toString(enchex);
   }
-}
-
-actions.initDatabaseHash = (previousDatabaseHash) => {
-  databaseHash = previousDatabaseHash;
 };
 
-actions.getDatabaseHash = () => databaseHash;
+actions.initDatabaseHash = (previousDatabaseHash, callback) => {
+  databaseHash = previousDatabaseHash;
+  callback();
+};
 
-actions.getTransactionInfo = (txid) => { // eslint-disable-line no-unused-vars
-  const transactionsTable = database.getCollection('transactions');
+actions.getDatabaseHash = (payload, callback) => {
+  callback(databaseHash);
+};
 
-  const transaction = transactionsTable.findOne({ txid });
+actions.getTransactionInfo = async (txid, callback) => {
+  const transactionsTable = database.collection('transactions');
+
+  const transaction = await transactionsTable.findOne({ _id: txid });
+
+  let result = null;
 
   if (transaction) {
     const { index, blockNumber } = transaction;
-    const block = actions.getBlockInfo(blockNumber);
+    const block = await actions.getBlockInfo(blockNumber);
 
     if (block) {
-      return Object.assign({}, { blockNumber }, block.transactions[index]);
+      result = Object.assign({}, { blockNumber }, block.transactions[index]);
     }
   }
 
-  return null;
+  callback(result);
 };
 
-actions.addBlock = (block) => { // eslint-disable-line no-unused-vars
-  chain.insert(block);
-  addTransactions(block);
+actions.addBlock = async (block, callback) => {
+  const finalBlock = block;
+  finalBlock._id = await getNextSequence('chain'); // eslint-disable-line no-underscore-dangle
+  await chain.insertOne(finalBlock);
+  await addTransactions(finalBlock);
+
+  callback();
 };
 
-actions.getLatestBlockInfo = () => { // eslint-disable-line no-unused-vars
-  const { maxId } = chain;
-  return chain.get(maxId);
+actions.getLatestBlockInfo = async (payload, callback) => {
+  const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
+
+  const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
+
+  callback(lastestBlock);
 };
 
-actions.getBlockInfo = blockNumber => chain.findOne({ blockNumber });
+actions.getBlockInfo = async (blockNumber, callback) => {
+  const block = await chain.findOne({ _id: blockNumber });
+
+  if (callback) {
+    callback(block);
+  }
+
+  return block;
+};
 
 /**
  * Get the information of a contract (owner, source code, etc...)
  * @param {String} contract name of the contract
  * @returns {Object} returns the contract info if it exists, null otherwise
  */
-actions.findContract = (payload) => {
+actions.findContract = async (payload, callback) => {
   const { name } = payload;
   if (name && typeof name === 'string') {
-    const contracts = database.getCollection('contracts');
-    const contractInDb = contracts.findOne({ name });
+    const contracts = database.collection('contracts');
+
+    const contractInDb = await contracts.findOne({ _id: name });
 
     if (contractInDb) {
+      if (callback) {
+        callback(contractInDb);
+      }
       return contractInDb;
     }
   }
 
+  if (callback) {
+    callback(null);
+  }
   return null;
 };
 
 /**
  * add a smart contract to the database
- * @param {String} name name of the contract
+ * @param {String} _id _id of the contract
  * @param {String} owner owner of the contract
  * @param {String} code code of the contract
  * @param {String} tables tables linked to the contract
  */
-actions.addContract = (payload) => { // eslint-disable-line no-unused-vars
+actions.addContract = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const {
-    name,
+    _id,
     owner,
     code,
     tables,
   } = payload;
 
-  if (name && typeof name === 'string'
+  if (_id && typeof _id === 'string'
     && owner && typeof owner === 'string'
     && code && typeof code === 'string'
     && tables && typeof tables === 'object') {
-    const contracts = database.getCollection('contracts');
-    contracts.insert(payload);
+    const contracts = database.collection('contracts');
+    await contracts.insertOne(payload);
   }
+
+  callback();
 };
 
 /**
  * update a smart contract in the database
- * @param {String} name name of the contract
+ * @param {String} _id _id of the contract
  * @param {String} owner owner of the contract
  * @param {String} code code of the contract
  * @param {String} tables tables linked to the contract
  */
-actions.updateContract = (payload) => { // eslint-disable-line no-unused-vars
+
+actions.updateContract = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const {
-    name,
+    _id,
     owner,
     code,
     tables,
   } = payload;
 
-  if (name && typeof name === 'string'
+  if (_id && typeof _id === 'string'
     && owner && typeof owner === 'string'
     && code && typeof code === 'string'
     && tables && typeof tables === 'object') {
-    const contracts = database.getCollection('contracts');
+    const contracts = database.collection('contracts');
 
-    if (contracts.findOne({ name, owner }) !== null) {
-      contracts.update(payload);
+    if (contracts.findOne({ _id, owner }) !== null) {
+      await contracts.updateOne({ _id }, { $set: payload });
     }
   }
+
+  callback();
 };
+
 
 /**
  * Add a table to the database
@@ -263,26 +303,42 @@ actions.updateContract = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} tableName name of the table
  * @param {Array} indexes array of string containing the name of the indexes to create
  */
-actions.createTable = (payload) => { // eslint-disable-line no-unused-vars
+actions.createTable = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const { contractName, tableName, indexes } = payload;
+  let result = false;
 
   // check that the params are correct
   // each element of the indexes array have to be a string if defined
   if (validator.isAlphanumeric(tableName)
     && Array.isArray(indexes)
     && (indexes.length === 0
-    || (indexes.length > 0 && indexes.every(el => typeof el === 'string' && validator.isAlphanumeric(el))))) {
+      || (indexes.length > 0 && indexes.every(el => typeof el === 'string' && validator.isAlphanumeric(el))))) {
     const finalTableName = `${contractName}_${tableName}`;
     // get the table from the database
-    const table = database.getCollection(finalTableName);
+    let table = await getCollection(finalTableName);
     if (table === null) {
       // if it doesn't exist, create it (with the binary indexes)
-      database.addCollection(finalTableName, { indices: indexes, disableMeta: true });
-      return true;
+      await initSequence(finalTableName);
+      await database.createCollection(finalTableName);
+      table = database.collection(finalTableName);
+
+      if (indexes.length > 0) {
+        const nbIndexes = indexes.length;
+
+        for (let i = 0; i < nbIndexes; i += 1) {
+          const index = indexes[i];
+          const finalIndex = {};
+          finalIndex[index] = 1;
+
+          await table.createIndex(finalIndex);
+        }
+      }
+
+      result = true;
     }
   }
 
-  return false;
+  callback(result);
 };
 
 /**
@@ -328,10 +384,10 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
 
       if (tableData) {
         // if there is an index passed, check if it exists
-        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined || el.index === '$loki')) {
+        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined || el.index === '$loki' || el.index === '_id')) {
           return tableData.chain()
             .find(query)
-            .compoundsort(ind.map(el => [el.index, el.descending]))
+            .compoundsort(ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending]))
             .offset(off)
             .limit(lim)
             .data();
@@ -352,29 +408,90 @@ actions.find = (payload) => { // eslint-disable-line no-unused-vars
 };
 
 /**
+ * retrieve records from the table of a contract
+ * @param {String} contract contract name
+ * @param {String} table table name
+ * @param {JSON} query query to perform on the table
+ * @param {Integer} limit limit the number of records to retrieve
+ * @param {Integer} offset offset applied to the records set
+ * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
+ * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
+ */
+actions.find = async (payload, callback) => {
+  try {
+    const {
+      contract,
+      table,
+      query,
+      limit,
+      offset,
+      indexes,
+    } = payload;
+
+    const lim = limit || 1000;
+    const off = offset || 0;
+    const ind = indexes || [];
+    let result = null;
+
+    if (contract && typeof contract === 'string'
+      && table && typeof table === 'string'
+      && query && typeof query === 'object'
+      && JSON.stringify(query).indexOf('$regex') === -1
+      && Array.isArray(ind)
+      && (ind.length === 0
+        || (ind.length > 0
+          && ind.every(el => el.index && typeof el.index === 'string'
+            && el.descending !== undefined && typeof el.descending === 'boolean')))
+      && Number.isInteger(lim)
+      && Number.isInteger(off)
+      && lim > 0 && lim <= 1000
+      && off >= 0) {
+      const finalTableName = `${contract}_${table}`;
+      const tableData = await getCollection(finalTableName);
+
+      if (tableData) {
+        // if there is an index passed, check if it exists
+        // TODO: check index exists
+        result = await tableData.find(query, {
+          limit: lim,
+          skip: off,
+          sort: ind.map(el => [el.index, el.descending === true ? 'desc' : 'asc']),
+        }).toArray();
+      }
+    }
+
+    callback(result);
+  } catch (error) {
+    callback(null);
+  }
+};
+
+/**
  * retrieve a record from the table of a contract
  * @param {String} contract contract name
  * @param {String} table table name
  * @param {JSON} query query to perform on the table
  * @returns {Object} returns a record if it exists, null otherwise
  */
-actions.findOne = (payload) => { // eslint-disable-line no-unused-vars
+actions.findOne = async (payload, callback) => { // eslint-disable-line no-unused-vars
   try {
     const { contract, table, query } = payload;
-
+    let result = null;
     if (contract && typeof contract === 'string'
       && table && typeof table === 'string'
       && query && typeof query === 'object'
       && JSON.stringify(query).indexOf('$regex') === -1) {
       const finalTableName = `${contract}_${table}`;
 
-      const tableData = database.getCollection(finalTableName);
-      return tableData ? tableData.findOne(query) : null;
+      const tableData = await getCollection(finalTableName);
+      if (tableData) {
+        result = await tableData.findOne(query);
+      }
     }
 
-    return null;
+    callback(result);
   } catch (error) {
-    return null;
+    callback(null);
   }
 };
 
@@ -384,20 +501,23 @@ actions.findOne = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to save in the table
  */
-actions.insert = (payload) => { // eslint-disable-line no-unused-vars
+actions.insert = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const { contract, table, record } = payload;
   const finalTableName = `${contract}_${table}`;
+  let finalRecord = null;
 
-  const contractInDb = actions.findContract({ name: contract });
+  const contractInDb = await actions.findContract({ name: contract });
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
-    const tableInDb = database.getCollection(finalTableName);
+    const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      const result = tableInDb.insert(record);
-      updateTableHash(contract, finalTableName, result);
-      return result;
+      finalRecord = record;
+      finalRecord._id = await getNextSequence(finalTableName); // eslint-disable-line
+      await tableInDb.insertOne(finalRecord);
+      await updateTableHash(contract, finalTableName, finalRecord);
     }
   }
-  return null;
+
+  callback(finalRecord);
 };
 
 /**
@@ -406,16 +526,18 @@ actions.insert = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to remove from the table
  */
-actions.remove = (payload) => { // eslint-disable-line no-unused-vars
+actions.remove = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const { contract, table, record } = payload;
   const finalTableName = `${contract}_${table}`;
 
-  const contractInDb = actions.findContract({ name: contract });
+  const contractInDb = await actions.findContract({ name: contract });
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
-    const tableInDb = database.getCollection(finalTableName);
+    const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      updateTableHash(contract, finalTableName, record);
-      tableInDb.remove(record);
+      await updateTableHash(contract, finalTableName, record);
+      tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
+
+      callback();
     }
   }
 };
@@ -426,18 +548,21 @@ actions.remove = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to update in the table
  */
-actions.update = (payload) => { // eslint-disable-line no-unused-vars
+actions.update = async (payload, callback) => {
   const { contract, table, record } = payload;
   const finalTableName = `${contract}_${table}`;
 
-  const contractInDb = actions.findContract({ name: contract });
+  const contractInDb = await actions.findContract({ name: contract });
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
-    const tableInDb = database.getCollection(finalTableName);
+    const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      updateTableHash(contract, finalTableName, record);
-      tableInDb.update(record);
+      await updateTableHash(contract, finalTableName, record);
+
+      tableInDb.updateOne({ _id: record._id }, { $set: record }); // eslint-disable-line
     }
   }
+
+  callback();
 };
 
 /**
@@ -447,18 +572,20 @@ actions.update = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} record record to update in the table
  * @returns {Object} returns the table details if it exists, null otherwise
  */
-actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
+actions.getTableDetails = async (payload, callback) => {
   const { contract, table } = payload;
   const finalTableName = `${contract}_${table}`;
-  const contractInDb = actions.findContract({ name: contract });
+  const contractInDb = await actions.findContract({ name: contract });
+  let tableDetails = null;
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
-    const tableInDb = database.getCollection(finalTableName);
+    const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      return { ...tableInDb, data: [] };
+      tableDetails = Object.assign({}, contractInDb.tables[finalTableName]);
+      tableDetails.indexes = await tableInDb.indexInformation();
     }
   }
 
-  return null;
+  callback(tableDetails);
 };
 
 /**
@@ -467,18 +594,19 @@ actions.getTableDetails = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @returns {Object} returns true if the table exists, false otherwise
  */
-actions.tableExists = (payload) => { // eslint-disable-line no-unused-vars
+actions.tableExists = async (payload, callback) => {
   const { contract, table } = payload;
   const finalTableName = `${contract}_${table}`;
-  const contractInDb = actions.findContract({ name: contract });
+  let result = false;
+  const contractInDb = await actions.findContract({ name: contract });
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
-    const tableInDb = database.getCollection(finalTableName);
+    const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      return true;
+      result = true;
     }
   }
 
-  return false;
+  callback(result);
 };
 
 /**
@@ -490,7 +618,7 @@ actions.tableExists = (payload) => { // eslint-disable-line no-unused-vars
  * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
  * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
  */
-actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
+actions.dfind = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const {
     table,
     query,
@@ -503,27 +631,18 @@ actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
   const off = offset || 0;
   const ind = indexes || [];
 
-  const tableData = database.getCollection(table);
+  const tableInDb = await getCollection(table);
+  let records = [];
 
-  if (tableData) {
-    // if there is an index passed, check if it exists
-    if (ind.length > 0) {
-      return tableData.chain()
-        .find(query)
-        .compoundsort(ind.map(el => [el.index, el.descending]))
-        .offset(off)
-        .limit(lim)
-        .data();
-    }
-
-    return tableData.chain()
-      .find(query)
-      .offset(off)
-      .limit(lim)
-      .data();
+  if (tableInDb) {
+    records = await tableInDb.find(query, {
+      limit: lim,
+      skip: off,
+      sort: ind.map(el => [el.index, el.descending === true ? 'desc' : 'asc']),
+    });
   }
 
-  return [];
+  callback(records);
 };
 
 /**
@@ -532,15 +651,17 @@ actions.dfind = (payload) => { // eslint-disable-line no-unused-vars
  * @param {JSON} query query to perform on the table
  * @returns {Object} returns a record if it exists, null otherwise
  */
-actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
+actions.dfindOne = async (payload, callback) => {
   const { table, query } = payload;
 
-  const tableData = database.getCollection(table);
-  if (tableData) {
-    return tableData.findOne(query);
+  const tableInDb = await getCollection(table);
+  let record = null;
+
+  if (tableInDb) {
+    record = await tableInDb.findOne(query);
   }
 
-  return null;
+  callback(record);
 };
 
 /**
@@ -548,11 +669,15 @@ actions.dfindOne = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to save in the table
  */
-actions.dinsert = (payload) => { // eslint-disable-line no-unused-vars
+actions.dinsert = async (payload, callback) => {
   const { table, record } = payload;
-  const tableInDb = database.getCollection(table);
-  updateTableHash(table.split('_')[0], table.split('_')[1], record);
-  return tableInDb.insert(record);
+  const tableInDb = database.collection(table);
+  const finalRecord = record;
+  finalRecord._id = await getNextSequence(table); // eslint-disable-line
+  await tableInDb.insertOne(finalRecord);
+  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+
+  callback(finalRecord);
 };
 
 /**
@@ -560,12 +685,16 @@ actions.dinsert = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to update in the table
  */
-actions.dupdate = (payload) => { // eslint-disable-line no-unused-vars
+actions.dupdate = async (payload, callback) => {
   const { table, record } = payload;
 
-  const tableInDb = database.getCollection(table);
-  updateTableHash(table.split('_')[0], table.split('_')[1], record);
-  tableInDb.update(record);
+  const tableInDb = database.collection(table);
+  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+  await tableInDb.updateOne(
+    { _id: record._id }, { $set: record }, // eslint-disable-line no-underscore-dangle
+  );
+
+  callback();
 };
 
 /**
@@ -573,12 +702,14 @@ actions.dupdate = (payload) => { // eslint-disable-line no-unused-vars
  * @param {String} table table name
  * @param {String} record record to remove from the table
  */
-actions.dremove = (payload) => { // eslint-disable-line no-unused-vars
+actions.dremove = async (payload, callback) => { // eslint-disable-line no-unused-vars
   const { table, record } = payload;
 
-  const tableInDb = database.getCollection(table);
-  updateTableHash(table.split('_')[0], table.split('_')[1], record);
-  tableInDb.remove(record);
+  const tableInDb = database.collection(table);
+  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+  await tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
+
+  callback();
 };
 
 ipc.onReceiveMessage((message) => {
@@ -609,9 +740,10 @@ ipc.onReceiveMessage((message) => {
     });
   } else if (action && typeof actions[action] === 'function') {
     if (!saving) {
-      const res = actions[action](payload);
-      // console.log('action', action, 'res', res, 'payload', payload);
-      ipc.reply(message, res);
+      actions[action](payload, (res) => {
+        // console.log('action', action, 'res', res, 'payload', payload);
+        ipc.reply(message, res);
+      });
     } else {
       ipc.reply(message);
     }

@@ -4,10 +4,11 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const BigNumber = require('bignumber.js');
 const { Base64 } = require('js-base64');
+const { MongoClient } = require('mongodb');
+
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
-const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
@@ -21,15 +22,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -113,11 +112,55 @@ let contractPayload = {
 };
 
 // tokens
-describe('Tokens smart contract', () => {
+describe('Tokens smart contract', function () {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('creates a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -170,8 +213,7 @@ describe('Tokens smart contract', () => {
 
   it('generates error when trying to create a token with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -227,8 +269,7 @@ describe('Tokens smart contract', () => {
 
   it('updates the url of a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -289,8 +330,7 @@ describe('Tokens smart contract', () => {
 
   it('does not update the url of a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -361,8 +401,7 @@ describe('Tokens smart contract', () => {
 
   it('updates the metadata of a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -425,8 +464,7 @@ describe('Tokens smart contract', () => {
 
   it('transfers the ownership of a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -504,8 +542,7 @@ describe('Tokens smart contract', () => {
 
   it('does not transfer the ownership of a token', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -593,8 +630,7 @@ describe('Tokens smart contract', () => {
 
   it('issues tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -660,8 +696,7 @@ describe('Tokens smart contract', () => {
 
   it('generates error when trying to issue tokens with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -716,8 +751,7 @@ describe('Tokens smart contract', () => {
 
   it('transfers tokens', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -819,8 +853,7 @@ describe('Tokens smart contract', () => {
 
   it('generates errors when trying to transfer tokens with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -878,8 +911,7 @@ describe('Tokens smart contract', () => {
 
   it('transfers tokens to a contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -972,8 +1004,7 @@ describe('Tokens smart contract', () => {
 
   it('generates errors when trying to transfer tokens to a contract with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1031,8 +1062,7 @@ describe('Tokens smart contract', () => {
 
   it('transfers tokens from a contract to a user', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1132,8 +1162,7 @@ describe('Tokens smart contract', () => {
 
   it('generates errors when trying to transfer tokens from a contract to a user with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1233,8 +1262,7 @@ describe('Tokens smart contract', () => {
 
   it('transfers tokens from a contract to a contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 
@@ -1348,8 +1376,7 @@ describe('Tokens smart contract', () => {
 
   it('generates errors when trying to transfer tokens from a contract to another contract with wrong parameters', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
 

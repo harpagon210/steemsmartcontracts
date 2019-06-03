@@ -2,14 +2,12 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const { Base64 } = require('js-base64');
-const fs = require('fs-extra');
+const { MongoClient } = require('mongodb');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
-
-//process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",
@@ -18,15 +16,13 @@ const conf = {
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
+  databaseURL: "mongodb://localhost:27017",
+  databaseName: "testssc",
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
-
-function cleanDataFolder() {
-  fs.emptyDirSync(conf.dataDirectory);
-}
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -96,12 +92,56 @@ const unloadPlugin = (plugin) => {
 }
 
 // Database
-describe('Database', () => {
+describe('Database', function () {
+
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
 
   it('should get the genesis block', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -119,8 +159,7 @@ describe('Database', () => {
 
   it('should get the latest block', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -168,11 +207,55 @@ describe('Database', () => {
 });
 
 // smart contracts
-describe('Smart Contracts', () => {
+describe('Smart Contracts', function ()  {
+  this.timeout(10000);
+
+  before((done) => {
+    new Promise(async (resolve) => {
+      client = await MongoClient.connect(conf.databaseURL, { useNewUrlParser: true });
+      db = await client.db(conf.databaseName);
+      await db.dropDatabase();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+  
+  after((done) => {
+    new Promise(async (resolve) => {
+      await client.close();
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  beforeEach((done) => {
+    new Promise(async (resolve) => {
+      db = await client.db(conf.databaseName);
+      resolve();
+    })
+      .then(() => {
+        done()
+      })
+  });
+
+  afterEach((done) => {
+      // runs after each test in this block
+      new Promise(async (resolve) => {
+        await db.dropDatabase()
+        resolve();
+      })
+        .then(() => {
+          done()
+        })
+  });
+
   it('should deploy a basic smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -207,7 +290,7 @@ describe('Smart Contracts', () => {
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
 
-      assert.equal(contract.name, 'testContract');
+      assert.equal(contract._id, 'testContract');
       assert.equal(contract.owner, 'steemsc');
       resolve()
     })
@@ -220,8 +303,7 @@ describe('Smart Contracts', () => {
 
   it('should create a table during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -258,11 +340,10 @@ describe('Smart Contracts', () => {
       const contract = res.payload;
 
       assert.notEqual(contract.tables['testContract_testTable'], undefined);
-
+      
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
 
       assert.notEqual(res.payload, null);
-
       resolve();
     })
       .then(() => {
@@ -274,8 +355,7 @@ describe('Smart Contracts', () => {
 
   it('should create a table with indexes during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -310,10 +390,17 @@ describe('Smart Contracts', () => {
 
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
       const table = res.payload;
-      const { binaryIndices } = table;
+      const { indexes } = table;
 
-      assert.notEqual(binaryIndices['index1'], undefined);
-      assert.notEqual(binaryIndices['index2'], undefined);
+      assert.equal(indexes._id_[0][0], '_id');
+      assert.equal(indexes._id_[0][1], 1);
+
+      assert.equal(indexes.index1_1[0][0], 'index1');
+      assert.equal(indexes.index1_1[0][1], 1);
+
+      assert.equal(indexes.index2_1[0][0], 'index2');
+      assert.equal(indexes.index2_1[0][1], 1);
+
       resolve();
     })
       .then(() => {
@@ -325,8 +412,7 @@ describe('Smart Contracts', () => {
 
   it('should add a record into a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -385,8 +471,7 @@ describe('Smart Contracts', () => {
 
   it('should update a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -458,8 +543,7 @@ describe('Smart Contracts', () => {
 
   it('should remove a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -526,8 +610,7 @@ describe('Smart Contracts', () => {
 
   it('should read the records from a smart contract table via pagination', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -590,8 +673,8 @@ describe('Smart Contracts', () => {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0].$loki, 1);
-      assert.equal(users[4].$loki, 5);
+      assert.equal(users[0]._id, 1);
+      assert.equal(users[4]._id, 5);
 
       payload = {
         contract: 'usersContract',
@@ -604,8 +687,8 @@ describe('Smart Contracts', () => {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0].$loki, 6);
-      assert.equal(users[4].$loki, 10);
+      assert.equal(users[0]._id, 6);
+      assert.equal(users[4]._id, 10);
 
       payload = {
         contract: 'usersContract',
@@ -631,8 +714,7 @@ describe('Smart Contracts', () => {
 
   it('should read the records from a smart contract table using an index ascending', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -699,8 +781,8 @@ describe('Smart Contracts', () => {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0].$loki, 6);
-      assert.equal(users[4].$loki, 2);
+      assert.equal(users[0]._id, 6);
+      assert.equal(users[4]._id, 2);
 
       payload = {
         contract: 'usersContract',
@@ -714,8 +796,8 @@ describe('Smart Contracts', () => {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0].$loki, 10);
-      assert.equal(users[4].$loki, 5);
+      assert.equal(users[0]._id, 10);
+      assert.equal(users[4]._id, 5);
 
       payload = {
         contract: 'usersContract',
@@ -742,8 +824,7 @@ describe('Smart Contracts', () => {
 
   it('should read the records from a smart contract table using an index descending', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -809,8 +890,8 @@ describe('Smart Contracts', () => {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       let users = res.payload;
 
-      assert.equal(users[0].$loki, 5);
-      assert.equal(users[4].$loki, 10);
+      assert.equal(users[0]._id, 5);
+      assert.equal(users[4]._id, 10);
 
       payload = {
         contract: 'usersContract',
@@ -824,8 +905,8 @@ describe('Smart Contracts', () => {
       res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
       users = res.payload;
 
-      assert.equal(users[0].$loki, 2);
-      assert.equal(users[4].$loki, 6);
+      assert.equal(users[0]._id, 2);
+      assert.equal(users[4]._id, 6);
 
       payload = {
         contract: 'usersContract',
@@ -852,8 +933,7 @@ describe('Smart Contracts', () => {
 
   it('should allow only the owner of the smart contract to perform certain actions', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -934,8 +1014,7 @@ describe('Smart Contracts', () => {
 
   it('should perform a search in a smart contract table from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1027,8 +1106,7 @@ describe('Smart Contracts', () => {
 
   it('should execute a smart contract from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1120,8 +1198,7 @@ describe('Smart Contracts', () => {
 
   it('should emit an event from a smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1176,8 +1253,7 @@ describe('Smart Contracts', () => {
 
   it('should emit an event from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1255,8 +1331,7 @@ describe('Smart Contracts', () => {
 
   it('should log an error during the deployment of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1310,8 +1385,7 @@ describe('Smart Contracts', () => {
 
   it('should log an error during the execution of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1368,8 +1442,7 @@ describe('Smart Contracts', () => {
 
   it('should log an error from another smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1445,8 +1518,7 @@ describe('Smart Contracts', () => {
 
   it('should generate random numbers in a deterministic way', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
@@ -1538,8 +1610,7 @@ describe('Smart Contracts', () => {
 
   it('should update a smart contract', (done) => {
     new Promise(async (resolve) => {
-      cleanDataFolder();
-
+      
       await loadPlugin(database);
       await loadPlugin(blockchain);
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
