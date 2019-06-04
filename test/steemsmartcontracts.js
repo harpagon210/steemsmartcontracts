@@ -712,7 +712,7 @@ describe('Smart Contracts', function ()  {
       });
   });
 
-  it('should read the records from a smart contract table using an index ascending', (done) => {
+  it('should read the records from a smart contract table using an index ascending (integer)', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -822,7 +822,117 @@ describe('Smart Contracts', function ()  {
       });
   });
 
-  it('should read the records from a smart contract table using an index descending', (done) => {
+  it('should read the records from a smart contract table using an index ascending (string)', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const smartContractCode = `
+        actions.createSSC = async (payload) => {
+          // Initialize the smart contract via the create action
+          await api.db.createTable('users', ['age']);
+        }
+
+        actions.addUser = async (payload) => {
+          const { age } = payload;
+
+          const newUser = {
+            'id': api.sender,
+            age
+          };
+
+          await api.db.insert('users', newUser);
+        }
+      `;
+
+      const base64SmartContractCode = Base64.encode(smartContractCode);
+
+      const contractPayload = {
+        name: 'usersContract',
+        params: '',
+        code: base64SmartContractCode,
+      };
+
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": "10" }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": "3" }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": "199" }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": "200" }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": "1" }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": "89" }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": "34" }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": "20" }'));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        offset: 0,
+        indexes: [{ index: 'age', descending: false }],
+      };
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      let users = res.payload;
+
+      assert.equal(users[0]._id, 6);
+      assert.equal(users[4]._id, 2);
+
+      payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        offset: 5,
+        indexes: [{ index: 'age', descending: false }],
+      };
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      users = res.payload;
+
+      assert.equal(users[0]._id, 10);
+      assert.equal(users[4]._id, 5);
+
+      payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        offset: 10,
+        indexes: [{ index: 'age', descending: false }],
+      };
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      users = res.payload;
+
+      assert.equal(users.length, 0);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should read the records from a smart contract table using an index descending (integer)', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -868,6 +978,115 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
       transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
       transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        indexes: [{ index: 'age', descending: true }],
+      };
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      let users = res.payload;
+
+      assert.equal(users[0]._id, 5);
+      assert.equal(users[4]._id, 10);
+
+      payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        offset: 5,
+        indexes: [{ index: 'age', descending: true }],
+      };
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      users = res.payload;
+
+      assert.equal(users[0]._id, 2);
+      assert.equal(users[4]._id, 6);
+
+      payload = {
+        contract: 'usersContract',
+        table: 'users',
+        query: {},
+        limit: 5,
+        offset: 10,
+        indexes: [{ index: 'age', descending: true }],
+      };
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
+      users = res.payload;
+
+      assert.equal(users.length, 0);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('should read the records from a smart contract table using an index descending (string)', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      const smartContractCode = `
+        actions.createSSC = async (payload) => {
+          // Initialize the smart contract via the create action
+          await api.db.createTable('users', ['age']);
+        }
+
+        actions.addUser = async (payload) => {
+          const { age } = payload;
+
+          const newUser = {
+            'id': api.sender,
+            age
+          };
+
+          await api.db.insert('users', newUser);
+        }
+      `;
+
+      const base64SmartContractCode = Base64.encode(smartContractCode);
+
+      const contractPayload = {
+        name: 'usersContract',
+        params: '',
+        code: base64SmartContractCode,
+      };
+
+
+      let transactions = [];
+      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": "10" }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": "3" }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": "199" }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": "200" }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": "1" }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": "89" }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": "34" }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": "20" }'));
 
       let block = {
         refSteemBlockNumber: 1,
