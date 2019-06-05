@@ -107,6 +107,25 @@ actions.updateMetadata = async (payload) => {
   }
 };
 
+actions.updatePrecision = async (payload) => {
+  const { symbol, precision, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string')
+    && api.assert((precision > 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')) {
+    // check if the token exists
+    const token = await api.db.findOne('tokens', { symbol });
+
+    if (token) {
+      if (api.assert(token.issuer === api.sender, 'must be the issuer')
+        && api.assert(precision > token.precision, 'precision can only be increased')) {
+        token.precision = precision;
+        await api.db.update('tokens', token);
+      }
+    }
+  }
+};
+
 actions.transferOwnership = async (payload) => {
   const { symbol, to, isSignedWithActiveKey } = payload;
 
