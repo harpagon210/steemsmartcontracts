@@ -227,6 +227,146 @@ describe('Tokens smart contract', () => {
       });
   });
 
+  it('updates the precision of a token', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(30896501, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(30896501, 'TXID1235', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30896501, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1237', 'Harpagon', 'tokens', 'updatePrecision', '{ "symbol": "TKN", "precision": 8, "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const token = res.payload;
+
+      assert.equal(token.precision, 8);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not update the precision of a token', (done) => {
+    new Promise(async (resolve) => {
+      cleanDataFolder();
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(30896501, 'TXID1236', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": 0.001 }'));
+      transactions.push(new Transaction(30896501, 'TXID1235', 'Harpagon', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30896501, 'TXID1234', 'Harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1237', 'Harpagon', 'tokens', 'updatePrecision', '{ "symbol": "TKN", "precision": 2 }'));
+      transactions.push(new Transaction(30896501, 'TXID1238', 'Harpagon', 'tokens', 'updatePrecision', '{ "symbol": "TKN", "precision": 10, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30896501, 'TXID1239', 'Satoshi', 'tokens', 'updatePrecision', '{ "symbol": "TKN", "precision": 5, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30896501, 'TXID1240', 'Harpagon', 'tokens', 'updatePrecision', '{ "symbol": "TKN", "precision": 2, "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'tokens',
+          table: 'tokens',
+          query: {
+            symbol: 'TKN'
+          }
+        }
+      });
+
+      const token = res.payload;
+
+      assert.equal(token.precision, 3);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[0].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[1].logs).errors[0], 'invalid precision');
+      assert.equal(JSON.parse(transactionsBlock1[2].logs).errors[0], 'must be the issuer');
+      assert.equal(JSON.parse(transactionsBlock1[3].logs).errors[0], 'precision can only be increased');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
   it('updates the url of a token', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
