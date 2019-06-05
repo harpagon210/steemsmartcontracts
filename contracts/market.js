@@ -106,7 +106,7 @@ actions.buy = async (payload) => {
           order.account = api.sender;
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
-          order.price = api.BigNumber(price).toFixed(3);
+          order.price = api.BigNumber(price).toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
@@ -166,7 +166,7 @@ actions.sell = async (payload) => {
           order.account = api.sender;
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
-          order.price = api.BigNumber(price).toFixed(3);
+          order.price = api.BigNumber(price).toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
             : timestampSec + expiration;
