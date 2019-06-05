@@ -105,8 +105,8 @@ actions.buy = async (payload) => {
           order.timestamp = timestampSec;
           order.account = api.sender;
           order.symbol = symbol;
-          order.quantity = quantity;
-          order.price = price;
+          order.quantity = api.BigNumber(quantity).toFixed(token.precision);
+          order.price = api.BigNumber(price).toFixed(3);
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
@@ -165,8 +165,8 @@ actions.sell = async (payload) => {
           order.timestamp = timestampSec;
           order.account = api.sender;
           order.symbol = symbol;
-          order.quantity = quantity;
-          order.price = price;
+          order.quantity = api.BigNumber(quantity).toFixed(token.precision);
+          order.price = api.BigNumber(price).toFixed(3);
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
             : timestampSec + expiration;
