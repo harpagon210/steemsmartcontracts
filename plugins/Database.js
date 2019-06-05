@@ -482,6 +482,10 @@ actions.findOne = async (payload, callback) => { // eslint-disable-line no-unuse
       && table && typeof table === 'string'
       && query && typeof query === 'object'
       && JSON.stringify(query).indexOf('$regex') === -1) {
+      if (query.$loki) {
+        query._id = query.$loki; // eslint-disable-line no-underscore-dangle
+        delete query.$loki;
+      }
       const finalTableName = `${contract}_${table}`;
 
       const tableData = await getCollection(finalTableName);
@@ -658,6 +662,11 @@ actions.dfindOne = async (payload, callback) => {
 
   const tableInDb = await getCollection(table);
   let record = null;
+
+  if (query.$loki) {
+    query._id = query.$loki; // eslint-disable-line no-underscore-dangle
+    delete query.$loki;
+  }
 
   if (tableInDb) {
     record = await tableInDb.findOne(query);
