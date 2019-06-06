@@ -82,7 +82,8 @@ actions.produceNewBlock = async (block) => {
   producing = true;
   // the stream parsed transactions from the Steem blockchain
   const {
-    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
+    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
+    transactions, timestamp, virtualTransactions,
   } = block;
   const newTransactions = [];
 
@@ -98,7 +99,7 @@ actions.produceNewBlock = async (block) => {
   });
 
   // if there are transactions pending we produce a block
-  if (newTransactions.length > 0) {
+  if (newTransactions.length > 0 || (virtualTransactions && virtualTransactions.length > 0)) {
     await producePendingTransactions(
       refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, newTransactions, timestamp,
     );
@@ -111,7 +112,8 @@ const produceNewBlockSync = async (block, callback = null) => {
   producing = true;
   // the stream parsed transactions from the Steem blockchain
   const {
-    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
+    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
+    transactions, timestamp, virtualTransactions,
   } = block;
   const newTransactions = [];
 
@@ -127,7 +129,7 @@ const produceNewBlockSync = async (block, callback = null) => {
   });
 
   // if there are transactions pending we produce a block
-  if (newTransactions.length > 0) {
+  if (newTransactions.length > 0 || (virtualTransactions && virtualTransactions.length > 0)) {
     await producePendingTransactions(
       refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, newTransactions, timestamp,
     );
