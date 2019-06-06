@@ -93,7 +93,9 @@ class Block {
     const virtualTransactions = [];
 
     // check the pending unstakings
-    virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
+    if (this.refSteemBlockNumber >= 32713424) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
+    }
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
