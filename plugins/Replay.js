@@ -58,6 +58,7 @@ function replayFile(callback) {
             refSteemBlockNumber,
             refSteemBlockId,
             prevRefSteemBlockId,
+            virtualTransactions,
           } = block;
 
           let finalRefSteemBlockId = refSteemBlockId;
@@ -81,6 +82,7 @@ function replayFile(callback) {
               refSteemBlockId: finalRefSteemBlockId,
               prevRefSteemBlockId: finalPrevRefSteemBlockId,
               transactions,
+              virtualTransactions,
             });
           }
         }
