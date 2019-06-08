@@ -94,7 +94,7 @@ actions.buy = async (payload) => {
           order.account = api.sender;
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
-          order.price = api.BigNumber(price).toFixed(3);
+          order.price = api.BigNumber(price).toFixed(8);
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
@@ -147,7 +147,7 @@ actions.sell = async (payload) => {
           order.account = api.sender;
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
-          order.price = api.BigNumber(price).toFixed(3);
+          order.price = api.BigNumber(price).toFixed(8);
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
           const orderInDb = await api.db.insert('sellBook', order);
