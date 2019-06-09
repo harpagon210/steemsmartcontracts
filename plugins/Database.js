@@ -451,13 +451,23 @@ actions.find = async (payload, callback) => {
 
       if (tableData) {
         // if there is an index passed, check if it exists
-        // TODO: check index exists
-        result = await tableData.find(query, {
-          limit: lim,
-          skip: off,
-          sort: ind.map(el => [el.index, el.descending === true ? 'desc' : 'asc']),
-          collation: { locale: 'en', numericOrdering: true },
-        }).toArray();
+        if (ind.length > 0) {
+          const tableIndexes = await tableData.indexInformation();
+
+          if (ind.every(el => tableIndexes[`${el.index}_1`] !== undefined || el.index === '$loki' || el.index === '_id')) {
+            result = await tableData.find(query, {
+              limit: lim,
+              skip: off,
+              sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
+              collation: { locale: 'en', numericOrdering: true },
+            }).toArray();
+          }
+        } else {
+          result = await tableData.find(query, {
+            limit: lim,
+            skip: off,
+          }).toArray();
+        }
       }
     }
 
@@ -643,7 +653,7 @@ actions.dfind = async (payload, callback) => { // eslint-disable-line no-unused-
     records = await tableInDb.find(query, {
       limit: lim,
       skip: off,
-      sort: ind.map(el => [el.index, el.descending === true ? 'desc' : 'asc']),
+      sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
       collation: { locale: 'en', numericOrdering: true },
     });
   }
