@@ -459,7 +459,6 @@ actions.find = async (payload, callback) => {
               limit: lim,
               skip: off,
               sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
-              collation: { locale: 'en', numericOrdering: true },
             }).toArray();
           }
         } else {
@@ -654,7 +653,6 @@ actions.dfind = async (payload, callback) => { // eslint-disable-line no-unused-
       limit: lim,
       skip: off,
       sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
-      collation: { locale: 'en', numericOrdering: true },
     });
   }
 

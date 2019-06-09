@@ -8,8 +8,8 @@ actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('buyBook');
 
   if (tableExists === false) {
-    await api.db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
-    await api.db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
+    await api.db.createTable('buyBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
+    await api.db.createTable('sellBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
     await api.db.createTable('tradesHistory', ['symbol']);
     await api.db.createTable('metrics', ['symbol']);
   }
@@ -107,6 +107,7 @@ actions.buy = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
+          order.priceInt = api.BigNumber(order.price).shiftedBy(STEEM_PEGGED_SYMBOL_PRESICION).toNumber();
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
@@ -167,6 +168,7 @@ actions.sell = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
+          order.priceInt = api.BigNumber(order.price).shiftedBy(STEEM_PEGGED_SYMBOL_PRESICION).toNumber();
           order.expiration = expiration === undefined || expiration > 2592000
             ? timestampSec + 2592000
             : timestampSec + expiration;
@@ -201,8 +203,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
     },
   }, 1000, offset,
   [
-    { index: 'price', descending: false },
-    { index: '$loki', descending: false },
+    { index: 'priceInt', descending: false },
+    { index: '_id', descending: false },
   ]);
 
   do {
@@ -364,8 +366,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
         },
       }, 1000, offset,
       [
-        { index: 'price', descending: false },
-        { index: '$loki', descending: false },
+        { index: 'priceInt', descending: false },
+        { index: '_id', descending: false },
       ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
@@ -402,8 +404,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
     },
   }, 1000, offset,
   [
-    { index: 'price', descending: true },
-    { index: '$loki', descending: false },
+    { index: 'priceInt', descending: true },
+    { index: '_id', descending: false },
   ]);
 
   do {
@@ -558,8 +560,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
         },
       }, 1000, offset,
       [
-        { index: 'price', descending: true },
-        { index: '$loki', descending: false },
+        { index: 'priceInt', descending: true },
+        { index: '_id', descending: false },
       ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
@@ -712,7 +714,7 @@ const updateBidMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'price', descending: true },
+      { index: 'priceInt', descending: true },
     ]);
 
 
@@ -733,7 +735,7 @@ const updateAskMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'price', descending: false },
+      { index: 'priceInt', descending: false },
     ]);
 
   if (sellOrderBook.length > 0) {

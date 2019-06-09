@@ -2,8 +2,8 @@ const STEEM_PEGGED_SYMBOL = 'STEEMP';
 const CONTRACT_NAME = 'market';
 
 actions.createSSC = async (payload) => {
-  await api.db.createTable('buyBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
-  await api.db.createTable('sellBook', ['symbol', 'account', 'price', 'expiration', 'txId']);
+  await api.db.createTable('buyBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
+  await api.db.createTable('sellBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
   await api.db.createTable('tradesHistory', ['symbol']);
   await api.db.createTable('metrics', ['symbol']);
 };
@@ -21,7 +21,7 @@ actions.cancel = async (payload) => {
     let order = null;
     // get order
     if (api.refSteemBlockNumber < '${FORK_BLOCK_NUMBER_THREE}$' && Number.isInteger(id)) {
-      order = await api.db.findOne(table, { $loki: id });
+      order = await api.db.findOne(table, { _id: id });
     } else if (api.refSteemBlockNumber >= '${FORK_BLOCK_NUMBER_THREE}$' && typeof id === 'string' && id.length < 50) {
       order = await api.db.findOne(table, { txId: id });
     }
@@ -95,6 +95,7 @@ actions.buy = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(8);
+          order.priceInt = api.BigNumber(order.price).shiftedBy(8).toNumber();
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
@@ -148,6 +149,7 @@ actions.sell = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(8);
+          order.priceInt = api.BigNumber(order.price).shiftedBy(8).toNumber();
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
           const orderInDb = await api.db.insert('sellBook', order);
@@ -176,8 +178,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
     },
   }, 1000, offset,
     [
-      { index: 'price', descending: false },
-      { index: '$loki', descending: false },
+      { index: 'priceInt', descending: false },
+      { index: '_id', descending: false },
     ]);
 
   do {
@@ -332,8 +334,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
         },
       }, 1000, offset,
         [
-          { index: 'price', descending: false },
-          { index: '$loki', descending: false },
+          { index: 'priceInt', descending: false },
+          { index: '_id', descending: false },
         ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
@@ -366,8 +368,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
     },
   }, 1000, offset,
     [
-      { index: 'price', descending: true },
-      { index: '$loki', descending: false },
+      { index: 'priceInt', descending: true },
+      { index: '_id', descending: false },
     ]);
 
   do {
@@ -514,8 +516,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
         },
       }, 1000, offset,
         [
-          { index: 'price', descending: true },
-          { index: '$loki', descending: false },
+          { index: 'priceInt', descending: true },
+          { index: '_id', descending: false },
         ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
@@ -659,7 +661,7 @@ const updateBidMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'price', descending: true },
+      { index: 'priceInt', descending: true },
     ]
   );
 
@@ -681,7 +683,7 @@ const updateAskMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'price', descending: false },
+      { index: 'priceInt', descending: false },
     ]
   );
 
