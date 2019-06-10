@@ -822,7 +822,7 @@ describe('Smart Contracts', function ()  {
       });
   });
 
-  it('should read the records from a smart contract table using an index ascending (string)', (done) => {
+  it.skip('should read the records from a smart contract table using an index ascending (string)', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1041,7 +1041,7 @@ describe('Smart Contracts', function ()  {
       });
   });
 
-  it('should read the records from a smart contract table using an index descending (string)', (done) => {
+  it.skip('should read the records from a smart contract table using an index descending (string)', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
