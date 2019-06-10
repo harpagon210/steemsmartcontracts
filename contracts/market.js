@@ -186,7 +186,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   const {
     account,
     symbol,
-    price,
+    priceInt,
   } = order;
 
   const buyOrder = order;
@@ -198,8 +198,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   // get the orders that match the symbol and the price
   let sellOrderBook = await api.db.find('sellBook', {
     symbol,
-    price: {
-      $lte: price,
+    priceInt: {
+      $lte: priceInt,
     },
   }, 1000, offset,
   [
@@ -361,8 +361,8 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       // get the orders that match the symbol and the price
       sellOrderBook = await api.db.find('sellBook', {
         symbol,
-        price: {
-          $lte: price,
+        priceInt: {
+          $lte: priceInt,
         },
       }, 1000, offset,
       [
@@ -387,7 +387,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   const {
     account,
     symbol,
-    price,
+    priceInt,
   } = order;
 
   const sellOrder = order;
@@ -399,8 +399,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   // get the orders that match the symbol and the price
   let buyOrderBook = await api.db.find('buyBook', {
     symbol,
-    price: {
-      $gte: price,
+    priceInt: {
+      $gte: priceInt,
     },
   }, 1000, offset,
   [
@@ -555,8 +555,8 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       // get the orders that match the symbol and the price
       buyOrderBook = await api.db.find('buyBook', {
         symbol,
-        price: {
-          $gte: price,
+        priceInt: {
+          $gte: priceInt,
         },
       }, 1000, offset,
       [
