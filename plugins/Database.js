@@ -351,72 +351,6 @@ actions.createTable = async (payload, callback) => { // eslint-disable-line no-u
  * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
  * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
  */
-actions.find = (payload) => { // eslint-disable-line no-unused-vars
-  try {
-    const {
-      contract,
-      table,
-      query,
-      limit,
-      offset,
-      indexes,
-    } = payload;
-
-    const lim = limit || 1000;
-    const off = offset || 0;
-    const ind = indexes || [];
-
-    if (contract && typeof contract === 'string'
-      && table && typeof table === 'string'
-      && query && typeof query === 'object'
-      && JSON.stringify(query).indexOf('$regex') === -1
-      && Array.isArray(ind)
-      && (ind.length === 0
-        || (ind.length > 0
-          && ind.every(el => el.index && typeof el.index === 'string'
-                              && el.descending !== undefined && typeof el.descending === 'boolean')))
-      && Number.isInteger(lim)
-      && Number.isInteger(off)
-      && lim > 0 && lim <= 1000
-      && off >= 0) {
-      const finalTableName = `${contract}_${table}`;
-      const tableData = database.getCollection(finalTableName);
-
-      if (tableData) {
-        // if there is an index passed, check if it exists
-        if (ind.length > 0 && ind.every(el => tableData.binaryIndices[el.index] !== undefined || el.index === '$loki' || el.index === '_id')) {
-          return tableData.chain()
-            .find(query)
-            .compoundsort(ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending]))
-            .offset(off)
-            .limit(lim)
-            .data();
-        }
-
-        return tableData.chain()
-          .find(query)
-          .offset(off)
-          .limit(lim)
-          .data();
-      }
-    }
-
-    return null;
-  } catch (error) {
-    return null;
-  }
-};
-
-/**
- * retrieve records from the table of a contract
- * @param {String} contract contract name
- * @param {String} table table name
- * @param {JSON} query query to perform on the table
- * @param {Integer} limit limit the number of records to retrieve
- * @param {Integer} offset offset applied to the records set
- * @param {Array<Object>} indexes array of index definitions { index: string, descending: boolean }
- * @returns {Array<Object>} returns an array of objects if records found, an empty array otherwise
- */
 actions.find = async (payload, callback) => {
   try {
     const {
@@ -549,7 +483,7 @@ actions.remove = async (payload, callback) => { // eslint-disable-line no-unused
     const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
       await updateTableHash(contract, finalTableName, record);
-      tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
+      await tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
 
       callback();
     }
@@ -572,7 +506,7 @@ actions.update = async (payload, callback) => {
     if (tableInDb) {
       await updateTableHash(contract, finalTableName, record);
 
-      tableInDb.updateOne({ _id: record._id }, { $set: record }); // eslint-disable-line
+      await tableInDb.updateOne({ _id: record._id }, { $set: record }); // eslint-disable-line
     }
   }
 
@@ -649,11 +583,18 @@ actions.dfind = async (payload, callback) => { // eslint-disable-line no-unused-
   let records = [];
 
   if (tableInDb) {
-    records = await tableInDb.find(query, {
-      limit: lim,
-      skip: off,
-      sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
-    });
+    if (ind.length > 0) {
+      records = await tableInDb.find(query, {
+        limit: lim,
+        skip: off,
+        sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
+      });
+    } else {
+      records = await tableInDb.find(query, {
+        limit: lim,
+        skip: off,
+      });
+    }
   }
 
   callback(records);

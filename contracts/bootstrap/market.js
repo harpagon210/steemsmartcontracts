@@ -179,6 +179,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   }, 1000, offset,
     [
       { index: 'priceInt', descending: false },
+      { index: '_id', descending: false },
     ]);
 
   do {
@@ -334,6 +335,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       }, 1000, offset,
         [
           { index: 'priceInt', descending: false },
+          { index: '_id', descending: false },
         ]);
     }
   } while (sellOrderBook.length > 0 && api.BigNumber(buyOrder.quantity).gt(0));
@@ -367,6 +369,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   }, 1000, offset,
     [
       { index: 'priceInt', descending: true },
+      { index: '_id', descending: false },
     ]);
 
   do {
@@ -514,6 +517,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       }, 1000, offset,
         [
           { index: 'priceInt', descending: true },
+          { index: '_id', descending: false },
         ]);
     }
   } while (buyOrderBook.length > 0 && api.BigNumber(sellOrder.quantity).gt(0));
