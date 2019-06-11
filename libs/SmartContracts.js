@@ -286,6 +286,13 @@ class SmartContracts {
 
       const rng = seedrandom(`${prevRefSteemBlockId}${refSteemBlockId}${transactionId}`);
 
+      // init bignumber decimal places
+      if (refSteemBlockNumber > 33719500) {
+        BigNumber.set({ DECIMAL_PLACES: 20 });
+      } else {
+        BigNumber.set({ DECIMAL_PLACES: 3 });
+      }
+
       // initialize the state that will be available in the VM
       const vmState = {
         api: {
