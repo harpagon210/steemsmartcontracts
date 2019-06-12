@@ -288,7 +288,8 @@ actions.updateContract = async (payload, callback) => { // eslint-disable-line n
     && tables && typeof tables === 'object') {
     const contracts = database.collection('contracts');
 
-    if (contracts.findOne({ _id, owner }) !== null) {
+    const contract = await contracts.findOne({ _id, owner });
+    if (contract !== null) {
       await contracts.updateOne({ _id }, { $set: payload });
     }
   }
