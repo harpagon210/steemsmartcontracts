@@ -241,6 +241,53 @@ actions.issue = async (payload) => {
   }
 };
 
+actions.issueToContract = async (payload) => {
+  const {
+    to, symbol, quantity, isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(to && typeof to === 'string'
+      && symbol && typeof symbol === 'string'
+      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+    const finalTo = to.trim();
+    const token = await api.db.findOne('tokens', { symbol });
+
+    // the symbol must exist
+    // the api.sender must be the issuer
+    // then we need to check that the quantity is correct
+    if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.issuer === api.sender, 'not allowed to issue tokens')
+      && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+      && api.assert(api.BigNumber(quantity).gt(0), 'must issue positive quantity')
+      && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
+
+      // a valid contract name is between 3 and 50 characters in length
+      if (api.assert(finalTo.length >= 3 && finalTo.length <= 50, 'invalid to')) {
+        // we made all the required verification, let's now issue the tokens
+
+        const res = await addBalance(finalTo, token, quantity, 'contractsBalances');
+
+        if (api.assert(res === true, 'an error happened while trying to issue the tokens')) {
+          token.supply = calculateBalance(token.supply, quantity, token.precision, true);
+
+          if (finalTo !== 'null') {
+            token.circulatingSupply = calculateBalance(
+              token.circulatingSupply, quantity, token.precision, true,
+            );
+          }
+
+          await api.db.update('tokens', token);
+
+          api.emit('issueToContract', {
+            from: 'tokens', to: finalTo, symbol, quantity,
+          });
+        }
+      }
+    }
+  }
+};
+
 actions.transfer = async (payload) => {
   const {
     to, symbol, quantity, isSignedWithActiveKey,
