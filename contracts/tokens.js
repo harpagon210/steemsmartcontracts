@@ -202,7 +202,8 @@ actions.create = async (payload) => {
           circulatingSupply: '0',
           stakingEnabled: false,
           unstakingCooldown: 1,
-          nbDays100PercentVoteRegeneration: 1,
+          delegationEnabled: false,
+          undelegationCooldown: 0,
         };
 
         await api.db.insert('tokens', newToken);
