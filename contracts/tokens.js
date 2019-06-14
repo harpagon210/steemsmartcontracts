@@ -1016,37 +1016,33 @@ actions.delegate = async (payload) => {
             await api.db.insert('delegations', delegation);
 
             api.emit('delegate', { to, symbol, quantity });
-          } else if (api.assert(api.BigNumber(delegation.quantity).lt(quantity), 'new delegation must higher than the existing one')) {
-            // if a delegation already exists, it can only be increased
-            // to decrease a delegation an undelegation is required
-            const delta = calculateBalance(
-              quantity, delegation.quantity, token.precision, false,
-            );
+          } else {
+            // if a delegation already exists, increase it
 
             // update balanceFrom
             balanceFrom.stake = calculateBalance(
-              balanceFrom.stake, delta, token.precision, false,
+              balanceFrom.stake, quantity, token.precision, false,
             );
             balanceFrom.delegationsOut = calculateBalance(
-              balanceFrom.delegationsOut, delta, token.precision, true,
+              balanceFrom.delegationsOut, quantity, token.precision, true,
             );
 
             await api.db.update('balances', balanceFrom);
 
             // update balanceTo
             balanceTo.delegationsIn = calculateBalance(
-              balanceTo.delegationsIn, delta, token.precision, true,
+              balanceTo.delegationsIn, quantity, token.precision, true,
             );
 
             await api.db.update('balances', balanceTo);
 
             // update delegation
             delegation.quantity = calculateBalance(
-              delegation.quantity, delta, token.precision, true,
+              delegation.quantity, quantity, token.precision, true,
             );
 
             await api.db.update('delegations', delegation);
-            api.emit('updateDelegate', { to, symbol, quantity });
+            api.emit('delegate', { to, symbol, quantity });
           }
         }
       }

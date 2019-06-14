@@ -306,7 +306,7 @@ describe('smart tokens', function () {
       transactions.push(new Transaction(12345678901, 'TXID1241', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000003", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1242', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1243', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "ned", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1244', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "ned", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "ned", "isSignedWithActiveKey": true }'));
 
       block = {
         refSteemBlockNumber: 12345678901,
@@ -317,7 +317,6 @@ describe('smart tokens', function () {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
       
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -345,13 +344,13 @@ describe('smart tokens', function () {
       assert.equal(balances[1].account, 'vitalik');
       assert.equal(balances[1].balance, "0");
       assert.equal(balances[1].stake, "0");
-      assert.equal(balances[1].delegationsIn, "0.00000002");
+      assert.equal(balances[1].delegationsIn, "0.00000003");
 
       assert.equal(balances[2].symbol, 'TKN');
       assert.equal(balances[2].account, 'ned');
       assert.equal(balances[2].balance, "100");
       assert.equal(balances[2].stake, "0");
-      assert.equal(balances[2].delegationsIn, "0.00000002");
+      assert.equal(balances[2].delegationsIn, "0.00000001");
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -370,12 +369,12 @@ describe('smart tokens', function () {
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
       assert.equal(delegations[0].to, 'ned');
-      assert.equal(delegations[0].quantity, '0.00000002');
+      assert.equal(delegations[0].quantity, '0.00000001');
 
       assert.equal(delegations[1].symbol, 'TKN');
       assert.equal(delegations[1].from, 'satoshi');
       assert.equal(delegations[1].to, 'vitalik');
-      assert.equal(delegations[1].quantity, '0.00000002');
+      assert.equal(delegations[1].quantity, '0.00000003');
 
       resolve();
     })
@@ -455,30 +454,6 @@ describe('smart tokens', function () {
       assert.equal(JSON.parse(txs[10].logs).errors[0], 'must delegate positive quantity');
       assert.equal(JSON.parse(txs[11].logs).errors[0], 'balanceFrom does not exist');
       assert.equal(JSON.parse(txs[12].logs).errors[0], 'overdrawn stake');
-
-
-      transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1250', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000003", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1251', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1252', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
-
-      block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
-
-      txs = res.payload.transactions;
-      assert.equal(JSON.parse(txs[2].logs).errors[0], 'new delegation must higher than the existing one');
 
       resolve();
     })
