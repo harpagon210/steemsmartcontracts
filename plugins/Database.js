@@ -143,15 +143,14 @@ const addTransactions = async (block) => {
   }
 };
 
-const updateTableHash = async (contract, table, record) => {
+const updateTableHash = async (contract, table) => {
   const contracts = database.collection('contracts');
   const contractInDb = await contracts.findOne({ _id: contract });
 
   if (contractInDb && contractInDb.tables[table] !== undefined) {
-    const recordHash = SHA256(JSON.stringify(record)).toString(enchex);
     const tableHash = contractInDb.tables[table].hash;
 
-    contractInDb.tables[table].hash = SHA256(tableHash + recordHash).toString(enchex);
+    contractInDb.tables[table].hash = SHA256(tableHash).toString(enchex);
 
     await contracts.updateOne({ _id: contract }, { $set: contractInDb });
 
@@ -462,7 +461,7 @@ actions.insert = async (payload, callback) => { // eslint-disable-line no-unused
       finalRecord = record;
       finalRecord._id = await getNextSequence(finalTableName); // eslint-disable-line
       await tableInDb.insertOne(finalRecord);
-      await updateTableHash(contract, finalTableName, finalRecord);
+      await updateTableHash(contract, finalTableName);
     }
   }
 
@@ -483,7 +482,7 @@ actions.remove = async (payload, callback) => { // eslint-disable-line no-unused
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      await updateTableHash(contract, finalTableName, record);
+      await updateTableHash(contract, finalTableName);
       await tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
 
       callback();
@@ -505,7 +504,7 @@ actions.update = async (payload, callback) => {
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      await updateTableHash(contract, finalTableName, record);
+      await updateTableHash(contract, finalTableName);
 
       await tableInDb.updateOne({ _id: record._id }, { $set: record }); // eslint-disable-line
     }
@@ -636,7 +635,7 @@ actions.dinsert = async (payload, callback) => {
   const finalRecord = record;
   finalRecord._id = await getNextSequence(table); // eslint-disable-line
   await tableInDb.insertOne(finalRecord);
-  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+  await updateTableHash(table.split('_')[0], table.split('_')[1]);
 
   callback(finalRecord);
 };
@@ -650,7 +649,7 @@ actions.dupdate = async (payload, callback) => {
   const { table, record } = payload;
 
   const tableInDb = database.collection(table);
-  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+  await updateTableHash(table.split('_')[0], table.split('_')[1]);
   await tableInDb.updateOne(
     { _id: record._id }, { $set: record }, // eslint-disable-line no-underscore-dangle
   );
@@ -667,7 +666,7 @@ actions.dremove = async (payload, callback) => { // eslint-disable-line no-unuse
   const { table, record } = payload;
 
   const tableInDb = database.collection(table);
-  await updateTableHash(table.split('_')[0], table.split('_')[1], record);
+  await updateTableHash(table.split('_')[0], table.split('_')[1]);
   await tableInDb.deleteOne({ _id: record._id }); // eslint-disable-line no-underscore-dangle
 
   callback();
