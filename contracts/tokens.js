@@ -1054,17 +1054,17 @@ actions.undelegate = async (payload) => {
   const {
     symbol,
     quantity,
-    to,
+    from,
     isSignedWithActiveKey,
   } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-    && to && typeof to === 'string'
+    && from && typeof from === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    const finalTo = to.trim();
+    const finalFrom = from.trim();
     // a valid steem account is between 3 and 16 characters in length
-    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+    if (api.assert(finalFrom.length >= 3 && finalFrom.length <= 16, 'invalid from')) {
       const token = await api.db.findOne('tokens', { symbol });
 
       // the symbol must exist
@@ -1073,34 +1073,34 @@ actions.undelegate = async (payload) => {
         && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
         && api.assert(token.delegationEnabled === true, 'delegation not enabled')
         && api.assert(api.BigNumber(quantity).gt(0), 'must undelegate positive quantity')) {
-        const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
+        const balanceTo = await api.db.findOne('balances', { account: api.sender, symbol });
 
-        if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')
-          && api.assert(api.BigNumber(balanceFrom.delegationsOut).gte(quantity), 'overdrawn delegation')) {
-          const balanceTo = await api.db.findOne('balances', { account: to, symbol });
+        if (api.assert(balanceTo !== null, 'balanceTo does not exist')
+          && api.assert(api.BigNumber(balanceTo.delegationsOut).gte(quantity), 'overdrawn delegation')) {
+          const balanceFrom = await api.db.findOne('balances', { account: finalFrom, symbol });
 
-          if (api.assert(balanceTo !== null, 'balanceTo does not exist')) {
+          if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')) {
             // look for an existing delegation
-            const delegation = await api.db.findOne('delegations', { to, symbol });
+            const delegation = await api.db.findOne('delegations', { to: finalFrom, symbol });
 
             if (api.assert(delegation !== null, 'delegation does not exist')
               && api.assert(api.BigNumber(delegation.quantity).gte(quantity), 'overdrawn delegation')) {
-              // update balanceFrom
-              balanceFrom.pendingUndelegations = calculateBalance(
+              // update balanceTo
+              balanceTo.pendingUndelegations = calculateBalance(
                 balanceFrom.pendingUndelegations, quantity, token.precision, true,
               );
-              balanceFrom.delegationsOut = calculateBalance(
-                balanceFrom.delegationsOut, quantity, token.precision, false,
-              );
-
-              await api.db.update('balances', balanceFrom);
-
-              // update balanceTo
-              balanceTo.delegationsIn = calculateBalance(
-                balanceTo.delegationsIn, quantity, token.precision, false,
+              balanceTo.delegationsOut = calculateBalance(
+                balanceTo.delegationsOut, quantity, token.precision, false,
               );
 
               await api.db.update('balances', balanceTo);
+
+              // update balanceFrom
+              balanceFrom.delegationsIn = calculateBalance(
+                balanceFrom.delegationsIn, quantity, token.precision, false,
+              );
+
+              await api.db.update('balances', balanceFrom);
 
               // update delegation
               delegation.quantity = calculateBalance(
@@ -1129,7 +1129,7 @@ actions.undelegate = async (payload) => {
 
               await api.db.insert('pendingUndelegations', undelegation);
 
-              api.emit('undelegateStart', { to, symbol, quantity });
+              api.emit('undelegateStart', { from: finalFrom, symbol, quantity });
             }
           }
         }
