@@ -603,6 +603,7 @@ actions.stake = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
+    && to && typeof to === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     // a valid steem account is between 3 and 16 characters in length
     const token = await api.db.findOne('tokens', { symbol });
