@@ -3,6 +3,7 @@ const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const validator = require('validator');
 const { MongoClient } = require('mongodb');
+const { EJSON } = require('bson');
 const { IPC } = require('../libs/IPC');
 
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
@@ -389,14 +390,14 @@ actions.find = async (payload, callback) => {
           const tableIndexes = await tableData.indexInformation();
 
           if (ind.every(el => tableIndexes[`${el.index}_1`] !== undefined || el.index === '$loki' || el.index === '_id')) {
-            result = await tableData.find(query, {
+            result = await tableData.find(EJSON.deserialize(query), {
               limit: lim,
               skip: off,
               sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
             }).toArray();
           }
         } else {
-          result = await tableData.find(query, {
+          result = await tableData.find(EJSON.deserialize(query), {
             limit: lim,
             skip: off,
           }).toArray();
@@ -433,7 +434,7 @@ actions.findOne = async (payload, callback) => { // eslint-disable-line no-unuse
 
       const tableData = await getCollection(finalTableName);
       if (tableData) {
-        result = await tableData.findOne(query);
+        result = await tableData.findOne(EJSON.deserialize(query));
       }
     }
 
@@ -458,7 +459,7 @@ actions.insert = async (payload, callback) => { // eslint-disable-line no-unused
   if (contractInDb && contractInDb.tables[finalTableName] !== undefined) {
     const tableInDb = await getCollection(finalTableName);
     if (tableInDb) {
-      finalRecord = record;
+      finalRecord = EJSON.deserialize(record);
       finalRecord._id = await getNextSequence(finalTableName); // eslint-disable-line
       await tableInDb.insertOne(finalRecord);
       await updateTableHash(contract, finalTableName);
@@ -506,7 +507,7 @@ actions.update = async (payload, callback) => {
     if (tableInDb) {
       await updateTableHash(contract, finalTableName);
 
-      await tableInDb.updateOne({ _id: record._id }, { $set: record }); // eslint-disable-line
+      await tableInDb.updateOne({ _id: record._id }, { $set: EJSON.deserialize(record) }); // eslint-disable-line
     }
   }
 
@@ -584,13 +585,13 @@ actions.dfind = async (payload, callback) => { // eslint-disable-line no-unused-
 
   if (tableInDb) {
     if (ind.length > 0) {
-      records = await tableInDb.find(query, {
+      records = await tableInDb.find(EJSON.deserialize(query), {
         limit: lim,
         skip: off,
         sort: ind.map(el => [el.index === '$loki' ? '_id' : el.index, el.descending === true ? 'desc' : 'asc']),
       });
     } else {
-      records = await tableInDb.find(query, {
+      records = await tableInDb.find(EJSON.deserialize(query), {
         limit: lim,
         skip: off,
       });
@@ -618,7 +619,7 @@ actions.dfindOne = async (payload, callback) => {
   }
 
   if (tableInDb) {
-    record = await tableInDb.findOne(query);
+    record = await tableInDb.findOne(EJSON.deserialize(query));
   }
 
   callback(record);
@@ -634,7 +635,7 @@ actions.dinsert = async (payload, callback) => {
   const tableInDb = database.collection(table);
   const finalRecord = record;
   finalRecord._id = await getNextSequence(table); // eslint-disable-line
-  await tableInDb.insertOne(finalRecord);
+  await tableInDb.insertOne(EJSON.deserialize(finalRecord));
   await updateTableHash(table.split('_')[0], table.split('_')[1]);
 
   callback(finalRecord);
@@ -651,7 +652,8 @@ actions.dupdate = async (payload, callback) => {
   const tableInDb = database.collection(table);
   await updateTableHash(table.split('_')[0], table.split('_')[1]);
   await tableInDb.updateOne(
-    { _id: record._id }, { $set: record }, // eslint-disable-line no-underscore-dangle
+    { _id: record._id }, // eslint-disable-line no-underscore-dangle
+    { $set: EJSON.deserialize(record) },
   );
 
   callback();

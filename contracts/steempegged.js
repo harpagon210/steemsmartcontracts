@@ -38,7 +38,7 @@ actions.buy = async (payload) => {
 
       if (api.BigNumber(fee).gt(0)) {
         const memo = `fee tx ${api.transactionId}`;
-        await initiateWithdrawal(`${api.transactionId}-fee`, "'${ACCOUNT_RECEIVING_FEES}$'", fee, memo);
+        await initiateWithdrawal(`${api.transactionId}-fee`, "'${CONSTANTS.ACCOUNT_RECEIVING_FEES}$'", fee, memo);
       }
     } else {
       // SBD not supported
@@ -75,7 +75,7 @@ actions.withdraw = async (payload) => {
 
         if (api.BigNumber(fee).gt(0)) {
           memo = `fee tx ${api.transactionId}`;
-          await initiateWithdrawal(`${api.transactionId}-fee`, "'${ACCOUNT_RECEIVING_FEES}$'", fee, memo);
+          await initiateWithdrawal(`${api.transactionId}-fee`, "'${CONSTANTS.ACCOUNT_RECEIVING_FEES}$'", fee, memo);
         }
       }
     }

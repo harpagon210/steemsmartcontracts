@@ -2,8 +2,8 @@ const STEEM_PEGGED_SYMBOL = 'STEEMP';
 const CONTRACT_NAME = 'market';
 
 actions.createSSC = async (payload) => {
-  await api.db.createTable('buyBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
-  await api.db.createTable('sellBook', ['symbol', 'account', 'priceInt', 'expiration', 'txId']);
+  await api.db.createTable('buyBook', ['symbol', 'account', 'priceDec', 'expiration', 'txId']);
+  await api.db.createTable('sellBook', ['symbol', 'account', 'priceDec', 'expiration', 'txId']);
   await api.db.createTable('tradesHistory', ['symbol']);
   await api.db.createTable('metrics', ['symbol']);
 };
@@ -95,7 +95,7 @@ actions.buy = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(8);
-          order.priceInt = api.BigNumber(order.price).shiftedBy(8).toNumber();
+          order.priceDec = { $numberDecimal: order.price };
           order.tokensLocked = nbTokensToLock;
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
@@ -149,7 +149,7 @@ actions.sell = async (payload) => {
           order.symbol = symbol;
           order.quantity = api.BigNumber(quantity).toFixed(token.precision);
           order.price = api.BigNumber(price).toFixed(8);
-          order.priceInt = api.BigNumber(order.price).shiftedBy(8).toNumber();
+          order.priceDec = { $numberDecimal: order.price };
           order.expiration = expiration === undefined || expiration > 2592000 ? timestampSec + 2592000 : timestampSec + expiration;
 
           const orderInDb = await api.db.insert('sellBook', order);
@@ -162,7 +162,7 @@ actions.sell = async (payload) => {
 };
 
 const findMatchingSellOrders = async (order, tokenPrecision) => {
-  const { txId, account, symbol, quantity, priceInt } = order;
+  const { txId, account, symbol, quantity, priceDec } = order;
 
   const buyOrder = order;
   let offset = 0;
@@ -173,12 +173,12 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
   // get the orders that match the symbol and the price
   let sellOrderBook = await api.db.find('sellBook', {
     symbol,
-    priceInt: {
-      $lte: priceInt,
+    priceDec: {
+      $lte: priceDec,
     },
   }, 1000, offset,
     [
-      { index: 'priceInt', descending: false },
+      { index: 'priceDec', descending: false },
       { index: '_id', descending: false },
     ]);
 
@@ -329,12 +329,12 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
       // get the orders that match the symbol and the price
       sellOrderBook = await api.db.find('sellBook', {
         symbol,
-        priceInt: {
-          $lte: priceInt,
+        priceDec: {
+          $lte: priceDec,
         },
       }, 1000, offset,
         [
-          { index: 'priceInt', descending: false },
+          { index: 'priceDec', descending: false },
           { index: '_id', descending: false },
         ]);
     }
@@ -352,7 +352,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
 };
 
 const findMatchingBuyOrders = async (order, tokenPrecision) => {
-  const { txId, account, symbol, quantity, priceInt } = order;
+  const { txId, account, symbol, quantity, priceDec } = order;
 
   const sellOrder = order;
   let offset = 0;
@@ -363,12 +363,12 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
   // get the orders that match the symbol and the price
   let buyOrderBook = await api.db.find('buyBook', {
     symbol,
-    priceInt: {
-      $gte: priceInt,
+    priceDec: {
+      $gte: priceDec,
     },
   }, 1000, offset,
     [
-      { index: 'priceInt', descending: true },
+      { index: 'priceDec', descending: true },
       { index: '_id', descending: false },
     ]);
 
@@ -511,12 +511,12 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
       // get the orders that match the symbol and the price
       buyOrderBook = await api.db.find('buyBook', {
         symbol,
-        priceInt: {
-          $gte: priceInt,
+        priceDec: {
+          $gte: priceDec,
         },
       }, 1000, offset,
         [
-          { index: 'priceInt', descending: true },
+          { index: 'priceDec', descending: true },
           { index: '_id', descending: false },
         ]);
     }
@@ -661,7 +661,7 @@ const updateBidMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'priceInt', descending: true },
+      { index: 'priceDec', descending: true },
     ]
   );
 
@@ -683,7 +683,7 @@ const updateAskMetric = async (symbol) => {
       symbol,
     }, 1, 0,
     [
-      { index: 'priceInt', descending: false },
+      { index: 'priceDec', descending: false },
     ]
   );
 

@@ -2,7 +2,7 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
-const { MongoClient } = require('mongodb');
+const { MongoClient, Decimal128 } = require('mongodb');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -108,7 +108,7 @@ let tknContractPayload = {
 
 contractCode = fs.readFileSync('./contracts/steempegged.js');
 contractCode = contractCode.toString();
-contractCode = contractCode.replace(/'\$\{BP_CONSTANTS.ACCOUNT_RECEIVING_FEES\}\$'/g, CONSTANTS.ACCOUNT_RECEIVING_FEES);
+contractCode = contractCode.replace(/'\$\{CONSTANTS.ACCOUNT_RECEIVING_FEES\}\$'/g, CONSTANTS.ACCOUNT_RECEIVING_FEES);
 base64ContractCode = Base64.encode(contractCode);
 
 let spContractPayload = {
@@ -471,7 +471,12 @@ describe('Market', function() {
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1234', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "satoshi", "quantity": "123.456", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1235', 'satoshi', 'market', 'sell', '{ "symbol": "TKN", "quantity": "100.276", "price": "0.00000001", "isSignedWithActiveKey": true }'));
-
+      transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "NKT", "precision": 8, "maxSupply": "9007199254740991", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "NKT", "to": "satoshi", "quantity": "123.456", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1238', 'satoshi', 'market', 'sell', '{ "symbol": "NKT", "quantity": "1", "price": "9999999.99999999", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1239', 'satoshi', 'market', 'sell', '{ "symbol": "NKT", "quantity": "1", "price": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1240', 'satoshi', 'market', 'sell', '{ "symbol": "NKT", "quantity": "1", "price": "1", "isSignedWithActiveKey": true }'));
+      
       let block = {
         refSteemBlockNumber: 1,
         refSteemBlockId: 'ABCD1',
@@ -481,6 +486,15 @@ describe('Market', function() {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+
+      let res2 = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
+        payload: {
+        }
+      });
+
+      console.log(res2.payload.transactions)
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -535,6 +549,27 @@ describe('Market', function() {
       assert.equal(sellOrders[0].price, '0.00000001');
       assert.equal(sellOrders[0].quantity, 100.276);
 
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'market',
+          table: 'sellBook',
+          query: {
+            symbol: 'NKT',
+            priceDec: {
+              $lte: Decimal128.fromString('0.00000001')
+            }
+          },
+          indexes: [
+            { index: "priceDec", descending: true }
+          ]
+        }
+      });
+
+      let sellOrders2 = res.payload;
+
+      console.log(sellOrders2)
       resolve();
     })
       .then(() => {
