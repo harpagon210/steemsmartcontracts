@@ -39,6 +39,23 @@ actions.createSSC = async () => {
     await api.db.createTable('delegations', ['from', 'to']);
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
   }
+
+  // clean delegations
+  const delegations = await api.db.find('delegations', {});
+
+  for (let index = 0; index < delegations.length; index += 1) {
+    const delegation = delegations[index];
+    if (delegation.from === delegation.to) {
+      const balance = await api.db.findOne('balances', { account: delegation.from, symbol: delegation.symbol });
+      const tkn = await api.db.findOne('tokens', { symbol: delegation.symbol });
+      balance.delegationsIn = api.BigNumber(balance.delegationsIn)
+        .minus(delegation.quantity)
+        .toFixed(tkn.precision);
+
+      await api.db.update('balances', balance);
+      await api.db.remove('delegations', delegation);
+    }
+  }
 };
 
 actions.updateParams = async (payload) => {
@@ -937,6 +954,7 @@ actions.delegate = async (payload) => {
       if (api.assert(token !== null, 'symbol does not exist')
         && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
         && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalTo !== api.sender, 'cannot delegate to yourself')
         && api.assert(api.BigNumber(quantity).gt(0), 'must delegate positive quantity')) {
         const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
 
@@ -1073,6 +1091,7 @@ actions.undelegate = async (payload) => {
       if (api.assert(token !== null, 'symbol does not exist')
         && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
         && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalFrom !== api.sender, 'cannot undelegate from yourself')
         && api.assert(api.BigNumber(quantity).gt(0), 'must undelegate positive quantity')) {
         const balanceTo = await api.db.findOne('balances', { account: api.sender, symbol });
 

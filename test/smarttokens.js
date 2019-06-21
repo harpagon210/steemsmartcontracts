@@ -408,6 +408,7 @@ describe('smart tokens', function () {
       transactions.push(new Transaction(12345678901, 'TXID1243', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "-0.00000001", "to": "vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1244', 'ned', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1245', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "satoshi", "isSignedWithActiveKey": true }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -454,6 +455,7 @@ describe('smart tokens', function () {
       assert.equal(JSON.parse(txs[10].logs).errors[0], 'must delegate positive quantity');
       assert.equal(JSON.parse(txs[11].logs).errors[0], 'balanceFrom does not exist');
       assert.equal(JSON.parse(txs[12].logs).errors[0], 'overdrawn stake');
+      assert.equal(JSON.parse(txs[13].logs).errors[0], 'cannot delegate to yourself');
 
       resolve();
     })
@@ -686,6 +688,7 @@ describe('smart tokens', function () {
       transactions.push(new Transaction(12345678901, 'TXID1251', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000001", "from": "vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1252', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1253', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000002", "from": "ned", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1254', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000002", "from": "satoshi", "isSignedWithActiveKey": true }'));
       
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -714,6 +717,7 @@ describe('smart tokens', function () {
       assert.equal(JSON.parse(txs[16].logs).errors[0], 'balanceFrom does not exist');
       assert.equal(JSON.parse(txs[18].logs).errors[0], 'delegation does not exist');
       assert.equal(JSON.parse(txs[20].logs).errors[0], 'overdrawn delegation');
+      assert.equal(JSON.parse(txs[21].logs).errors[0], 'cannot undelegate from yourself');
 
       resolve();
     })
