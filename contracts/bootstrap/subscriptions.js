@@ -75,7 +75,7 @@ actions.subscribe = async (payload) => {
       && BigNumber(max).gte(1)
       && recur
       && !BigNumber(recur).isNaN()
-      && BigNumber(recur).gte(1)
+      && BigNumber(recur).gt(1)
       && symbol
       && typeof symbol === 'string'
       && typeof recur === 'string', 'invalid params')
