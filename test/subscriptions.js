@@ -324,7 +324,7 @@ describe('Subscriptions smart contract', () => {
       transactionsOne.push(new Transaction(30983000, 'TXID1231', 'steemsc', 'contract', 'update', JSON.stringify(subContractPayload)));
       transactionsOne.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactionsOne.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "elear.dev", "quantity": "1000", "isSignedWithActiveKey": true }'));
-      transactionsOne.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{ "provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "1", "max": "10", "isSignedWithActiveKey": true }`));
+      transactionsOne.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{ "provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "2", "max": "10", "isSignedWithActiveKey": true }`));
       transactionsOne.push(new Transaction(30983000, 'TXID667', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
       transactionsTwo.push(new Transaction(30983000, 'TXID668', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
 
@@ -337,7 +337,7 @@ describe('Subscriptions smart contract', () => {
         1,
       );
       const blockTwo = new Block(
-        '2018-06-01T10:01:00',
+        '2018-06-01T10:02:00',
         0,
         '',
         '',
@@ -518,7 +518,7 @@ describe('Subscriptions smart contract', () => {
 
       const logs = JSON.parse(tx.logs);
 
-      assert.equal(logs.errors.includes("subscription reached max payable installments"), true);
+      assert.equal(logs.errors.includes("subscription does not exist or is inactive"), true);
 
       resolve();
     })

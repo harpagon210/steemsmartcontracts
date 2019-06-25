@@ -282,7 +282,7 @@ actions.installment = async (payload) => {
       provider: sender,
       active: true,
     });
-    if (api.assert(subscription !== null, 'subscription does not exist')) {
+    if (api.assert(subscription !== null, 'subscription does not exist or is inactive')) {
       const installments = await api.db.find('installments', {
           subscriptionId: finalIdentifier,
         }, BigNumber(subscription.max).toNumber(), 0,
@@ -354,6 +354,16 @@ actions.installment = async (payload) => {
           }
         }
         if (api.assert(isPayable === true, 'this installment is not payable')) {
+          /**
+           * Check whether this is the last installment to pay,
+           * if so, make the subscribtion inactive
+           */
+
+          if (installments.length + 1 === BigNumber(subscription.max).toNumber()) {
+            subscription.active = false;
+            await api.db.update('subscriptions', subscription);
+          }
+
           return true;
         }
         return false;
