@@ -1,6 +1,9 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 
+const AUTHORIZATION_TYPES = ['transfer'];
+const countDecimals = value => api.BigNumber(value).dp();
+
 actions.createSSC = async () => {
   let tableExists = await api.db.tableExists('tokens');
   if (tableExists === false) {
@@ -56,6 +59,211 @@ actions.createSSC = async () => {
       await api.db.remove('delegations', delegation);
     }
   }
+
+  /**
+   * Adds the table to store authorized delegatees and the type of actions they are
+   * authorized for, via the contract. For example move (symbol) funds
+   * on behalf of the delegator via the defined contract.
+   */
+  tableExists = await api.db.tableExists('authorizations');
+  if (tableExists === false) {
+    await api.db.createTable('authorizations', ['contract', 'delegator', 'delegatee', 'symbol', 'type']);
+  }
+};
+
+/**
+ * Adds an authorized delegatee via a contract to perform
+ * the specified type of action
+ */
+actions.addAuthorization = async (payload) => {
+  const {
+    contract,
+    delegator,
+    delegatee,
+    symbol,
+    type,
+  } = payload;
+  /**
+   * this action can only be called by the 'null' account which only the core code can use
+   */
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    if (api.assert(contract
+      && api.validator.isAlphanumeric(contract)
+      && contract.length > 3
+      && contract.length < 50
+      && delegator
+      && typeof delegator === 'string'
+      && delegator.length >= 3
+      && delegator.length <= 16
+      && delegatee
+      && typeof delegatee === 'string'
+      && delegatee.length >= 3
+      && delegatee.length <= 16
+      && symbol
+      && typeof symbol === 'string'
+      && type
+      && typeof type === 'string'
+      && AUTHORIZATION_TYPES.includes(type), 'invalid params')
+    ) {
+      const token = await api.db.findOne('tokens', { symbol });
+      if (api.assert(token !== null, 'symbol does not exist')) {
+        const authorization = await api.db.findOne('authorizations', {
+          contract,
+          delegator,
+          delegatee,
+          symbol,
+          type,
+        });
+        if (api.assert(authorization === null, 'authorization already exists')) {
+          await api.db.insert('authorizations', {
+            contract,
+            delegator,
+            delegatee,
+            symbol,
+            type,
+          });
+
+          api.emit('addAuthorization', {
+            contract, delegator, delegatee, symbol, type,
+          });
+
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * Removes an authorized delegatee via a contract
+ */
+actions.removeAuthorization = async (payload) => {
+  const {
+    contract,
+    delegator,
+    delegatee,
+    symbol,
+    type,
+  } = payload;
+  /**
+   * this action can only be called by the 'null' account which only the core code can use
+   */
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    if (api.assert(contract
+      && api.validator.isAlphanumeric(contract)
+      && contract.length > 3
+      && contract.length < 50
+      && delegator
+      && typeof delegator === 'string'
+      && delegator.length >= 3
+      && delegator.length <= 16
+      && delegatee
+      && typeof delegatee === 'string'
+      && delegatee.length >= 3
+      && delegatee.length <= 16
+      && symbol
+      && typeof symbol === 'string'
+      && type
+      && typeof type === 'string'
+      && AUTHORIZATION_TYPES.includes(type), 'invalid params')
+    ) {
+      const token = await api.db.findOne('tokens', { symbol });
+      if (api.assert(token !== null, 'symbol does not exist')) {
+        const authorization = await api.db.findOne('authorizations', {
+          contract,
+          delegator,
+          delegatee,
+          symbol,
+          type,
+        });
+        if (api.assert(authorization !== null, 'authorization does not exist')) {
+
+          await api.db.remove('authorizations', authorization);
+
+          api.emit('removeAuthorization', {
+            contract, delegator, delegatee, symbol, type,
+          });
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * Authorizes a transfer of (symbol) funds via a contract if the
+ * sender has the required delegated authority to do so.
+ * (see actions.addAuthorization)
+ */
+actions.authorizeTransfer = async (payload) => {
+  const {
+    contract, delegatee, from, to, symbol, quantity,
+  } = payload;
+  const finalFrom = from ? from.trim() : null;
+  const finalTo = to ? to.trim() : null;
+
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    if (api.assert(contract
+      && api.validator.isAlphanumeric(contract)
+      && contract.length > 3
+      && contract.length < 50
+      && delegatee
+      && typeof delegatee === 'string'
+      && delegatee.length >= 3
+      && delegatee.length <= 16
+      && finalFrom
+      && typeof finalFrom === 'string'
+      && finalFrom.length >= 3
+      && finalFrom.length <= 16
+      && finalTo
+      && typeof finalTo === 'string'
+      && finalTo.length >= 3
+      && finalTo.length <= 16
+      && symbol
+      && typeof symbol === 'string'
+      && quantity
+      && !api.BigNumber(quantity).isNaN()
+      && api.BigNumber(quantity).gt(0), 'invalid params')
+    ) {
+      const token = await api.db.findOne('tokens', { symbol });
+
+      if (api.assert(token !== null, 'symbol does not exist')
+        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')) {
+        /**
+         * Verify that the transaction is authorized
+         */
+        const isAuthorized = await api.db.findOne('authorizations', {
+          contract,
+          delegatee,
+          delegator: finalFrom,
+          symbol,
+          type: 'transfer',
+        });
+
+        if (api.assert(isAuthorized !== null, 'transaction is not authorized')) {
+          if (api.assert(finalFrom !== finalTo, 'cannot transfer to self')) {
+            if (await subBalance(finalFrom, token, quantity, 'balances')) {
+              const res = await addBalance(finalTo, token, quantity, 'balances');
+
+              if (res === false) {
+                await addBalance(finalFrom, token, quantity, 'balances');
+                return false;
+              }
+
+              api.emit('authorizeTransfer', {
+                contract, delegatee, from: finalFrom, to: finalTo, symbol, quantity,
+              });
+
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
 };
 
 actions.updateParams = async (payload) => {
@@ -183,8 +391,8 @@ actions.create = async (payload) => {
     : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
 
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-      && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-      && api.assert(name && typeof name === 'string'
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
       && ((precision && typeof precision === 'number') || precision === 0)
@@ -620,8 +828,8 @@ actions.stake = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-    && to && typeof to === 'string'
-    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+      && to && typeof to === 'string'
+      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     // a valid steem account is between 3 and 16 characters in length
     const token = await api.db.findOne('tokens', { symbol });
 
@@ -736,7 +944,7 @@ actions.cancelUnstake = async (payload) => {
   const { txID, isSignedWithActiveKey } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-      && api.assert(txID && typeof txID === 'string', 'invalid params')) {
+    && api.assert(txID && typeof txID === 'string', 'invalid params')) {
     // get unstake
     const unstake = await api.db.findOne('pendingUnstakes', { account: api.sender, txID });
 
@@ -868,8 +1076,6 @@ const calculateBalance = (balance, quantity, precision, add) => {
     : api.BigNumber(balance).minus(quantity).toFixed(precision);
 };
 
-const countDecimals = value => api.BigNumber(value).dp();
-
 actions.enableDelegation = async (payload) => {
   const {
     symbol,
@@ -942,8 +1148,8 @@ actions.delegate = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-    && to && typeof to === 'string'
-    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+      && to && typeof to === 'string'
+      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalTo = to.trim();
     // a valid steem account is between 3 and 16 characters in length
     if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
@@ -1079,8 +1285,8 @@ actions.undelegate = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-    && from && typeof from === 'string'
-    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+      && from && typeof from === 'string'
+      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalFrom = from.trim();
     // a valid steem account is between 3 and 16 characters in length
     if (api.assert(finalFrom.length >= 3 && finalFrom.length <= 16, 'invalid from')) {
@@ -1181,7 +1387,7 @@ const processUndelegation = async (undelegation) => {
     );
 
     if (api.assert(api.BigNumber(balance.pendingUndelegations).lt(originalPendingUndelegations)
-        && api.BigNumber(balance.stake).gt(originalStake), 'cannot subtract')) {
+      && api.BigNumber(balance.stake).gt(originalStake), 'cannot subtract')) {
       await api.db.update('balances', balance);
 
       // remove pendingUndelegation
