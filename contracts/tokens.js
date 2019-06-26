@@ -26,35 +26,31 @@ actions.createSSC = async () => {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
 
-  // update STEEMP decimal places
-  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
-
-  if (token && token.precision < 8) {
-    token.precision = 8;
-    await api.db.update('tokens', token);
-  }
-
   tableExists = await api.db.tableExists('delegations');
   if (tableExists === false) {
     await api.db.createTable('delegations', ['from', 'to']);
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
   }
 
-  // clean delegations
-  const delegations = await api.db.find('delegations', {});
+  // update STEEMP decimal places
+  let token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
 
-  for (let index = 0; index < delegations.length; index += 1) {
-    const delegation = delegations[index];
-    if (delegation.from === delegation.to) {
-      const balance = await api.db.findOne('balances', { account: delegation.from, symbol: delegation.symbol });
-      const tkn = await api.db.findOne('tokens', { symbol: delegation.symbol });
-      balance.delegationsIn = api.BigNumber(balance.delegationsIn)
-        .minus(delegation.quantity)
-        .toFixed(tkn.precision);
+  if (token && token.precision < 8) {
+    token.precision = 8;
+    await api.db.update('tokens', token);
+  }
 
-      await api.db.update('balances', balance);
-      await api.db.remove('delegations', delegation);
-    }
+  // enable staking and delegation for ENG
+  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (token.stakingEnabled === undefined || token.stakingEnabled === false) {
+    token.stakingEnabled = true;
+    token.totalStaked = '0';
+    token.unstakingCooldown = 40;
+    token.numberTransactions = 4;
+    token.delegationEnabled = true;
+    token.undelegationCooldown = 7;
+    await api.db.update('tokens', token);
   }
 };
 
