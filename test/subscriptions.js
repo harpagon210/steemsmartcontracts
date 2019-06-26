@@ -153,8 +153,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = res.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'subscribe').data;
 
@@ -207,8 +205,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = res.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
 
       assert.equal(logs.errors.includes("invalid beneficiaries percentage"), true);
@@ -254,8 +250,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = trxInstallment.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'installment').data;
       const dbTokens = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -280,7 +274,6 @@ describe('Subscriptions smart contract', () => {
         }
       });
       const installments = dbInstallments.payload;
-      console.log(installments); // @TODO remove
 
       assert.equal(event.first, true);
       assert.equal(event.subscriber, "elear.dev");
@@ -354,8 +347,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = trxInstallment.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'installment').data;
       const dbTokens = await send(database.PLUGIN_NAME, 'MASTER', {
@@ -380,7 +371,6 @@ describe('Subscriptions smart contract', () => {
         }
       });
       const installments = dbInstallments.payload;
-      console.log(installments); // @TODO remove
 
       assert.equal(event.first, false);
       assert.equal(event.subscriber, "elear.dev");
@@ -454,8 +444,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = trxInstallment.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
 
       assert.equal(logs.errors.includes("this installment is not payable"), true);
@@ -514,8 +502,6 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = trxInstallment.payload;
-      console.log(tx); // @TODO remove
-
       const logs = JSON.parse(tx.logs);
 
       assert.equal(logs.errors.includes("subscription does not exist or is inactive"), true);
@@ -560,7 +546,6 @@ describe('Subscriptions smart contract', () => {
         payload: 'TXID667'
       });
       const tx = res.payload;
-      console.log(tx); // @TODO remove
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'unsubscribe').data;
 

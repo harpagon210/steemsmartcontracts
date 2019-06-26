@@ -241,22 +241,31 @@ const processInstallment = async (subscription, first) => {
     id,
   } = subscription;
 
-  for (let i = 0; i < beneficiaries.length; i += 1) {
-    const { account, percent } = beneficiaries[i];
-    const finalQuantity = ((percent / 100) / 100) * quantity;
-    await api.authorizeTransfer(CONTRACT_NAME, api.sender, subscriber, account, symbol, finalQuantity);
+  /**
+   * Before attempting the payments,
+   * check if there are enough funds
+   */
+  const hasFunds = await api.db.findOneInTable('tokens', 'balances', { account: subscriber, symbol });
+
+  if (api.assert(api.BigNumber(hasFunds.balance).gte(quantity), 'does not have enough funds')) {
+    for (let i = 0; i < beneficiaries.length; i += 1) {
+      const { account, percent } = beneficiaries[i];
+      const finalQuantity = ((percent / 100) / 100) * quantity;
+      await api.authorizeTransfer(CONTRACT_NAME, api.sender, subscriber, account, symbol, finalQuantity);
+    }
+    await api.db.insert('installments', {
+      subscriptionId: subscription.id,
+      timestamp: api.steemBlockTimestamp,
+    });
+    api.emit('installment', {
+      id,
+      provider: api.sender,
+      subscriber: subscriber,
+      first,
+    });
+    return true;
   }
-  await api.db.insert('installments', {
-    subscriptionId: subscription.id,
-    timestamp: api.steemBlockTimestamp,
-  });
-  api.emit('installment', {
-    id,
-    provider: api.sender,
-    subscriber: subscriber,
-    first,
-  });
-  return true;
+  return false;
 };
 
 /**
