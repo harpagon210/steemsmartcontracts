@@ -1003,6 +1003,8 @@ actions.delegate = async (payload) => {
 
           // look for an existing delegation
           let delegation = await api.db.findOne('delegations', { to, symbol });
+          const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+          const timestamp = blockDate.getTime();
 
           if (delegation == null) {
             // update balanceFrom
@@ -1027,6 +1029,8 @@ actions.delegate = async (payload) => {
             delegation.to = to;
             delegation.symbol = symbol;
             delegation.quantity = quantity;
+            delegation.created = timestamp;
+            delegation.updated = timestamp;
 
             await api.db.insert('delegations', delegation);
 
@@ -1055,6 +1059,9 @@ actions.delegate = async (payload) => {
             delegation.quantity = calculateBalance(
               delegation.quantity, quantity, token.precision, true,
             );
+
+            // update the timestamp
+            delegation.updated = timestamp;
 
             await api.db.update('delegations', delegation);
             api.emit('delegate', { to, symbol, quantity });
