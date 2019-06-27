@@ -26,18 +26,31 @@ actions.createSSC = async () => {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
 
+  tableExists = await api.db.tableExists('delegations');
+  if (tableExists === false) {
+    await api.db.createTable('delegations', ['from', 'to']);
+    await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
+  }
+
   // update STEEMP decimal places
-  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
+  let token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
 
   if (token && token.precision < 8) {
     token.precision = 8;
     await api.db.update('tokens', token);
   }
 
-  tableExists = await api.db.tableExists('delegations');
-  if (tableExists === false) {
-    await api.db.createTable('delegations', ['from', 'to']);
-    await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
+  // enable staking and delegation for ENG
+  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (token.stakingEnabled === undefined || token.stakingEnabled === false) {
+    token.stakingEnabled = true;
+    token.totalStaked = '0';
+    token.unstakingCooldown = 40;
+    token.numberTransactions = 4;
+    token.delegationEnabled = true;
+    token.undelegationCooldown = 7;
+    await api.db.update('tokens', token);
   }
 };
 
@@ -937,6 +950,7 @@ actions.delegate = async (payload) => {
       if (api.assert(token !== null, 'symbol does not exist')
         && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
         && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalTo !== api.sender, 'cannot delegate to yourself')
         && api.assert(api.BigNumber(quantity).gt(0), 'must delegate positive quantity')) {
         const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
 
@@ -989,6 +1003,8 @@ actions.delegate = async (payload) => {
 
           // look for an existing delegation
           let delegation = await api.db.findOne('delegations', { to, symbol });
+          const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+          const timestamp = blockDate.getTime();
 
           if (delegation == null) {
             // update balanceFrom
@@ -1013,6 +1029,8 @@ actions.delegate = async (payload) => {
             delegation.to = to;
             delegation.symbol = symbol;
             delegation.quantity = quantity;
+            delegation.created = timestamp;
+            delegation.updated = timestamp;
 
             await api.db.insert('delegations', delegation);
 
@@ -1041,6 +1059,9 @@ actions.delegate = async (payload) => {
             delegation.quantity = calculateBalance(
               delegation.quantity, quantity, token.precision, true,
             );
+
+            // update the timestamp
+            delegation.updated = timestamp;
 
             await api.db.update('delegations', delegation);
             api.emit('delegate', { to, symbol, quantity });
@@ -1073,6 +1094,7 @@ actions.undelegate = async (payload) => {
       if (api.assert(token !== null, 'symbol does not exist')
         && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
         && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalFrom !== api.sender, 'cannot undelegate from yourself')
         && api.assert(api.BigNumber(quantity).gt(0), 'must undelegate positive quantity')) {
         const balanceTo = await api.db.findOne('balances', { account: api.sender, symbol });
 
