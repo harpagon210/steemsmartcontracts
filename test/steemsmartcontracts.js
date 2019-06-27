@@ -1058,7 +1058,10 @@ describe('Smart Contracts', () => {
       }
       
       actions.addBook = async (payload) => {
-        const { title } = payload;
+        const { title, callingContractInfo } = payload;
+
+        api.debug(callingContractInfo.name)
+        api.debug(callingContractInfo.version)
         
         let user = await api.db.findOneInTable('usersContract', 'users', { "id": api.sender });
 
@@ -1598,6 +1601,7 @@ describe('Smart Contracts', () => {
       let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
       const contract = res.payload;
 
+      assert.equal(contract.version, 2);
       assert.notEqual(contract.tables['testContract_testTable'], undefined);
       assert.notEqual(contract.tables['testContract_testUpdateTable'], undefined);
 
