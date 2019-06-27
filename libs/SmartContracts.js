@@ -143,6 +143,10 @@ class SmartContracts {
           BigNumber.set({ DECIMAL_PLACES: 3 });
         }
 
+        const contractVersion = existingContract && existingContract.version
+          ? existingContract.version
+          : 1;
+
         // initialize the state that will be available in the VM
         const vmState = {
           api: {
@@ -152,6 +156,7 @@ class SmartContracts {
             blockNumber,
             refSteemBlockNumber,
             steemBlockTimestamp: timestamp,
+            contractVersion,
             db,
             BigNumber,
             validator,
@@ -165,6 +170,7 @@ class SmartContracts {
               JSON.stringify(parameters),
               blockNumber, timestamp,
               refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+              name, contractVersion,
             ),
             // emit an event that will be stored in the logs
             emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
@@ -194,12 +200,14 @@ class SmartContracts {
           code: codeTemplate,
           codeHash: SHA256(codeTemplate).toString(enchex),
           tables,
+          version: 1,
         };
 
         // if contract already exists, update it
         if (existingContract !== null) {
           newContract._id = existingContract._id; // eslint-disable-line no-underscore-dangle
           newContract.tables = Object.assign(existingContract.tables, newContract.tables);
+          newContract.version = existingContract.version + 1;
 
           await ipc.send(
             {
@@ -255,6 +263,7 @@ class SmartContracts {
 
       const contractCode = contractInDb.code;
       const contractOwner = contractInDb.owner;
+      const contractVersion = contractInDb.version;
 
       // prepare the db object that will be available in the VM
       const db = {
@@ -307,6 +316,7 @@ class SmartContracts {
           owner: contractOwner,
           refSteemBlockNumber,
           steemBlockTimestamp: timestamp,
+          contractVersion,
           transactionId,
           blockNumber,
           action,
@@ -324,6 +334,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            contract, contractVersion,
           ),
           // execute a smart contract from the current smart contract
           // with the contractOwner authority level
@@ -334,6 +345,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            contract, contractVersion,
           ),
           // execute a token transfer from the contract balance
           transferTokens: async (
@@ -349,6 +361,7 @@ class SmartContracts {
             }),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            contract, contractVersion,
           ),
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
@@ -412,6 +425,7 @@ class SmartContracts {
     timestamp,
     refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
     jsVMTimeout,
+    callingContractName, callingContractVersion,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
@@ -429,6 +443,12 @@ class SmartContracts {
     if (originalParameters && originalParameters.isSignedWithActiveKey) {
       sanitizedParams.isSignedWithActiveKey = originalParameters.isSignedWithActiveKey;
     }
+
+    // pass the calling contract name and calling contract version to the contract
+    sanitizedParams.callingContractInfo = {
+      name: callingContractName,
+      version: callingContractVersion,
+    };
 
     const results = {};
     try {
