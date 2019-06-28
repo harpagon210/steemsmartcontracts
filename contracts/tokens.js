@@ -1002,7 +1002,7 @@ actions.delegate = async (payload) => {
           }
 
           // look for an existing delegation
-          let delegation = await api.db.findOne('delegations', { to, symbol });
+          let delegation = await api.db.findOne('delegations', { to: finalTo, from: api.sender, symbol });
           const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
           const timestamp = blockDate.getTime();
 
@@ -1104,7 +1104,7 @@ actions.undelegate = async (payload) => {
 
           if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')) {
             // look for an existing delegation
-            const delegation = await api.db.findOne('delegations', { to: finalFrom, symbol });
+            const delegation = await api.db.findOne('delegations', { to: finalFrom, from: api.sender, symbol });
 
             if (api.assert(delegation !== null, 'delegation does not exist')
               && api.assert(api.BigNumber(delegation.quantity).gte(quantity), 'overdrawn delegation')) {
