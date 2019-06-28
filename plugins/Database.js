@@ -197,21 +197,33 @@ actions.addBlock = async (block, callback) => {
 };
 
 actions.getLatestBlockInfo = async (payload, callback) => {
-  const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
+  try {
+    const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
 
-  const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
+    const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
 
-  callback(lastestBlock);
+    callback(lastestBlock);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    callback(null);
+  }
 };
 
 actions.getBlockInfo = async (blockNumber, callback) => {
-  const block = await chain.findOne({ _id: blockNumber });
+  try {
+    const block = await chain.findOne({ _id: blockNumber });
 
-  if (callback) {
-    callback(block);
+    if (callback) {
+      callback(block);
+    }
+
+    return block;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    return null;
   }
-
-  return block;
 };
 
 /**
@@ -220,24 +232,30 @@ actions.getBlockInfo = async (blockNumber, callback) => {
  * @returns {Object} returns the contract info if it exists, null otherwise
  */
 actions.findContract = async (payload, callback) => {
-  const { name } = payload;
-  if (name && typeof name === 'string') {
-    const contracts = database.collection('contracts');
+  try {
+    const { name } = payload;
+    if (name && typeof name === 'string') {
+      const contracts = database.collection('contracts');
 
-    const contractInDb = await contracts.findOne({ _id: name });
+      const contractInDb = await contracts.findOne({ _id: name });
 
-    if (contractInDb) {
-      if (callback) {
-        callback(contractInDb);
+      if (contractInDb) {
+        if (callback) {
+          callback(contractInDb);
+        }
+        return contractInDb;
       }
-      return contractInDb;
     }
-  }
 
-  if (callback) {
-    callback(null);
+    if (callback) {
+      callback(null);
+    }
+    return null;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    return null;
   }
-  return null;
 };
 
 /**

@@ -15,7 +15,7 @@ actions.createSSC = async () => {
     await api.db.createTable('params');
 
     const params = {
-      totalApprovalWeight: { $decimal: '0' },
+      totalApprovalWeight: { $numberDecimal: '0' },
       numberOfApprovedWitnesses: 0,
     };
 
@@ -95,28 +95,28 @@ actions.updateWitnessesVotes = async () => {
   }
 };
 
-actions.registerWitness = async (payload) => {
+actions.register = async (payload) => {
   const {
-    url, publicKey, enabled, isSignedWithActiveKey,
+    url, signingKey, enabled, isSignedWithActiveKey,
   } = payload;
 
-  if (api.asser(isSignedWithActiveKey === true, 'active key required')
+  if (api.assert(isSignedWithActiveKey === true, 'active key required')
     && api.assert(url && typeof url === 'string' && url.length <= 255, 'url must be a string with a max. of 255 chars.')
-    && api.assert(api.validator.isAlphanumeric(publicKey) && publicKey.length === 54, 'invalid public key')
-    && api.assert(enabled && typeof enabled === 'boolean', 'enabled must be a boolean')) {
+    && api.assert(api.validator.isAlphanumeric(signingKey) && signingKey.length === 53, 'invalid signing key')
+    && api.assert(typeof enabled === 'boolean', 'enabled must be a boolean')) {
     let witness = await api.db.findOne('witnesses', { account: api.sender });
 
     // if the witness is already registered
     if (witness) {
       witness.url = url;
-      witness.publicKey = publicKey;
+      witness.signingKey = signingKey;
       witness.enabled = enabled;
       await api.db.update('witnesses', witness);
     } else {
       witness = {
         account: api.sender,
         approvalWeight: { $numberDecimal: '0' },
-        publicKey,
+        signingKey,
         url,
         enabled,
       };
@@ -128,7 +128,7 @@ actions.registerWitness = async (payload) => {
 actions.vote = async (payload) => {
   const { witness } = payload;
 
-  if (api.asser(witness && typeof witness === 'string' && witness.length >= 3 && witness.length <= 16, 'invalid witness account')) {
+  if (api.assert(witness && typeof witness === 'string' && witness.length >= 3 && witness.length <= 16, 'invalid witness account')) {
     // check if witness exists
     const witnessRec = await api.db.findOne('witnesses', { account: witness });
 
@@ -185,7 +185,7 @@ actions.vote = async (payload) => {
 actions.unvote = async (payload) => {
   const { witness } = payload;
 
-  if (api.asser(witness && typeof witness === 'string' && witness.length >= 3 && witness.length <= 16, 'invalid witness account')) {
+  if (api.assert(witness && typeof witness === 'string' && witness.length >= 3 && witness.length <= 16, 'invalid witness account')) {
     // check if witness exists
     const witnessRec = await api.db.findOne('witnesses', { account: witness });
 
