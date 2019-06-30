@@ -52,6 +52,59 @@ actions.createSSC = async () => {
     token.undelegationCooldown = 7;
     await api.db.update('tokens', token);
   }
+
+  // fix delegations to accounts with whitespaces
+  const balances = await api.db.find('balances', {
+    $and: [
+      {
+        delegationsIn: {
+          $exists: true,
+        },
+      },
+      {
+        delegationsIn: {
+          $ne: '0',
+        },
+      },
+    ],
+  });
+
+  for (let index = 0; index < balances.length; index += 1) {
+    const balance = balances[index];
+
+    if (balance.account.trim() !== balance.account) {
+      const delegations = await api.db.find('delegations', { to: balance.account, symbol: balance.symbol });
+
+      for (let idx = 0; idx < delegations.length; idx += 1) {
+        const delegation = delegations[idx];
+        const balanceFrom = await api.db.findOne('balances', { account: delegation.from, symbol: delegation.symbol });
+
+        const tkn = await api.db.findOne('tokens', { symbol: balance.symbol });
+
+        // update the balanceFrom
+        balanceFrom.stake = calculateBalance(
+          balanceFrom.stake, delegation.quantity, tkn.precision, true,
+        );
+        balanceFrom.delegationsOut = calculateBalance(
+          balanceFrom.delegationsOut, delegation.quantity, tkn.precision, false,
+        );
+
+        // update balance
+        balance.delegationsIn = calculateBalance(
+          balance.delegationsIn, delegation.quantity, tkn.precision, false,
+        );
+
+        await api.db.update('balances', balanceFrom);
+        await api.db.remove('delegations', delegation);
+
+        if (api.BigNumber(balance.balance).eq(0) && api.BigNumber(balance.delegationsIn).eq(0)) {
+          await api.db.remove('balances', balance);
+        } else {
+          await api.db.update('balances', balance);
+        }
+      }
+    }
+  }
 };
 
 actions.updateParams = async (payload) => {
@@ -974,11 +1027,11 @@ actions.delegate = async (payload) => {
             }
           }
 
-          let balanceTo = await api.db.findOne('balances', { account: to, symbol });
+          let balanceTo = await api.db.findOne('balances', { account: finalTo, symbol });
 
           if (balanceTo === null) {
             balanceTo = balanceTemplate;
-            balanceTo.account = to;
+            balanceTo.account = finalTo;
             balanceTo.symbol = symbol;
 
             balanceTo = await api.db.insert('balances', balanceTo);
@@ -1026,7 +1079,7 @@ actions.delegate = async (payload) => {
 
             delegation = {};
             delegation.from = api.sender;
-            delegation.to = to;
+            delegation.to = finalTo;
             delegation.symbol = symbol;
             delegation.quantity = quantity;
             delegation.created = timestamp;
@@ -1064,7 +1117,7 @@ actions.delegate = async (payload) => {
             delegation.updated = timestamp;
 
             await api.db.update('delegations', delegation);
-            api.emit('delegate', { to, symbol, quantity });
+            api.emit('delegate', { to: finalTo, symbol, quantity });
           }
         }
       }
