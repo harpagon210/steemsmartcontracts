@@ -163,7 +163,7 @@ class SmartContracts {
               JSON.stringify(parameters),
               blockNumber, timestamp,
               refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-              name, contractVersion,
+              name, 'createSSC', contractVersion,
             ),
             // emit an event that will be stored in the logs
             emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
@@ -327,7 +327,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
           // execute a smart contract from the current smart contract
           // with the contractOwner authority level
@@ -338,7 +338,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
           // execute a token transfer from the contract balance
           transferTokens: async (
@@ -354,7 +354,7 @@ class SmartContracts {
             }),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
@@ -418,7 +418,7 @@ class SmartContracts {
     timestamp,
     refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
     jsVMTimeout,
-    callingContractName, callingContractVersion,
+    callingContractName, callingContractAction, callingContractVersion,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
@@ -440,6 +440,7 @@ class SmartContracts {
     // pass the calling contract name and calling contract version to the contract
     sanitizedParams.callingContractInfo = {
       name: callingContractName,
+      action: callingContractAction,
       version: callingContractVersion,
     };
 
