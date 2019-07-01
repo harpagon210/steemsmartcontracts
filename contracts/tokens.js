@@ -29,34 +29,83 @@ actions.createSSC = async () => {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
 
-  // update STEEMP decimal places
-  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
-
-  if (token && token.precision < 8) {
-    token.precision = 8;
-    await api.db.update('tokens', token);
-  }
-
   tableExists = await api.db.tableExists('delegations');
   if (tableExists === false) {
     await api.db.createTable('delegations', ['from', 'to']);
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
   }
 
-  // clean delegations
-  const delegations = await api.db.find('delegations', {});
+  // update STEEMP decimal places
+  let token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
 
-  for (let index = 0; index < delegations.length; index += 1) {
-    const delegation = delegations[index];
-    if (delegation.from === delegation.to) {
-      const balance = await api.db.findOne('balances', { account: delegation.from, symbol: delegation.symbol });
-      const tkn = await api.db.findOne('tokens', { symbol: delegation.symbol });
-      balance.delegationsIn = api.BigNumber(balance.delegationsIn)
-        .minus(delegation.quantity)
-        .toFixed(tkn.precision);
+  if (token && token.precision < 8) {
+    token.precision = 8;
+    await api.db.update('tokens', token);
+  }
 
-      await api.db.update('balances', balance);
-      await api.db.remove('delegations', delegation);
+  // enable staking and delegation for ENG
+  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (token.stakingEnabled === undefined || token.stakingEnabled === false) {
+    token.stakingEnabled = true;
+    token.totalStaked = '0';
+    token.unstakingCooldown = 40;
+    token.numberTransactions = 4;
+    token.delegationEnabled = true;
+    token.undelegationCooldown = 7;
+    await api.db.update('tokens', token);
+  }
+
+  // fix delegations to accounts with whitespaces
+  const balances = await api.db.find('balances', {
+    $and: [
+      {
+        delegationsIn: {
+          $exists: true,
+        },
+      },
+      {
+        delegationsIn: {
+          $ne: '0',
+        },
+      },
+    ],
+  });
+
+  for (let index = 0; index < balances.length; index += 1) {
+    const balance = balances[index];
+
+    if (balance.account.trim() !== balance.account) {
+      const delegations = await api.db.find('delegations', { to: balance.account, symbol: balance.symbol });
+
+      for (let idx = 0; idx < delegations.length; idx += 1) {
+        const delegation = delegations[idx];
+        const balanceFrom = await api.db.findOne('balances', { account: delegation.from, symbol: delegation.symbol });
+
+        const tkn = await api.db.findOne('tokens', { symbol: balance.symbol });
+
+        // update the balanceFrom
+        balanceFrom.stake = calculateBalance(
+          balanceFrom.stake, delegation.quantity, tkn.precision, true,
+        );
+        balanceFrom.delegationsOut = calculateBalance(
+          balanceFrom.delegationsOut, delegation.quantity, tkn.precision, false,
+        );
+
+        // update balance
+        balance.delegationsIn = calculateBalance(
+          balance.delegationsIn, delegation.quantity, tkn.precision, false,
+        );
+
+        await api.db.update('balances', balanceFrom);
+        await api.db.remove('delegations', delegation);
+
+        if (api.BigNumber(balance.balance).eq(0) && api.BigNumber(balance.delegationsIn).eq(0)) {
+          await api.db.remove('balances', balance);
+        } else {
+          await api.db.update('balances', balance);
+        }
+      }
     }
   }
 
@@ -1184,11 +1233,11 @@ actions.delegate = async (payload) => {
             }
           }
 
-          let balanceTo = await api.db.findOne('balances', { account: to, symbol });
+          let balanceTo = await api.db.findOne('balances', { account: finalTo, symbol });
 
           if (balanceTo === null) {
             balanceTo = balanceTemplate;
-            balanceTo.account = to;
+            balanceTo.account = finalTo;
             balanceTo.symbol = symbol;
 
             balanceTo = await api.db.insert('balances', balanceTo);
@@ -1212,7 +1261,9 @@ actions.delegate = async (payload) => {
           }
 
           // look for an existing delegation
-          let delegation = await api.db.findOne('delegations', { to, symbol });
+          let delegation = await api.db.findOne('delegations', { to: finalTo, from: api.sender, symbol });
+          const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+          const timestamp = blockDate.getTime();
 
           if (delegation == null) {
             // update balanceFrom
@@ -1234,9 +1285,11 @@ actions.delegate = async (payload) => {
 
             delegation = {};
             delegation.from = api.sender;
-            delegation.to = to;
+            delegation.to = finalTo;
             delegation.symbol = symbol;
             delegation.quantity = quantity;
+            delegation.created = timestamp;
+            delegation.updated = timestamp;
 
             await api.db.insert('delegations', delegation);
 
@@ -1266,8 +1319,11 @@ actions.delegate = async (payload) => {
               delegation.quantity, quantity, token.precision, true,
             );
 
+            // update the timestamp
+            delegation.updated = timestamp;
+
             await api.db.update('delegations', delegation);
-            api.emit('delegate', { to, symbol, quantity });
+            api.emit('delegate', { to: finalTo, symbol, quantity });
           }
         }
       }
@@ -1307,7 +1363,7 @@ actions.undelegate = async (payload) => {
 
           if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')) {
             // look for an existing delegation
-            const delegation = await api.db.findOne('delegations', { to: finalFrom, symbol });
+            const delegation = await api.db.findOne('delegations', { to: finalFrom, from: api.sender, symbol });
 
             if (api.assert(delegation !== null, 'delegation does not exist')
               && api.assert(api.BigNumber(delegation.quantity).gte(quantity), 'overdrawn delegation')) {
