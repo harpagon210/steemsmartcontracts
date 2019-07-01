@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 
+const AUTHORIZATION_TYPES = ['transfer'];
 const countDecimals = value => api.BigNumber(value).dp();
 
 actions.createSSC = async () => {
@@ -113,7 +114,7 @@ actions.createSSC = async () => {
    */
   tableExists = await api.db.tableExists('authorizations');
   if (tableExists === false) {
-    await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action']);
+    await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action', 'type']);
   }
 };
 
@@ -127,6 +128,7 @@ actions.addAuthorization = async (payload) => {
     version,
     action,
     symbol,
+    type,
     callingContractInfo,
   } = payload;
   if (api.assert(!callingContractInfo, 'this action cannot be invoked by a contract')) {
@@ -134,10 +136,14 @@ actions.addAuthorization = async (payload) => {
       && contract.length > 3
       && contract.length < 50
       && version
-      && typeof version === 'string'
+      && typeof version === 'number'
+      && !api.BigNumber(version).isNaN()
       && api.BigNumber(version).gte(1)
       && action
       && typeof action === 'string'
+      && type
+      && typeof type === 'string'
+      && AUTHORIZATION_TYPES.includes(type)
       && symbol
       && typeof symbol === 'string', 'invalid params')
     ) {
@@ -154,13 +160,13 @@ actions.addAuthorization = async (payload) => {
           await api.db.insert('authorizations', {
             account: api.sender,
             contract,
-            version: api.BigNumber(version).toNumber(),
+            version,
             action,
             symbol,
           });
 
           api.emit('addAuthorization', {
-            account: api.sender, contract, version, version, symbol, action,
+            account: api.sender, contract, version, symbol, action,
           });
 
           return true;
@@ -180,38 +186,40 @@ actions.removeAuthorization = async (payload) => {
     version,
     action,
     symbol,
-    callingContractInfo,
+    type,
   } = payload;
-  if (api.assert(!callingContractInfo, 'this action cannot be invoked by a contract')) {
-    if (api.assert(contract
-      && contract.length > 3
-      && contract.length < 50
-      && version
-      && typeof version === 'string'
-      && api.BigNumber(version).gte(1)
-      && action
-      && typeof action === 'string'
-      && symbol
-      && typeof symbol === 'string', 'invalid params')
-    ) {
-      const token = await api.db.findOne('tokens', { symbol });
-      if (api.assert(token !== null, 'symbol does not exist')) {
-        const authorization = await api.db.findOne('authorizations', {
-          account: api.sender,
-          contract,
-          version: api.BigNumber(version).toNumber(),
-          action,
-          symbol,
+  if (api.assert(contract
+    && contract.length > 3
+    && contract.length < 50
+    && version
+    && typeof version === 'number'
+    && !api.BigNumber(version).isNaN()
+    && api.BigNumber(version).gte(1)
+    && action
+    && typeof action === 'string'
+    && type
+    && typeof type === 'string'
+    && AUTHORIZATION_TYPES.includes(type)
+    && symbol
+    && typeof symbol === 'string', 'invalid params')
+  ) {
+    const token = await api.db.findOne('tokens', { symbol });
+    if (api.assert(token !== null, 'symbol does not exist')) {
+      const authorization = await api.db.findOne('authorizations', {
+        account: api.sender,
+        contract,
+        version,
+        action,
+        symbol,
+      });
+      if (api.assert(authorization !== null, 'authorization does not exist')) {
+
+        await api.db.remove('authorizations', authorization);
+
+        api.emit('removeAuthorization', {
+          account: api.sender, contract, version, symbol, action,
         });
-        if (api.assert(authorization !== null, 'authorization does not exist')) {
-
-          await api.db.remove('authorizations', authorization);
-
-          api.emit('removeAuthorization', {
-            account: api.sender, contract, version, symbol, action,
-          });
-          return true;
-        }
+        return true;
       }
     }
   }
