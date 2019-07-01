@@ -70,14 +70,15 @@ actions.subscribe = async (payload) => {
       && typeof period === 'string'
       && PERIODS.includes(period)
       && max
+      && typeof max === 'number'
       && !BigNumber(max).isNaN()
       && BigNumber(max).gte(1)
       && recur
+      && typeof recur === 'number'
       && !BigNumber(recur).isNaN()
       && BigNumber(recur).gt(1)
       && symbol
-      && typeof symbol === 'string'
-      && typeof recur === 'string', 'invalid params')
+      && typeof symbol === 'string', 'invalid params')
     && api.assert(beneficiaries
       && Array.isArray(beneficiaries)
       && beneficiaries.length
@@ -91,6 +92,8 @@ actions.subscribe = async (payload) => {
       const { percent } = beneficiaries[i];
       if (api.assert(account
         && percent
+        && typeof percent === 'number'
+        && !BigNumber(percent).isNaN()
         && BigNumber(percent).gt(0)
         && BigNumber(percent).lte(10000)
         && account.length >= 3
@@ -169,9 +172,30 @@ const removeSubscription = async (subscription) => {
 
   if (installments.length) {
     for (let i = 0; i < installments.length; i += 1) {
-      await api.db.remove("installments", installments[i]);
+      await api.db.remove('installments', installments[i]);
     }
   }
+
+  /**
+   * Checks if there are other subscriptions for this symbol,
+   * otherwise removes the authorization
+   */
+  const hasSubscriptions = await api.db.findOne('subscriptions', {
+    subscriber: api.sender,
+    provider: subscription.provider,
+    symbol: subscription.symbol,
+  });
+
+  if (hasSubscriptions === null) {
+    await api.executeSmartContract('tokens', 'removeAuthorization', {
+      contract: CONTRACT_NAME,
+      version: api.contractVersion,
+      symbol: subscription.symbol,
+      action: 'installment',
+      type: 'transfer',
+    });
+  }
+
   return true;
 };
 
