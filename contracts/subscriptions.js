@@ -17,7 +17,6 @@ actions.createSSC = async () => {
      * Stores the subscriptions initiated by the subscriber
      *
      * id {String} A unique identifier for this subscription, which is the transaction ID
-     * active {Boolean} whether this subscription is still active
      * provider {String} the account/platform authorized to request installments
      * subscriber {String} the user who has initiated the subscription and pays the installments
      * beneficiaries {Array<Object>} Beneficiaries and the percent each one receives
@@ -27,7 +26,7 @@ actions.createSSC = async () => {
      * recur {Number} how often the payment should be sent per period (i.e. every 1 month)
      * max {Number} the number of max installments this subscription should ever pay
      */
-    await api.db.createTable('subscriptions', ['id', 'active', 'provider', 'subscriber', 'beneficiaries', 'quantity', 'symbol', 'period', 'recur', 'max']);
+    await api.db.createTable('subscriptions', ['id', 'provider', 'subscriber', 'beneficiaries', 'quantity', 'symbol', 'period', 'recur', 'max']);
     /**
      * Stores the installments paid by the subscriber
      *
@@ -81,7 +80,8 @@ actions.subscribe = async (payload) => {
       && typeof recur === 'string', 'invalid params')
     && api.assert(beneficiaries
       && Array.isArray(beneficiaries)
-      && beneficiaries.length, 'invalid beneficiaries')
+      && beneficiaries.length
+      && beneficiaries.length <= 8, 'invalid beneficiaries')
   ) {
     const finalBeneficiaries = [];
     let totalPercent = 0; // check that totalPercent is not greater than 10000
@@ -122,29 +122,10 @@ actions.subscribe = async (payload) => {
           });
           if (api.assert(subscription === null, 'a subscription with this identifier already exists')) {
             /**
-             * Checks if the provider is already authorized by this contract to
-             * transfer (symbol) funds on behalf of the user
-             */
-            const isAuthorized = await api.db.findOneInTable('tokens', 'authorizations', {
-              contract: CONTRACT_NAME,
-              delegator: sender,
-              delegatee: finalProvider,
-              symbol,
-              type: 'transfer',
-            });
-
-            if (isAuthorized === null) {
-              // if not authorized, authorize it now
-              const addAuth = await api.addAuthorization(CONTRACT_NAME, sender, finalProvider, symbol, 'transfer');
-              if (!addAuth) return false;
-            }
-
-            /**
              * Saving the subscription
              */
             await api.db.insert('subscriptions', {
               id: transactionId,
-              active: true,
               provider: finalProvider,
               subscriber: sender,
               beneficiaries: finalBeneficiaries,
@@ -176,6 +157,24 @@ actions.subscribe = async (payload) => {
   return false;
 };
 
+const removeSubscription = async (subscription) => {
+  await api.db.remove('subscriptions', subscription);
+  const installments = await api.db.find('installments', {
+      subscriptionId: subscription.id,
+    }, api.BigNumber(subscription.max).toNumber(), 0,
+    [
+      { index: 'timestamp', descending: true },
+      { index: '$loki', descending: false },
+    ]);
+
+  if (installments.length) {
+    for (let i = 0; i < installments.length; i += 1) {
+      await api.db.remove("installments", installments[i]);
+    }
+  }
+  return true;
+};
+
 /**
  * Removes a subscription.
  */
@@ -196,29 +195,11 @@ actions.unsubscribe = async (payload) => {
     const subscription = await api.db.findOne('subscriptions', {
       id: finalIdentifier,
       subscriber: sender,
-      active: true,
     });
 
     if (api.assert(subscription !== null, 'subscription does not exist or was already removed')) {
-      subscription.active = false;
-      // deactivate this subscription
-      await api.db.update('subscriptions', subscription);
-
-      /**
-       * Checks if there are other subscriptions active from this provider on the same symbol,
-       * if not remove the authorization to transfer symbol
-       */
-      const hasSubscription = await api.db.findOne('subscriptions', {
-        provider: subscription.provider,
-        subscriber: sender,
-        symbol: subscription.symbol,
-        active: true,
-      });
-
-      if (hasSubscription === null) {
-        // remove authorization to transfer (symbol) funds
-        await api.removeAuthorization(CONTRACT_NAME, sender, subscription.provider, subscription.symbol, 'transfer');
-      }
+      // remove this subscription
+      await removeSubscription(subscription);
 
       api.emit('unsubscribe', {
         subscriber: sender,
@@ -251,7 +232,12 @@ const processInstallment = async (subscription, first) => {
     for (let i = 0; i < beneficiaries.length; i += 1) {
       const { account, percent } = beneficiaries[i];
       const finalQuantity = ((percent / 100) / 100) * quantity;
-      await api.authorizeTransfer(CONTRACT_NAME, api.sender, subscriber, account, symbol, finalQuantity);
+      await api.executeSmartContract('tokens', 'authorizeTransfer', {
+        from: subscriber,
+        to: account,
+        symbol,
+        quantity: finalQuantity,
+      });
     }
     await api.db.insert('installments', {
       subscriptionId: subscription.id,
@@ -260,7 +246,7 @@ const processInstallment = async (subscription, first) => {
     api.emit('installment', {
       id,
       provider: api.sender,
-      subscriber: subscriber,
+      subscriber,
       first,
     });
     return true;
@@ -289,7 +275,6 @@ actions.installment = async (payload) => {
     const subscription = await api.db.findOne('subscriptions', {
       id: finalIdentifier,
       provider: sender,
-      active: true,
     });
     if (api.assert(subscription !== null, 'subscription does not exist or is inactive')) {
       const installments = await api.db.find('installments', {
@@ -306,77 +291,75 @@ actions.installment = async (payload) => {
         await processInstallment(subscription, true);
         return true;
       }
-      if (api.assert(installments.length < subscription.max, 'subscription reached max payable installments')) {
-        const trxTimestamp = new Date(steemBlockTimestamp).getTime();
-        const lastInstallment = installments[0];
-        const lastInstallmentTime = new Date(lastInstallment.timestamp).getTime();
-        const { recur } = subscription;
-        let isPayable = false;
-        switch (subscription.period) {
-          case 'min': {
-            const min = 1000 * 60;
-            const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= min * recur;
-            if (recurTime === true) {
-              isPayable = true;
-              await processInstallment(subscription, false);
-            }
-            break;
-          }
-          case 'hour': {
-            const hour = 1000 * 60 * 60;
-            const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= hour * recur;
-            if (recurTime) {
-              isPayable = true;
-              await processInstallment(subscription, false);
-            }
-            break;
-          }
-          case 'day': {
-            const day = 1000 * 60 * 60 * 24;
-            const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= day * recur;
-            if (recurTime) {
-              isPayable = true;
-              await processInstallment(subscription, false);
-            }
-            break;
-          }
-          case 'week': {
-            const week = 1000 * 60 * 60 * 24 * 7;
-            const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= week * recur;
-            if (recurTime) {
-              isPayable = true;
-              await processInstallment(subscription, false);
-            }
-            break;
-          }
-          case 'month': {
-            const month = 1000 * 60 * 60 * 24 * 30;
-            const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= month * recur;
-            if (recurTime) {
-              isPayable = true;
-              await processInstallment(subscription, false);
-            }
-            break;
-          }
-          default: {
-            return false;
-          }
-        }
-        if (api.assert(isPayable === true, 'this installment is not payable')) {
-          /**
-           * Check whether this is the last installment to pay,
-           * if so, make the subscribtion inactive
-           */
 
-          if (installments.length + 1 === BigNumber(subscription.max).toNumber()) {
-            subscription.active = false;
-            await api.db.update('subscriptions', subscription);
-          }
+      const trxTimestamp = new Date(steemBlockTimestamp).getTime();
+      const lastInstallment = installments[0];
+      const lastInstallmentTime = new Date(lastInstallment.timestamp).getTime();
+      const { recur } = subscription;
+      let isPayable = false;
 
-          return true;
+      switch (subscription.period) {
+        case 'min': {
+          const min = 1000 * 60;
+          const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= min * recur;
+          if (recurTime === true) {
+            isPayable = true;
+            await processInstallment(subscription, false);
+          }
+          break;
         }
-        return false;
+        case 'hour': {
+          const hour = 1000 * 60 * 60;
+          const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= hour * recur;
+          if (recurTime) {
+            isPayable = true;
+            await processInstallment(subscription, false);
+          }
+          break;
+        }
+        case 'day': {
+          const day = 1000 * 60 * 60 * 24;
+          const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= day * recur;
+          if (recurTime) {
+            isPayable = true;
+            await processInstallment(subscription, false);
+          }
+          break;
+        }
+        case 'week': {
+          const week = 1000 * 60 * 60 * 24 * 7;
+          const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= week * recur;
+          if (recurTime) {
+            isPayable = true;
+            await processInstallment(subscription, false);
+          }
+          break;
+        }
+        case 'month': {
+          const month = 1000 * 60 * 60 * 24 * 30;
+          const recurTime = trxTimestamp > lastInstallmentTime && (trxTimestamp - lastInstallmentTime) >= month * recur;
+          if (recurTime) {
+            isPayable = true;
+            await processInstallment(subscription, false);
+          }
+          break;
+        }
+        default: {
+          return false;
+        }
       }
+      if (api.assert(isPayable === true, 'this installment is not payable')) {
+        /**
+         * Check whether this is the last installment to pay,
+         * if so, delete the subscribtion
+         */
+
+        if (installments.length + 1 === BigNumber(subscription.max).toNumber()) {
+          await removeSubscription(subscription);
+        }
+        return true;
+      }
+      return false;
     }
   }
   return false;

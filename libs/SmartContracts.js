@@ -340,61 +340,6 @@ class SmartContracts {
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
             contract, contractVersion,
           ),
-          /**
-           * Allows a contract to to authorize a delegatee to do certain actions on
-           * behalf of the delegator, for example moving (symbol) funds
-           */
-          addAuthorization: async (
-            contractName, delegator, delegatee, symbol, type,
-          ) => SmartContracts.executeSmartContractFromSmartContract(
-            ipc, results, 'null', payloadObj, 'tokens', 'addAuthorization',
-            JSON.stringify({
-              contract: contractName,
-              delegator,
-              delegatee,
-              symbol,
-              type,
-            }),
-            blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-          ),
-          /**
-           * Allows a contract to to deauthorize a delegatee to do certain actions on
-           * behalf of the delegator, for example moving (symbol) funds
-           */
-          removeAuthorization: async (
-            contractName, delegator, delegatee, symbol, type,
-          ) => SmartContracts.executeSmartContractFromSmartContract(
-            ipc, results, 'null', payloadObj, 'tokens', 'removeAuthorization',
-            JSON.stringify({
-              contract: contractName,
-              delegator,
-              delegatee,
-              symbol,
-              type,
-            }),
-            blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-          ),
-          /**
-           * Allows a contract to move funds from delegator when requested
-           * by an authorized delegatee via the contract
-           */
-          authorizeTransfer: async (
-            contractName, delegatee, from, to, symbol, quantity,
-          ) => SmartContracts.executeSmartContractFromSmartContract(
-            ipc, results, 'null', payloadObj, 'tokens', 'authorizeTransfer',
-            JSON.stringify({
-              contract: contractName,
-              delegatee,
-              from,
-              to,
-              symbol,
-              quantity,
-            }),
-            blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-          ),
           // execute a token transfer from the contract balance
           transferTokens: async (
             to, symbol, quantity, type,

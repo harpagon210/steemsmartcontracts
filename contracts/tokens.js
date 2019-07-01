@@ -1,7 +1,6 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 
-const AUTHORIZATION_TYPES = ['transfer'];
 const countDecimals = value => api.BigNumber(value).dp();
 
 actions.createSSC = async () => {
@@ -110,13 +109,11 @@ actions.createSSC = async () => {
   }
 
   /**
-   * Adds the table to store authorized delegatees and the type of actions they are
-   * authorized for, via the contract. For example move (symbol) funds
-   * on behalf of the delegator via the defined contract.
+   * Adds the table to store authorized contracts to do certain actions, i.e. transfer
    */
   tableExists = await api.db.tableExists('authorizations');
   if (tableExists === false) {
-    await api.db.createTable('authorizations', ['contract', 'delegator', 'delegatee', 'symbol', 'type']);
+    await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action']);
   }
 };
 
@@ -127,53 +124,43 @@ actions.createSSC = async () => {
 actions.addAuthorization = async (payload) => {
   const {
     contract,
-    delegator,
-    delegatee,
+    version,
+    action,
     symbol,
-    type,
+    callingContractInfo,
   } = payload;
-  /**
-   * this action can only be called by the 'null' account which only the core code can use
-   */
-  if (api.assert(api.sender === 'null', 'not authorized')) {
+  if (api.assert(!callingContractInfo, 'this action cannot be invoked by a contract')) {
     if (api.assert(contract
-      && api.validator.isAlphanumeric(contract)
       && contract.length > 3
       && contract.length < 50
-      && delegator
-      && typeof delegator === 'string'
-      && delegator.length >= 3
-      && delegator.length <= 16
-      && delegatee
-      && typeof delegatee === 'string'
-      && delegatee.length >= 3
-      && delegatee.length <= 16
+      && version
+      && typeof version === 'string'
+      && api.BigNumber(version).gte(1)
+      && action
+      && typeof action === 'string'
       && symbol
-      && typeof symbol === 'string'
-      && type
-      && typeof type === 'string'
-      && AUTHORIZATION_TYPES.includes(type), 'invalid params')
+      && typeof symbol === 'string', 'invalid params')
     ) {
       const token = await api.db.findOne('tokens', { symbol });
       if (api.assert(token !== null, 'symbol does not exist')) {
         const authorization = await api.db.findOne('authorizations', {
+          account: api.sender,
           contract,
-          delegator,
-          delegatee,
+          version,
+          action,
           symbol,
-          type,
         });
         if (api.assert(authorization === null, 'authorization already exists')) {
           await api.db.insert('authorizations', {
+            account: api.sender,
             contract,
-            delegator,
-            delegatee,
+            version: api.BigNumber(version).toNumber(),
+            action,
             symbol,
-            type,
           });
 
           api.emit('addAuthorization', {
-            contract, delegator, delegatee, symbol, type,
+            account: api.sender, contract, version, version, symbol, action,
           });
 
           return true;
@@ -190,48 +177,38 @@ actions.addAuthorization = async (payload) => {
 actions.removeAuthorization = async (payload) => {
   const {
     contract,
-    delegator,
-    delegatee,
+    version,
+    action,
     symbol,
-    type,
+    callingContractInfo,
   } = payload;
-  /**
-   * this action can only be called by the 'null' account which only the core code can use
-   */
-  if (api.assert(api.sender === 'null', 'not authorized')) {
+  if (api.assert(!callingContractInfo, 'this action cannot be invoked by a contract')) {
     if (api.assert(contract
-      && api.validator.isAlphanumeric(contract)
       && contract.length > 3
       && contract.length < 50
-      && delegator
-      && typeof delegator === 'string'
-      && delegator.length >= 3
-      && delegator.length <= 16
-      && delegatee
-      && typeof delegatee === 'string'
-      && delegatee.length >= 3
-      && delegatee.length <= 16
+      && version
+      && typeof version === 'string'
+      && api.BigNumber(version).gte(1)
+      && action
+      && typeof action === 'string'
       && symbol
-      && typeof symbol === 'string'
-      && type
-      && typeof type === 'string'
-      && AUTHORIZATION_TYPES.includes(type), 'invalid params')
+      && typeof symbol === 'string', 'invalid params')
     ) {
       const token = await api.db.findOne('tokens', { symbol });
       if (api.assert(token !== null, 'symbol does not exist')) {
         const authorization = await api.db.findOne('authorizations', {
+          account: api.sender,
           contract,
-          delegator,
-          delegatee,
+          version: api.BigNumber(version).toNumber(),
+          action,
           symbol,
-          type,
         });
         if (api.assert(authorization !== null, 'authorization does not exist')) {
 
           await api.db.remove('authorizations', authorization);
 
           api.emit('removeAuthorization', {
-            contract, delegator, delegatee, symbol, type,
+            account: api.sender, contract, version, symbol, action,
           });
           return true;
         }
@@ -243,26 +220,22 @@ actions.removeAuthorization = async (payload) => {
 
 /**
  * Authorizes a transfer of (symbol) funds via a contract if the
- * sender has the required delegated authority to do so.
+ * contract has the required delegated authority to do so.
  * (see actions.addAuthorization)
  */
 actions.authorizeTransfer = async (payload) => {
   const {
-    contract, delegatee, from, to, symbol, quantity,
+    from,
+    to,
+    symbol,
+    quantity,
+    callingContractInfo,
   } = payload;
   const finalFrom = from ? from.trim() : null;
   const finalTo = to ? to.trim() : null;
 
-  if (api.assert(api.sender === 'null', 'not authorized')) {
-    if (api.assert(contract
-      && api.validator.isAlphanumeric(contract)
-      && contract.length > 3
-      && contract.length < 50
-      && delegatee
-      && typeof delegatee === 'string'
-      && delegatee.length >= 3
-      && delegatee.length <= 16
-      && finalFrom
+  if (api.assert(callingContractInfo, 'this action can only be invoked by a contract')) {
+    if (api.assert(finalFrom
       && typeof finalFrom === 'string'
       && finalFrom.length >= 3
       && finalFrom.length <= 16
@@ -284,11 +257,11 @@ actions.authorizeTransfer = async (payload) => {
          * Verify that the transaction is authorized
          */
         const isAuthorized = await api.db.findOne('authorizations', {
-          contract,
-          delegatee,
-          delegator: finalFrom,
+          contract: callingContractInfo.name,
+          version: callingContractInfo.version,
+          account: finalFrom,
           symbol,
-          type: 'transfer',
+          action: callingContractInfo.action,
         });
 
         if (api.assert(isAuthorized !== null, 'transaction is not authorized')) {
@@ -302,7 +275,13 @@ actions.authorizeTransfer = async (payload) => {
               }
 
               api.emit('authorizeTransfer', {
-                contract, delegatee, from: finalFrom, to: finalTo, symbol, quantity,
+                contract: callingContractInfo.name,
+                version: callingContractInfo.version,
+                action: callingContractInfo.action,
+                from: finalFrom,
+                to: finalTo,
+                symbol,
+                quantity,
               });
 
               return true;

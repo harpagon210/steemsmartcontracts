@@ -134,6 +134,7 @@ describe('Subscriptions smart contract', () => {
       transactions.push(new Transaction(30983000, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(30983000, 'TXID1231', 'steemsc', 'contract', 'update', JSON.stringify(subContractPayload)));
       transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30983000, 'TXID1234', 'elear.dev', 'tokens', 'addAuthorization', '{ "isSignedWithActiveKey": true,  "contract": "subscriptions", "version": "2", "symbol": "TKN", "action": "installment" }'));
       transactions.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{"provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "10", "max": "10", "isSignedWithActiveKey": true}`));
 
       const block = new Block(
@@ -155,6 +156,24 @@ describe('Subscriptions smart contract', () => {
       const tx = res.payload;
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'subscribe').data;
+
+      const dbAuth = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'authorizations',
+          query: {
+            account: 'elear.dev',
+            contract: 'subscriptions',
+            version: 2,
+            action: "installment",
+            symbol: 'TKN',
+          }
+        }
+      });
+      const authorizations = dbAuth.payload;
+
+      assert.equal(authorizations.length, 1);
 
       assert.equal(event.subscriber, "elear.dev");
       assert.equal(event.id, "TXID6179b5ae2735d268091fb8edf18a3c71233d");
@@ -230,6 +249,7 @@ describe('Subscriptions smart contract', () => {
       transactions.push(new Transaction(30983000, 'TXID1231', 'steemsc', 'contract', 'update', JSON.stringify(subContractPayload)));
       transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "elear.dev", "quantity": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30983000, 'TXID1235', 'elear.dev', 'tokens', 'addAuthorization', '{ "isSignedWithActiveKey": true,  "contract": "subscriptions", "version": "2", "symbol": "TKN", "action": "installment" }'));
       transactions.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{ "provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "10", "max": "10", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID667', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
 
@@ -317,6 +337,7 @@ describe('Subscriptions smart contract', () => {
       transactionsOne.push(new Transaction(30983000, 'TXID1231', 'steemsc', 'contract', 'update', JSON.stringify(subContractPayload)));
       transactionsOne.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactionsOne.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "to": "elear.dev", "quantity": "1000", "isSignedWithActiveKey": true }'));
+      transactionsOne.push(new Transaction(30983000, 'TXID1235', 'elear.dev', 'tokens', 'addAuthorization', '{ "isSignedWithActiveKey": true,  "contract": "subscriptions", "version": "2", "symbol": "TKN", "action": "installment" }'));
       transactionsOne.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{ "provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "2", "max": "10", "isSignedWithActiveKey": true }`));
       transactionsOne.push(new Transaction(30983000, 'TXID667', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
       transactionsTwo.push(new Transaction(30983000, 'TXID668', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
@@ -514,7 +535,7 @@ describe('Subscriptions smart contract', () => {
         done();
       });
   });
-  it('removes a subscription and authorization to transfer', (done) => {
+  it('removes a subscription', (done) => {
     new Promise(async (resolve) => {
       cleanDataFolder();
 
@@ -528,6 +549,7 @@ describe('Subscriptions smart contract', () => {
       transactions.push(new Transaction(30983000, 'TXID1231', 'steemsc', 'contract', 'update', JSON.stringify(subContractPayload)));
       transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 5, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(30983000, 'TXID6179b5ae2735d268091fb8edf18a3c71233d', 'elear.dev', 'subscriptions', 'subscribe', `{ "provider": "harpagon", "beneficiaries": [{"account":"aggroed","percent":"5000"},{"account":"harpagon","percent":"5000"}], "quantity": "100", "symbol": "TKN", "period": "min", "recur": "10", "max": "10", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID666', 'harpagon', 'subscriptions', 'installment', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID667', 'elear.dev', 'subscriptions', 'unsubscribe', `{ "id": "TXID6179b5ae2735d268091fb8edf18a3c71233d", "isSignedWithActiveKey": true }`));
 
       const block = new Block(
@@ -549,22 +571,32 @@ describe('Subscriptions smart contract', () => {
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'unsubscribe').data;
 
-      const dbAuth = await send(database.PLUGIN_NAME, 'MASTER', {
+      const dbSubscription = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
         payload: {
-          contract: 'tokens',
-          table: 'authorizations',
+          contract: 'subscriptions',
+          table: 'subscriptions',
           query: {
-            delegator: 'elear.dev',
-            delegatee: 'harpagon',
-            symbol: 'TKN',
-            type: 'transfer',
+            id: 'TXID6179b5ae2735d268091fb8edf18a3c71233d',
           }
         }
       });
-      const authorizations = dbAuth.payload;
+      const subscription = dbSubscription.payload;
 
-      assert.equal(authorizations.length, 0);
+      const dbInstallments = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'subscriptions',
+          table: 'installments',
+          query: {
+            subscriptionId: 'TXID6179b5ae2735d268091fb8edf18a3c71233d',
+          }
+        }
+      });
+      const installments = dbInstallments.payload;
+
+      assert.equal(subscription.length, 0);
+      assert.equal(installments.length, 0);
       assert.equal(event.subscriber, "elear.dev");
       assert.equal(event.id, "TXID6179b5ae2735d268091fb8edf18a3c71233d");
       assert.equal(event.provider, "harpagon");
