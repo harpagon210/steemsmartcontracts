@@ -549,8 +549,8 @@ actions.enableStaking = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
-    && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 365, 'unstakingCooldown must be an integer between 1 and 365')
-    && api.assert(numberTransactions && Number.isInteger(numberTransactions) && numberTransactions > 0 && numberTransactions <= 365, 'numberTransactions must be an integer between 1 and 365')) {
+    && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 18250, 'unstakingCooldown must be an integer between 1 and 18250')
+    && api.assert(numberTransactions && Number.isInteger(numberTransactions) && numberTransactions > 0 && numberTransactions <= 18250, 'numberTransactions must be an integer between 1 and 18250')) {
     const token = await api.db.findOne('tokens', { symbol });
 
     if (api.assert(token !== null, 'symbol does not exist')
@@ -875,7 +875,7 @@ actions.enableDelegation = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
-    && api.assert(undelegationCooldown && Number.isInteger(undelegationCooldown) && undelegationCooldown > 0 && undelegationCooldown <= 365, 'undelegationCooldown must be an integer between 1 and 365')) {
+    && api.assert(undelegationCooldown && Number.isInteger(undelegationCooldown) && undelegationCooldown > 0 && undelegationCooldown <= 18250, 'undelegationCooldown must be an integer between 1 and 18250')) {
     const token = await api.db.findOne('tokens', { symbol });
 
     if (api.assert(token !== null, 'symbol does not exist')
@@ -974,11 +974,11 @@ actions.delegate = async (payload) => {
             }
           }
 
-          let balanceTo = await api.db.findOne('balances', { account: to, symbol });
+          let balanceTo = await api.db.findOne('balances', { account: finalTo, symbol });
 
           if (balanceTo === null) {
             balanceTo = balanceTemplate;
-            balanceTo.account = to;
+            balanceTo.account = finalTo;
             balanceTo.symbol = symbol;
 
             balanceTo = await api.db.insert('balances', balanceTo);
@@ -1026,7 +1026,7 @@ actions.delegate = async (payload) => {
 
             delegation = {};
             delegation.from = api.sender;
-            delegation.to = to;
+            delegation.to = finalTo;
             delegation.symbol = symbol;
             delegation.quantity = quantity;
             delegation.created = timestamp;
@@ -1064,7 +1064,7 @@ actions.delegate = async (payload) => {
             delegation.updated = timestamp;
 
             await api.db.update('delegations', delegation);
-            api.emit('delegate', { to, symbol, quantity });
+            api.emit('delegate', { to: finalTo, symbol, quantity });
           }
         }
       }
