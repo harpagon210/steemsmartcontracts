@@ -106,27 +106,41 @@ actions.register = async (payload) => {
     && api.assert(P2PPort && Number.isInteger(P2PPort) && P2PPort >= 0 && P2PPort <= 65535, 'P2PPort must be an integer between 0 and 65535')
     && api.assert(api.validator.isAlphanumeric(signingKey) && signingKey.length === 53, 'invalid signing key')
     && api.assert(typeof enabled === 'boolean', 'enabled must be a boolean')) {
-    let witness = await api.db.findOne('witnesses', { account: api.sender });
+    // check if there is already a witness with the same IP/ P2P port or same signing key
+    let witness = await api.db.findOne('witnesses', {
+      $or: [
+        {
+          IP,
+        },
+        {
+          signingKey,
+        },
+      ],
+    });
 
-    // if the witness is already registered
-    if (witness) {
-      witness.IP = IP;
-      witness.RPCPort = RPCPort;
-      witness.P2PPort = P2PPort;
-      witness.signingKey = signingKey;
-      witness.enabled = enabled;
-      await api.db.update('witnesses', witness);
-    } else {
-      witness = {
-        account: api.sender,
-        approvalWeight: { $numberDecimal: '0' },
-        signingKey,
-        IP,
-        RPCPort,
-        P2PPort,
-        enabled,
-      };
-      await api.db.insert('witnesses', witness);
+    if (api.assert(witness === null, 'a witness is already using this IP or signing key')) {
+      witness = await api.db.findOne('witnesses', { account: api.sender });
+
+      // if the witness is already registered
+      if (witness) {
+        witness.IP = IP;
+        witness.RPCPort = RPCPort;
+        witness.P2PPort = P2PPort;
+        witness.signingKey = signingKey;
+        witness.enabled = enabled;
+        await api.db.update('witnesses', witness);
+      } else {
+        witness = {
+          account: api.sender,
+          approvalWeight: { $numberDecimal: '0' },
+          signingKey,
+          IP,
+          RPCPort,
+          P2PPort,
+          enabled,
+        };
+        await api.db.insert('witnesses', witness);
+      }
     }
   }
 };

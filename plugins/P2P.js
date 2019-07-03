@@ -1,8 +1,11 @@
 /* eslint-disable no-await-in-loop */
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
-const { IPC } = require('../libs/IPC');
+const dsteem = require('dsteem');
 const WebSocket = require('ws');
+const WSEvents = require('ws-events');
+const { IPC } = require('../libs/IPC');
+
 
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
@@ -11,12 +14,41 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
 
 const PLUGIN_PATH = require.resolve(__filename);
 
+const ACCOUNT = 'harpagon';
+const SIGNING_KEY = dsteem.PrivateKey.fromLogin(ACCOUNT, 'testnet', 'active');
+const PUB_SIGNING_KEY = SIGNING_KEY.createPublic().toString();
+
 const actions = {};
 
 const ipc = new IPC(PLUGIN_NAME);
 
 let webSocketServer = null;
-let webSockets = {};
+const webSockets = {};
+
+const generateRandomString = (length) => {
+  let text = '';
+  const possibleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-=';
+
+  for (let i = 0; i < length; i += 1) {
+    text += possibleChars.charAt(Math.floor(Math.random() * possibleChars.length));
+  }
+
+  return text;
+};
+
+const insert = async (contract, table, record) => {
+  const res = await ipc.send({
+    to: DB_PLUGIN_NAME,
+    action: DB_PLUGIN_ACTIONS.INSERT,
+    payload: {
+      contract,
+      table,
+      record,
+    },
+  });
+
+  return res.payload;
+};
 
 const find = async (contract, table, query, limit = 1000, offset = 0, indexes = []) => {
   const res = await ipc.send({
@@ -49,60 +81,158 @@ const findOne = async (contract, table, query) => {
   return res.payload;
 };
 
-const sendData = (ip, data) => {
-  try {
-    if (webSockets[ip]) {
-      webSockets[ip].ws.send(JSON.stringify(data));
-    }
-  } catch (error) {
-    console.error(`An error occured while sending data to ${ip}`, error);
-  }
-};
-
-const messageHandler = async (ip, data) => {
-  console.log(ip, data);
-};
-
 const errorHandler = async (ip, error) => {
-  console.log(ip, error);
+  console.error(ip, error);
 };
 
 const closeHandler = async (ip, code, reason) => {
-  console.log(`closed connection from peer ${ip}`, code, reason);
   if (webSockets[ip]) {
+    console.log(`closed connection from peer ${ip} (${webSockets[ip].witness.accounts})`, code, reason);
     delete webSockets[ip];
+  }
+};
+
+const checkSignature = (payload, signature, publicKey) => {
+  const sig = dsteem.Signature.fromString(signature);
+  const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
+  const buffer = Buffer.from(payloadHash, 'hex');
+
+  return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+};
+
+const handshakeResponseHandler = async (ip, data) => {
+  const { authToken, signature, account } = data;
+
+  let authFailed = true;
+
+  if (authToken && signature && account && webSockets[ip]) {
+    const witnessSocket = webSockets[ip];
+
+    // check if this peer is a witness
+    const witness = await findOne('witnesses', 'witnesses', {
+      account,
+    });
+
+    if (witness && witnessSocket.witness.authToken === authToken) {
+      const {
+        IP,
+        signingKey,
+      } = witness;
+
+      if ((IP === ip || IP === ip.replace('::ffff:', ''))
+        && checkSignature({ authToken }, signature, signingKey)) {
+        witnessSocket.witness.account = account;
+        witnessSocket.witness.signingKey = signingKey;
+        witnessSocket.authenticated = true;
+        authFailed = false;
+        console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
+      }
+    }
+  }
+
+  if (authFailed === true && webSockets[ip]) {
+    console.log(`authentication failed, dropping connection with peer ${ip}`);
+    webSockets[ip].ws.terminate();
+    delete webSockets[ip];
+  }
+};
+
+const handshakeHandler = (ip, payload) => {
+  const { authToken } = payload;
+  console.log('handshake requested: authToken', authToken);
+  if (authToken && webSockets[ip]) {
+    const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
+    const buffer = Buffer.from(payloadHash, 'hex');
+
+    const signature = SIGNING_KEY.sign(buffer).toString();
+
+    webSockets[ip].ws.emit('handshakeResponse', Object.assign(payload, { signature, account: ACCOUNT }));
+    const senderAuthToken = generateRandomString(32);
+    webSockets[ip].witness.authToken = senderAuthToken;
+
+    // request handshake
+    webSockets[ip].ws.emit('handshake', { authToken: senderAuthToken });
   }
 };
 
 const connectionHandler = async (ws, req) => {
   const { remoteAddress } = req.connection;
-  const ip = remoteAddress.replace('::ffff:', '');
+  const ip = remoteAddress;
 
   // if already connected to this peer, close the web socket
   if (webSockets[ip]) {
     ws.terminate();
   } else {
-    // check if this peer is a witness
-    let witness = await findOne('witnesses', 'witnesses', {
-      IP: remoteAddress.replace('::ffff:', ''),
-    });
+    const wsEvents = WSEvents(ws);
+    ws.on('close', (code, reason) => closeHandler(ip, code, reason));
+    ws.on('error', error => errorHandler(ip, error));
 
-    witness = 'true'
+    const authToken = generateRandomString(32);
+    webSockets[ip] = {
+      ws: wsEvents,
+      witness: {
+        authToken,
+      },
+      authenticated: false,
+    };
 
-    if (witness) {
-      console.log(`accepted connection from peer ${ip}`);
-      ws.on('message', data => messageHandler(ip, data));
-      ws.on('close', (code, reason) => closeHandler(ip, code, reason));
-      ws.on('error', error => errorHandler(ip, error));
-      ws.emit('test', 'test')
-      ws.on('test', (data) => {
-        console.log('test', data)
-      })
-      webSockets[ip] = { ws };
-      //sendData(ip, { test: 'testdata' });
-    } else {
-      console.log(`rejected connection from peer ${ip}`);
-      ws.terminate();
+    wsEvents.on('handshake', payload => handshakeHandler(ip, payload));
+    wsEvents.on('handshakeResponse', data => handshakeResponseHandler(ip, data));
+
+    // request handshake
+    wsEvents.emit('handshake', { authToken });
+  }
+};
+
+const connectToWitness = (witness) => {
+  const {
+    IP,
+    P2PPort,
+    account,
+    signingKey,
+    authToken,
+  } = witness;
+
+  const ws = new WebSocket(`ws://${IP}:${P2PPort}`);
+  const wsEvents = WSEvents(ws);
+
+  webSockets[IP] = {
+    ws: wsEvents,
+    witness: {
+      account,
+      signingKey,
+      authToken,
+    },
+    authenticated: false,
+  };
+
+  ws.on('close', (code, reason) => closeHandler(IP, code, reason));
+  ws.on('error', error => errorHandler(IP, error));
+  wsEvents.on('handshake', payload => handshakeHandler(IP, payload));
+  wsEvents.on('handshakeResponse', data => handshakeResponseHandler(IP, data));
+};
+
+const connectToWitnesses = async () => {
+  // retrieve the existing witnesses (only the top 50)
+  const witnesses = await find('witnesses', 'witnesses',
+    {
+      approvalWeight: {
+        $gt: {
+          $numberDecimal: '0',
+        },
+      },
+      enabled: true,
+    },
+    500,
+    0,
+    [
+      { index: 'approvalWeight', descending: true },
+    ]);
+
+  console.log(witnesses);
+  for (let index = 0; index < witnesses.length; index += 1) {
+    if (witnesses[index].account !== ACCOUNT) {
+      connectToWitness(witnesses[index]);
     }
   }
 };
@@ -118,26 +248,45 @@ const init = async (conf, callback) => {
   webSocketServer.on('connection', (ws, req) => connectionHandler(ws, req));
   console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
 
-  // retrieve the existing witnesses (only the top 50)
-  const witnesses = await find('witnesses', 'witnesses',
-    {
-      approvalWeight: {
-        $gt: {
-          $numberDecimal: '0',
-        },
-      },
-      enabled: true,
+  // TEST ONLY
+  /* await insert('witnesses', 'witnesses', {
+    account: 'harpagon',
+    approvalWeight: {
+      $numberDecimal: '10',
     },
-    50,
-    0,
-    [
-      { index: 'approvalWeight', descending: true },
-    ]);
+    signingKey: dsteem.PrivateKey.fromLogin('harpagon', 'testnet', 'active').createPublic().toString(),
+    IP: '127.0.0.1',
+    RPCPort: 5000,
+    P2PPort: 5001,
+    enabled: true,
+  });
 
-  console.log(witnesses)
-  if (witnesses.length > 0) {
-    // connect to the witnesses
-  }
+  await insert('witnesses', 'witnesses', {
+    account: 'dan',
+    approvalWeight: {
+      $numberDecimal: '10',
+    },
+    signingKey: dsteem.PrivateKey.fromLogin('dan', 'testnet', 'active').createPublic().toString(),
+    IP: '127.0.0.1',
+    RPCPort: 6000,
+    P2PPort: 6001,
+    enabled: true,
+  });
+
+  
+  await insert('witnesses', 'witnesses', {
+    account: 'vitalik',
+    approvalWeight: {
+      $numberDecimal: '10',
+    },
+    signingKey: dsteem.PrivateKey.fromLogin('vitalik', 'testnet', 'active').createPublic().toString(),
+    IP: '127.0.0.1',
+    RPCPort: 7000,
+    P2PPort: 7001,
+    enabled: true,
+  });*/
+
+  connectToWitnesses();
 
   callback(null);
 };
