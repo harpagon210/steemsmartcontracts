@@ -10,6 +10,7 @@ const blockchain = require('./plugins/Blockchain');
 const jsonRPCServer = require('./plugins/JsonRPCServer');
 const streamer = require('./plugins/Streamer');
 const replay = require('./plugins/Replay');
+const p2p = require('./plugins/P2P');
 
 const conf = require('./config');
 
@@ -136,9 +137,13 @@ async function start() {
     res = await send(getPlugin(blockchain),
       { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
     if (res && res.payload === null) {
-      res = await loadPlugin(streamer);
+      //res = await loadPlugin(streamer);
       if (res && res.payload === null) {
-        res = await loadPlugin(jsonRPCServer);
+        res = await loadPlugin(p2p);
+
+        if (res && res.payload === null) {
+          res = await loadPlugin(jsonRPCServer);
+        }
       }
     }
   }
@@ -146,14 +151,17 @@ async function start() {
 
 async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
+  await unloadPlugin(p2p);
   // get the last Steem block parsed
   let res = null;
-  const streamerPlugin = getPlugin(streamer);
+  /*const streamerPlugin = getPlugin(streamer);
   if (streamerPlugin) {
     res = await unloadPlugin(streamer);
   } else {
     res = await unloadPlugin(replay);
-  }
+  }*/
+
+  res = { payload: 1 };
 
   await unloadPlugin(blockchain);
   await unloadPlugin(database);

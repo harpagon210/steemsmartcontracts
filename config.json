@@ -1,6 +1,7 @@
 {
     "chainId": "mainnet1",
     "rpcNodePort": 5000,
+    "p2pPort": 5001,
     "databaseURL": "mongodb://localhost:27017",
     "databaseName": "ssc",
     "dataDirectory": "./data/",
@@ -14,6 +15,6 @@
         "https://rpc.steemviz.com",
         "https://steemd.minnowsupportproject.org"
     ],
-    "startSteemBlock": 29864752,
+    "startSteemBlock": 29862600,
     "genesisSteemBlock": 29862600
 }

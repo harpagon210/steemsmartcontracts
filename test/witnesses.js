@@ -177,8 +177,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "url": "https://my.witness.rocks", "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "url": "https://my.witness.rocks.too", "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "127.0.0.1", "RPCPort": 5000, "P2PPort": 5001, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "127.0.0.2", "RPCPort": 5000, "P2PPort": 5001, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -205,18 +205,22 @@ describe('witnesses', function () {
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
       assert.equal(witnesses[0].signingKey, "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR");
-      assert.equal(witnesses[0].url, "https://my.witness.rocks");
+      assert.equal(witnesses[0].IP, "127.0.0.1");
+      assert.equal(witnesses[0].RPCPort, 5000);
+      assert.equal(witnesses[0].P2PPort, 5001);
       assert.equal(witnesses[0].enabled, true);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
       assert.equal(witnesses[1].signingKey, "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq");
-      assert.equal(witnesses[1].url, "https://my.witness.rocks.too");
+      assert.equal(witnesses[1].IP, "127.0.0.2");
+      assert.equal(witnesses[1].RPCPort, 5000);
+      assert.equal(witnesses[1].P2PPort, 5001);
       assert.equal(witnesses[1].enabled, false);
 
       transactions = [];
-      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "url": "https://my.witness.rocks.updated", "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1p1", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "url": "https://my.witness.rocks.too.updated", "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBab1", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "127.0.0.3", "RPCPort": 5001, "P2PPort": 5002, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1p1", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "127.0.0.4", "RPCPort": 5001, "P2PPort": 5002, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBab1", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
         refSteemBlockNumber: 1,
@@ -243,13 +247,17 @@ describe('witnesses', function () {
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
       assert.equal(witnesses[0].signingKey, "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1p1");
-      assert.equal(witnesses[0].url, "https://my.witness.rocks.updated");
+      assert.equal(witnesses[0].IP, "127.0.0.3");
+      assert.equal(witnesses[0].RPCPort, 5001);
+      assert.equal(witnesses[0].P2PPort, 5002);
       assert.equal(witnesses[0].enabled, false);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
       assert.equal(witnesses[1].signingKey, "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBab1");
-      assert.equal(witnesses[1].url, "https://my.witness.rocks.too.updated");
+      assert.equal(witnesses[1].IP, "127.0.0.4");
+      assert.equal(witnesses[1].RPCPort, 5001);
+      assert.equal(witnesses[1].P2PPort, 5002);
       assert.equal(witnesses[1].enabled, true);
 
       resolve();
