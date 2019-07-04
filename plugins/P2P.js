@@ -175,11 +175,15 @@ const handshakeHandler = async (ip, payload) => {
         && checkSignature({ authToken }, signature, signingKey)) {
         witnessSocket.witness.account = account;
         witnessSocket.witness.signingKey = signingKey;
-        witnessSocket.witness.authToken = authToken;
-        witnessSocket.authenticated = true;
         authFailed = false;
-        console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
         webSockets[ip].ws.emit('handshakeResponse', { authToken, signature: signPayload({ authToken }), account: ACCOUNT });
+
+        if (witnessSocket.authenticated !== true) {
+          console.log('requesting handshake peer ', ip, account);
+          const respAuthToken = generateRandomString(32);
+          witnessSocket.witness.authToken = respAuthToken;
+          webSockets[ip].ws.emit('handshake', { authToken: respAuthToken, signature: signPayload({ authToken: respAuthToken }), account: ACCOUNT });
+        }
       }
     }
   }
