@@ -83,11 +83,18 @@ const findOne = async (contract, table, query) => {
 
 const errorHandler = async (ip, error) => {
   console.error(ip, error);
+
+  if (error.code === 'ECONNREFUSED') {
+    if (webSockets[ip]) {
+      console.log(`closed connection from peer ${ip} (${webSockets[ip].witness.account})`);
+      delete webSockets[ip];
+    }
+  }
 };
 
 const closeHandler = async (ip, code, reason) => {
   if (webSockets[ip]) {
-    console.log(`closed connection from peer ${ip} (${webSockets[ip].witness.accounts})`, code, reason);
+    console.log(`closed connection from peer ${ip} (${webSockets[ip].witness.account})`, code, reason);
     delete webSockets[ip];
   }
 };
@@ -98,6 +105,13 @@ const checkSignature = (payload, signature, publicKey) => {
   const buffer = Buffer.from(payloadHash, 'hex');
 
   return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+};
+
+const signPayload = (payload) => {
+  const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
+  const buffer = Buffer.from(payloadHash, 'hex');
+
+  return SIGNING_KEY.sign(buffer).toString();
 };
 
 const handshakeResponseHandler = async (ip, data) => {
@@ -131,34 +145,55 @@ const handshakeResponseHandler = async (ip, data) => {
   }
 
   if (authFailed === true && webSockets[ip]) {
-    console.log(`authentication failed, dropping connection with peer ${ip}`);
+    console.log(`handshake failed, dropping connection with peer ${ip}`);
     webSockets[ip].ws.terminate();
     delete webSockets[ip];
   }
 };
 
-const handshakeHandler = (ip, payload) => {
-  const { authToken } = payload;
+const handshakeHandler = async (ip, payload) => {
+  const { authToken, account, signature } = payload;
   console.log('handshake requested: authToken', authToken);
-  if (authToken && webSockets[ip]) {
-    const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
-    const buffer = Buffer.from(payloadHash, 'hex');
 
-    const signature = SIGNING_KEY.sign(buffer).toString();
+  let authFailed = true;
 
-    webSockets[ip].ws.emit('handshakeResponse', Object.assign(payload, { signature, account: ACCOUNT }));
-    const senderAuthToken = generateRandomString(32);
-    webSockets[ip].witness.authToken = senderAuthToken;
+  if (authToken && signature && account && webSockets[ip]) {
+    const witnessSocket = webSockets[ip];
 
-    // request handshake
-    webSockets[ip].ws.emit('handshake', { authToken: senderAuthToken });
+    // check if this peer is a witness
+    const witness = await findOne('witnesses', 'witnesses', {
+      account,
+    });
+
+    if (witness) {
+      const {
+        IP,
+        signingKey,
+      } = witness;
+
+      if ((IP === ip || IP === ip.replace('::ffff:', ''))
+        && checkSignature({ authToken }, signature, signingKey)) {
+        witnessSocket.witness.account = account;
+        witnessSocket.witness.signingKey = signingKey;
+        witnessSocket.witness.authToken = authToken;
+        witnessSocket.authenticated = true;
+        authFailed = false;
+        console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
+        webSockets[ip].ws.emit('handshakeResponse', { authToken, signature: signPayload({ authToken }), account: ACCOUNT });
+      }
+    }
+  }
+
+  if (authFailed === true && webSockets[ip]) {
+    console.log(`handshake failed, dropping connection with peer ${ip}`);
+    webSockets[ip].ws.terminate();
+    delete webSockets[ip];
   }
 };
 
 const connectionHandler = async (ws, req) => {
   const { remoteAddress } = req.connection;
   const ip = remoteAddress;
-
   // if already connected to this peer, close the web socket
   if (webSockets[ip]) {
     ws.terminate();
@@ -179,8 +214,8 @@ const connectionHandler = async (ws, req) => {
     wsEvents.on('handshake', payload => handshakeHandler(ip, payload));
     wsEvents.on('handshakeResponse', data => handshakeResponseHandler(ip, data));
 
-    // request handshake
-    wsEvents.emit('handshake', { authToken });
+    console.log('requesting handshake peer ', ip);
+    webSockets[ip].ws.emit('handshake', { authToken, signature: signPayload({ authToken }), account: ACCOUNT });
   }
 };
 
@@ -205,7 +240,7 @@ const connectToWitness = (witness) => {
     },
     authenticated: false,
   };
-
+  console.log('connection to witness ', account)
   ws.on('close', (code, reason) => closeHandler(IP, code, reason));
   ws.on('error', error => errorHandler(IP, error));
   wsEvents.on('handshake', payload => handshakeHandler(IP, payload));
