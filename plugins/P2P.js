@@ -250,7 +250,7 @@ const connectToWitness = (witness) => {
 };
 
 const connectToWitnesses = async () => {
-  // retrieve the existing witnesses (only the top 50)
+  // retrieve the existing witnesses (only the top 30)
   const witnesses = await find('witnesses', 'witnesses',
     {
       approvalWeight: {
@@ -260,7 +260,7 @@ const connectToWitnesses = async () => {
       },
       enabled: true,
     },
-    500,
+    30,
     0,
     [
       { index: 'approvalWeight', descending: true },

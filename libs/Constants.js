@@ -1,12 +1,10 @@
 const CONSTANTS = {
 
   // mainnet
-  
   UTILITY_TOKEN_SYMBOL: 'ENG',
   STEEM_PEGGED_ACCOUNT: 'steem-peg',
   INITIAL_TOKEN_CREATION_FEE: '100',
   SSC_STORE_QTY: '0.001',
-  
 
   // testnet
   /*
@@ -16,6 +14,7 @@ const CONSTANTS = {
   SSC_STORE_QTY: '1',
   */
   UTILITY_TOKEN_PRECISION: 8,
+  UTILITY_TOKEN_MIN_VALUE: '0.00000001',
   STEEM_PEGGED_SYMBOL: 'STEEMP',
 
   // default values

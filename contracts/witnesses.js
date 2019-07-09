@@ -2,8 +2,9 @@
 /* global actions, api */
 
 const NB_VOTES_ALLOWED = 30;
-const NB_WITNESSES = 9;
+const NB_TOP_WITNESSES = 20;
 const NB_BACKUP_WITNESSES = 1;
+const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('witnesses');
@@ -17,6 +18,7 @@ actions.createSSC = async () => {
     const params = {
       totalApprovalWeight: { $numberDecimal: '0' },
       numberOfApprovedWitnesses: 0,
+      nextScheduleCalculation: 0,
     };
 
     await api.db.insert('params', params);
@@ -257,14 +259,36 @@ actions.unvote = async (payload) => {
 
 const scheduleWitnesses = async () => {
   const params = api.db.findOne('params', {});
-  const { numberOfApprovedWitnesses, totalApprovalWeight } = params;
+  const { numberOfApprovedWitnesses, totalApprovalWeight, nextScheduleCalculation } = params;
   const schedule = [];
+
+  if (api.blockNumber < nextScheduleCalculation) return;
 
   // there has to be enough top witnesses to start a schedule
   if (numberOfApprovedWitnesses >= NB_WITNESSES) {
-    // pick the top (NB_WITNESSES - NB_BACKUP_WITNESSES) witnesses
-    const nbTopWitnesses = NB_WITNESSES - NB_BACKUP_WITNESSES;
-    let approvalWeightTopWitnesses = 0;
+    /*
+      example:
+      -> total approval weight = 10,000
+      ->  approval weights:
+        acct A : 1000 (from 0 to 1000)
+        acct B : 900 (from 1000.00000001 to 1900)
+        acct C : 800 (from 1900.00000001 to 2700)
+        acct D : 700 (from 2700.00000001 to 3400)
+        ...
+        acct n : from ((n-1).upperBound + 0.00000001) to 10,000)
+
+        -> total approval weight top witnesses (A-D) = 3,400
+        -> pick up backup witnesses (E-n): weight range:
+          from 3,400.0000001 to 10,000
+    */
+
+    // pick the backup witnesses
+    // get a deterministic random weight
+    const random = api.random();
+    let randomWeight = null;
+
+    let offset = 0;
+    let accWeight = 0;
 
     let witnesses = await api.db.find(
       'witnesses',
@@ -272,25 +296,87 @@ const scheduleWitnesses = async () => {
         approvalWeight: {
           $gt: '0',
         },
-        enabled: true,
       },
-      nbTopWitnesses, // limit
-      0, // offset
+      100, // limit
+      offset, // offset
       [
         { index: 'approvalWeight', descending: true },
       ],
     );
 
-    for (let index = 0; index < witnesses.length; index += 1) {
-      const witness = witnesses[index];
-      approvalWeightTopWitnesses += witness.approvalWeight;
-      schedule.push(witness.account);
+    do {
+      for (let index = 0; index < witnesses.length; index += 1) {
+        const witness = witnesses[index];
+
+        // calculate a random weight if not done yet
+        if (schedule.length >= NB_TOP_WITNESSES
+          && randomWeight === null) {
+          const min = api.BigNumber(accWeight)
+            .plus('${CONSTANTS.UTILITY_TOKEN_MIN_VALUE}$')
+          randomWeight = api.BigNumber(totalApprovalWeight)
+            .minus(min)
+            .times(random)
+            .plus(min)
+            .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+        }
+
+        accWeight = api.BigNumber(accWeight)
+          .plus(witness.approvalWeight.$numberDecimal)
+          .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+
+        // if the witness is enabled
+        if (witness.enabled === true) {
+          // if we haven't found all the top witnesses yet
+          if (schedule.length < NB_TOP_WITNESSES
+            || api.BigNumber(randomWeight).lte(accWeight)) {
+            schedule.push({
+              account: witness.account,
+              blockNumber: null,
+            });
+          }
+        }
+      }
+
+      if (schedule.length < NB_WITNESSES) {
+        offset += 100;
+        witnesses = await api.db.find(
+          'witnesses',
+          {
+            approvalWeight: {
+              $gt: '0',
+            },
+          },
+          100, // limit
+          offset, // offset
+          [
+            { index: 'approvalWeight', descending: true },
+          ],
+        );
+      }
+    } while (witnesses.length > 0 && schedule.length < NB_WITNESSES);
+  }
+
+  // if there are enough witnesses scheduled
+  if (schedule.length === NB_WITNESSES) {
+    // shuffle the witnesses
+    const random = api.random();
+    let j; let x;
+    for (let i = schedule.length - 1; i > 0; i -= 1) {
+      j = Math.floor(random * (i + 1));
+      x = schedule[i];
+      schedule[i] = schedule[j];
+      schedule[j] = x;
     }
 
-    // pick the backup witnesses
+    // block number attribution
+    // eslint-disable-next-line prefer-destructuring
+    let blockNumber = api.blockNumber;
+    for (let i = 0; i < schedule.length; i += 1) {
+      blockNumber += 1;
+      schedule[i].blockNumber = blockNumber;
+    }
 
-    // get a deterministic random number
-    const random = api.random();
-    const randomWeight = random * (totalApprovalWeight - approvalWeightTopWitnesses - 1) + 1;
+    params.nextScheduleCalculation = blockNumber;
+    await api.db.update('params', params);
   }
 };
