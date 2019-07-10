@@ -110,52 +110,29 @@ actions.updateWitnessesApprovals = async () => {
 
 actions.register = async (payload) => {
   const {
-    IP, RPCPort, P2PPort, signingKey, enabled, isSignedWithActiveKey,
+    RPCPUrl, enabled, isSignedWithActiveKey,
   } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'active key required')
-    && api.assert(IP && typeof IP === 'string' && IP.length <= 15, 'IP must be a string with a max. of 15 chars.')
-    && api.assert(RPCPort && Number.isInteger(RPCPort) && RPCPort >= 0 && RPCPort <= 65535, 'RPCPort must be an integer between 0 and 65535')
-    && api.assert(P2PPort && Number.isInteger(P2PPort) && P2PPort >= 0 && P2PPort <= 65535, 'P2PPort must be an integer between 0 and 65535')
-    && api.assert(api.validator.isAlphanumeric(signingKey) && signingKey.length === 53, 'invalid signing key')
+    && api.assert(RPCPUrl && typeof RPCPUrl === 'string' && RPCPUrl.length > 0 && RPCPUrl.length <= 255, 'RPCPUrl must be a string with a max. of 255 chars.')
     && api.assert(typeof enabled === 'boolean', 'enabled must be a boolean')) {
-    // check if there is already a witness with the same IP/ P2P port or same signing key
-    let witness = await api.db.findOne('witnesses', {
-      $or: [
-        {
-          IP,
-        },
-        {
-          signingKey,
-        },
-      ],
-    });
+    let witness = await api.db.findOne('witnesses', { account: api.sender });
 
-    if (api.assert(witness === null, 'a witness is already using this IP or signing key')) {
-      witness = await api.db.findOne('witnesses', { account: api.sender });
-
-      // if the witness is already registered
-      if (witness) {
-        witness.IP = IP;
-        witness.RPCPort = RPCPort;
-        witness.P2PPort = P2PPort;
-        witness.signingKey = signingKey;
-        witness.enabled = enabled;
-        await api.db.update('witnesses', witness);
-      } else {
-        witness = {
-          account: api.sender,
-          approvalWeight: { $numberDecimal: '0' },
-          signingKey,
-          IP,
-          RPCPort,
-          P2PPort,
-          enabled,
-          missedBlocks: 0,
-          missedBlocksInARow: 0,
-        };
-        await api.db.insert('witnesses', witness);
-      }
+    // if the witness is already registered
+    if (witness) {
+      witness.RPCPUrl = RPCPUrl;
+      witness.enabled = enabled;
+      await api.db.update('witnesses', witness);
+    } else {
+      witness = {
+        account: api.sender,
+        approvalWeight: { $numberDecimal: '0' },
+        RPCPUrl,
+        enabled,
+        missedBlocks: 0,
+        missedBlocksInARow: 0,
+      };
+      await api.db.insert('witnesses', witness);
     }
   }
 };
@@ -167,18 +144,17 @@ actions.approve = async (payload) => {
     // check if witness exists
     const witnessRec = await api.db.findOne('witnesses', { account: witness });
 
-
     if (api.assert(witnessRec, 'witness does not exist')) {
       let acct = await api.db.findOne('accounts', { account: api.sender });
 
       if (acct === null) {
         acct = {
           account: api.sender,
-          apparovals: 0,
+          approvals: 0,
           approvalWeight: { $numberDecimal: '0' },
         };
 
-        await api.db.insert('accounts', acct);
+        acct = await api.db.insert('accounts', acct);
       }
 
       // a user can approve NB_APPROVALS_ALLOWED witnesses only
@@ -206,12 +182,13 @@ actions.approve = async (payload) => {
           }
 
           acct.approvals += 1;
+          //api.debug(acct)
           acct.approvalWeight.$numberDecimal = approvalWeight;
 
           await api.db.update('accounts', acct);
 
           if (api.BigNumber(approvalWeight).gt(0)) {
-            await actions.updateWitnessRank(witness, approvalWeight);
+            await updateWitnessRank(witness, approvalWeight);
           }
         }
       }

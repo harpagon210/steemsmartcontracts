@@ -167,7 +167,7 @@ describe('witnesses', function () {
         })
   });
   
-  it('registers a witness', (done) => {
+  it('registers witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -178,8 +178,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "127.0.0.1", "RPCPort": 5000, "P2PPort": 5001, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "127.0.0.2", "RPCPort": 5000, "P2PPort": 5001, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
         refSteemBlockNumber: 1,
@@ -205,23 +205,17 @@ describe('witnesses', function () {
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].signingKey, "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR");
-      assert.equal(witnesses[0].IP, "127.0.0.1");
-      assert.equal(witnesses[0].RPCPort, 5000);
-      assert.equal(witnesses[0].P2PPort, 5001);
+      assert.equal(witnesses[0].RPCPUrl, "my.awesome.node");
       assert.equal(witnesses[0].enabled, true);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].signingKey, "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq");
-      assert.equal(witnesses[1].IP, "127.0.0.2");
-      assert.equal(witnesses[1].RPCPort, 5000);
-      assert.equal(witnesses[1].P2PPort, 5001);
+      assert.equal(witnesses[1].RPCPUrl, "my.awesome.node.too");
       assert.equal(witnesses[1].enabled, false);
 
       transactions = [];
-      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "127.0.0.3", "RPCPort": 5001, "P2PPort": 5002, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1p1", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "127.0.0.4", "RPCPort": 5001, "P2PPort": 5002, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBab1", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.new.awesome.node", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.new.awesome.node.too", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
         refSteemBlockNumber: 1,
@@ -247,19 +241,427 @@ describe('witnesses', function () {
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].signingKey, "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1p1");
-      assert.equal(witnesses[0].IP, "127.0.0.3");
-      assert.equal(witnesses[0].RPCPort, 5001);
-      assert.equal(witnesses[0].P2PPort, 5002);
+      assert.equal(witnesses[0].RPCPUrl, "my.new.awesome.node");
       assert.equal(witnesses[0].enabled, false);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].signingKey, "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBab1");
-      assert.equal(witnesses[1].IP, "127.0.0.4");
-      assert.equal(witnesses[1].RPCPort, 5001);
-      assert.equal(witnesses[1].P2PPort, 5002);
+      assert.equal(witnesses[1].RPCPUrl, "my.new.awesome.node.too");
       assert.equal(witnesses[1].enabled, true);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('approves witnesses', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'witnesses',
+          query: {
+          }
+        }
+      });
+
+      let witnesses = res.payload;
+
+      assert.equal(witnesses[0].account, "dan");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000000');
+
+      assert.equal(witnesses[1].account, "vitalik");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000000");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'accounts',
+          query: {
+            account: 'harpagon'
+          }
+        }
+      });
+
+      let account = res.payload;
+
+      assert.equal(account.approvals, 2);
+      assert.equal(account.approvalWeight.$numberDecimal, "100.00000000");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'approvals',
+          query: {
+          }
+        }
+      });
+
+      let approvals = res.payload;
+
+      assert.equal(approvals[0].from, "harpagon");
+      assert.equal(approvals[0].to, "dan");
+
+      assert.equal(approvals[1].from, "harpagon");
+      assert.equal(approvals[1].to, "vitalik");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+          }
+        }
+      });
+
+      let params = res.payload;
+
+      assert.equal(params[0].numberOfApprovedWitnesses, 2);
+      assert.equal(params[0].totalApprovalWeight.$numberDecimal, "200.00000000");
+
+      transactions = [];
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID12', 'ned', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+
+      block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'witnesses',
+          query: {
+          }
+        }
+      });
+
+      witnesses = res.payload;
+
+      assert.equal(witnesses[0].account, "dan");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
+
+      assert.equal(witnesses[1].account, "vitalik");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(witnesses[2].account, "satoshi");
+      assert.equal(witnesses[2].approvalWeight.$numberDecimal, "100.00000001");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'accounts',
+          query: {
+          }
+        }
+      });
+
+      let accounts = res.payload;
+
+      assert.equal(accounts[0].account, "harpagon");
+      assert.equal(accounts[0].approvals, 3);
+      assert.equal(accounts[0].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(accounts[1].account, "ned");
+      assert.equal(accounts[1].approvals, 2);
+      assert.equal(accounts[1].approvalWeight.$numberDecimal, "1E-8");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'approvals',
+          query: {
+          }
+        }
+      });
+
+      approvals = res.payload;
+
+      assert.equal(approvals[0].from, "harpagon");
+      assert.equal(approvals[0].to, "dan");
+
+      assert.equal(approvals[1].from, "harpagon");
+      assert.equal(approvals[1].to, "vitalik");
+
+      assert.equal(approvals[2].from, "harpagon");
+      assert.equal(approvals[2].to, "satoshi");
+
+      assert.equal(approvals[3].from, "ned");
+      assert.equal(approvals[3].to, "dan");
+
+      assert.equal(approvals[4].from, "ned");
+      assert.equal(approvals[4].to, "satoshi");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+          }
+        }
+      });
+
+      params = res.payload;
+
+      assert.equal(params[0].numberOfApprovedWitnesses, 3);
+      assert.equal(params[0].totalApprovalWeight.$numberDecimal, "300.00000002");
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('disapproves witnesses', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID12', 'ned', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+
+      let block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(1, 'TXID13', 'ned', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+
+      block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'witnesses',
+          query: {
+          }
+        }
+      });
+
+      witnesses = res.payload;
+
+      assert.equal(witnesses[0].account, "dan");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
+
+      assert.equal(witnesses[1].account, "vitalik");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(witnesses[2].account, "satoshi");
+      assert.equal(witnesses[2].approvalWeight.$numberDecimal, "100.00000000");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'accounts',
+          query: {
+          }
+        }
+      });
+
+      let accounts = res.payload;
+
+      assert.equal(accounts[0].account, "harpagon");
+      assert.equal(accounts[0].approvals, 3);
+      assert.equal(accounts[0].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(accounts[1].account, "ned");
+      assert.equal(accounts[1].approvals, 1);
+      assert.equal(accounts[1].approvalWeight.$numberDecimal, "1E-8");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'approvals',
+          query: {
+            to: "satoshi"
+          }
+        }
+      });
+
+      approvals = res.payload;
+
+      assert.equal(approvals[0].from, "harpagon");
+      assert.equal(approvals[0].to, "satoshi");
+      assert.equal(approvals.length, 1);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+          }
+        }
+      });
+
+      params = res.payload;
+
+      assert.equal(params[0].numberOfApprovedWitnesses, 3);
+      assert.equal(params[0].totalApprovalWeight.$numberDecimal, "300.00000001");
+
+      transactions = [];
+      transactions.push(new Transaction(1, 'TXID14', 'harpagon', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+
+      block = {
+        refSteemBlockNumber: 1,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'witnesses',
+          query: {
+          }
+        }
+      });
+
+      witnesses = res.payload;
+
+      assert.equal(witnesses[0].account, "dan");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
+
+      assert.equal(witnesses[1].account, "vitalik");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(witnesses[2].account, "satoshi");
+      assert.equal(witnesses[2].approvalWeight.$numberDecimal, "0E-8");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'accounts',
+          query: {
+          }
+        }
+      });
+
+      accounts = res.payload;
+
+      assert.equal(accounts[0].account, "harpagon");
+      assert.equal(accounts[0].approvals, 2);
+      assert.equal(accounts[0].approvalWeight.$numberDecimal, "100.00000000");
+
+      assert.equal(accounts[1].account, "ned");
+      assert.equal(accounts[1].approvals, 1);
+      assert.equal(accounts[1].approvalWeight.$numberDecimal, "1E-8");
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'approvals',
+          query: {
+            to: "satoshi"
+          }
+        }
+      });
+
+      approvals = res.payload;
+
+      assert.equal(approvals.length, 0);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+          }
+        }
+      });
+
+      params = res.payload;
+
+      assert.equal(params[0].numberOfApprovedWitnesses, 2);
+      assert.equal(params[0].totalApprovalWeight.$numberDecimal, "200.00000001");
 
       resolve();
     })
