@@ -282,6 +282,8 @@ class SmartContracts {
         remove: (table, record) => SmartContracts.remove(ipc, contract, table, record),
         // insert a record in the table of the smart contract
         update: (table, record) => SmartContracts.update(ipc, contract, table, record),
+        // get block information
+        getBlockInfo: blockNum => SmartContracts.getBlockInfo(ipc, blockNum),
       };
 
       // logs used to store events or errors
@@ -631,6 +633,16 @@ class SmartContracts {
         contract: contractName,
         table,
       },
+    });
+
+    return res.payload;
+  }
+
+  static async getBlockInfo(ipc, blockNumber) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+      payload: blockNumber,
     });
 
     return res.payload;

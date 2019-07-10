@@ -212,7 +212,9 @@ actions.getLatestBlockInfo = async (payload, callback) => {
 
 actions.getBlockInfo = async (blockNumber, callback) => {
   try {
-    const block = await chain.findOne({ _id: blockNumber });
+    const block = typeof blockNumber === 'number' && Number.isInteger(blockNumber)
+      ? await chain.findOne({ _id: blockNumber })
+      : null;
 
     if (callback) {
       callback(block);
