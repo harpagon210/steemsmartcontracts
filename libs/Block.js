@@ -97,6 +97,8 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
     }
 
+    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'manageWitnessesSchedule', ''));
+
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
       const transaction = virtualTransactions[i];

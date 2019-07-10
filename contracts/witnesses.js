@@ -182,7 +182,6 @@ actions.approve = async (payload) => {
           }
 
           acct.approvals += 1;
-          //api.debug(acct)
           acct.approvalWeight.$numberDecimal = approvalWeight;
 
           await api.db.update('accounts', acct);
@@ -254,18 +253,19 @@ actions.disapprove = async (payload) => {
 actions.manageWitnessesSchedule = async () => {
   if (api.sender !== 'null') return;
 
-  const params = api.db.findOne('params', {});
+  const params = await api.db.findOne('params', {});
   const {
     numberOfApprovedWitnesses,
     totalApprovalWeight,
     nextScheduleCalculation,
     lastVerifiedBlockNumber,
   } = params;
+
   // check the current schedule
   let schedule = await api.db.findOne('schedules', { blockNumber: lastVerifiedBlockNumber + 1 });
 
   // if the scheduled witness has not signed the block on time we need to reschedule a new witness
-  if (api.blockNumber >= schedule.blockPropositionDeadline) {
+  if (schedule && api.blockNumber >= schedule.blockPropositionDeadline) {
     // update the witness
     const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
     scheduledWitness.missedBlocks += 1;
@@ -282,7 +282,7 @@ actions.manageWitnessesSchedule = async () => {
     let witnessFound = false;
     // get a deterministic random weight
     const random = api.random();
-    const randomWeight = api.BigNumber(totalApprovalWeight)
+    const randomWeight = api.BigNumber(totalApprovalWeight.$numberDecimal)
       .minus(0)
       .times(random)
       .plus(0)
@@ -296,7 +296,9 @@ actions.manageWitnessesSchedule = async () => {
       'witnesses',
       {
         approvalWeight: {
-          $gt: '0',
+          $gt: {
+            $numberDecimal: '0',
+          },
         },
       },
       100, // limit
@@ -333,7 +335,9 @@ actions.manageWitnessesSchedule = async () => {
           'witnesses',
           {
             approvalWeight: {
-              $gt: '0',
+              $gt: {
+                $numberDecimal: '0',
+              },
             },
           },
           100, // limit
@@ -378,7 +382,9 @@ actions.manageWitnessesSchedule = async () => {
         'witnesses',
         {
           approvalWeight: {
-            $gt: '0',
+            $gt: {
+              $numberDecimal: '0',
+            },
           },
         },
         100, // limit
@@ -398,12 +404,15 @@ actions.manageWitnessesSchedule = async () => {
             const min = api.BigNumber(accWeight)
               // eslint-disable-next-line no-template-curly-in-string
               .plus('${CONSTANTS.UTILITY_TOKEN_MIN_VALUE}$');
-            randomWeight = api.BigNumber(totalApprovalWeight)
+
+            randomWeight = api.BigNumber(totalApprovalWeight.$numberDecimal)
               .minus(min)
               .times(random)
               .plus(min)
               // eslint-disable-next-line no-template-curly-in-string
               .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+
+            api.debug(`random weight: ${randomWeight}`);
           }
 
           accWeight = api.BigNumber(accWeight)
@@ -416,11 +425,16 @@ actions.manageWitnessesSchedule = async () => {
             // if we haven't found all the top witnesses yet
             if (schedule.length < NB_TOP_WITNESSES
               || api.BigNumber(randomWeight).lte(accWeight)) {
+              api.debug(`adding witness ${schedule.length + 1} ${witness.account}`);
               schedule.push({
                 witness: witness.account,
                 blockNumber: null,
               });
             }
+          }
+
+          if (schedule.length >= NB_WITNESSES) {
+            index = witnesses.length;
           }
         }
 
@@ -430,7 +444,9 @@ actions.manageWitnessesSchedule = async () => {
             'witnesses',
             {
               approvalWeight: {
-                $gt: '0',
+                $gt: {
+                  $numberDecimal: '0',
+                },
               },
             },
             100, // limit
@@ -502,7 +518,7 @@ actions.proposeBlock = async (payload) => {
     && hash
     && databaseHash
     && merkleRoot) {
-    const params = api.db.findOne('params', {});
+    const params = await api.db.findOne('params', {});
     const { lastVerifiedBlockNumber, currentWitness } = params;
     const currentBlock = lastVerifiedBlockNumber + 1;
 
@@ -511,7 +527,7 @@ actions.proposeBlock = async (payload) => {
     if (blockNumber === currentBlock
       && api.sender === currentWitness) {
       // get the block information and check against the proposed ones
-      const blockInfo = api.db.getBlockInfo(blockNumber);
+      const blockInfo = await api.db.getBlockInfo(blockNumber);
 
       if (blockInfo !== null
         && blockInfo.refSteemBlockNumber === refSteemBlockNumber
@@ -523,13 +539,13 @@ actions.proposeBlock = async (payload) => {
         && blockInfo.databaseHash === databaseHash
         && blockInfo.merkleRoot === merkleRoot) {
         // set dispute period where the top witnesses can dispute the block
-        let schedule = api.db.findOne('schedules', { blockNumber: currentBlock });
+        let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
         schedule.blockDisputeDeadline = api.blockNumber + BLOCK_DISPUTE_PERIOD;
         await api.db.update('schedules', schedule);
 
         // update the params
         // get the next witness on schedule
-        schedule = api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
+        schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
 
         if (schedule !== null) {
           params.currentWitness = schedule.witness;
