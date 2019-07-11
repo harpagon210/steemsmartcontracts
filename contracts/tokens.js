@@ -499,6 +499,11 @@ const processUnstake = async (unstake) => {
         await api.db.update('tokens', token);
 
         api.emit('unstake', { account, symbol, quantity: tokensToRelease });
+
+        // update witnesses rank
+        if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+          await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account });
+        }
       }
     }
   }
@@ -637,6 +642,11 @@ actions.stake = async (payload) => {
           await addBalance(api.sender, token, quantity, 'balances');
         } else {
           api.emit('stake', { account: finalTo, symbol, quantity });
+
+          // update witnesses rank
+          if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+            await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: api.sender });
+          }
         }
       }
     }
@@ -1034,7 +1044,13 @@ actions.delegate = async (payload) => {
 
             await api.db.insert('delegations', delegation);
 
-            api.emit('delegate', { to, symbol, quantity });
+            api.emit('delegate', { to: finalTo, symbol, quantity });
+
+            // update witnesses rank
+            if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+              await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: api.sender });
+              await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: finalTo });
+            }
           } else {
             // if a delegation already exists, increase it
 
@@ -1065,6 +1081,12 @@ actions.delegate = async (payload) => {
 
             await api.db.update('delegations', delegation);
             api.emit('delegate', { to: finalTo, symbol, quantity });
+
+            // update witnesses rank
+            if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+              await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: api.sender });
+              await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: finalTo });
+            }
           }
         }
       }
@@ -1153,6 +1175,11 @@ actions.undelegate = async (payload) => {
               await api.db.insert('pendingUndelegations', undelegation);
 
               api.emit('undelegateStart', { from: finalFrom, symbol, quantity });
+
+              // update witnesses rank
+              if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+                await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: finalFrom });
+              }
             }
           }
         }
@@ -1191,6 +1218,11 @@ const processUndelegation = async (undelegation) => {
       await api.db.remove('pendingUndelegations', undelegation);
 
       api.emit('undelegateDone', { account, symbol, quantity });
+
+      // update witnesses rank
+      if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+        await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account });
+      }
     }
   }
 };

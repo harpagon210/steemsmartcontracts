@@ -5,6 +5,7 @@ const NB_APPROVALS_ALLOWED = 30;
 const NB_TOP_WITNESSES = 20;
 const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
+const NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK = 17;
 const BLOCK_PROPOSITION_PERIOD = 10;
 const BLOCK_DISPUTE_PERIOD = 10;
 const MAX_BLOCK_MISSED_IN_A_ROW = 3;
@@ -17,14 +18,17 @@ actions.createSSC = async () => {
     await api.db.createTable('approvals', ['from', 'to']);
     await api.db.createTable('accounts', ['account']);
     await api.db.createTable('schedules');
+    await api.db.createTable('rounds');
     await api.db.createTable('params');
+    await api.db.createTable('disputes');
 
     const params = {
-      totalApprovalWeight: { $numberDecimal: '0' },
+      totalApprovalWeight: '0',
       numberOfApprovedWitnesses: 0,
       nextScheduleCalculation: 0,
-      lastVerifiedBlockNumber: null,
+      lastVerifiedBlockNumber: 0,
       currentWitness: null,
+      proposedBlock: null,
     };
 
     await api.db.insert('params', params);
@@ -50,9 +54,7 @@ const updateWitnessRank = async (witness, approvalWeight) => {
     const params = await api.db.findOne('params', {});
 
     // update totalApprovalWeight
-    params.totalApprovalWeight.$numberDecimal = api.BigNumber(
-      params.totalApprovalWeight.$numberDecimal,
-    )
+    params.totalApprovalWeight = api.BigNumber(params.totalApprovalWeight)
       .plus(approvalWeight)
       // eslint-disable-next-line no-template-curly-in-string
       .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
@@ -70,38 +72,52 @@ const updateWitnessRank = async (witness, approvalWeight) => {
   }
 };
 
-actions.updateWitnessesApprovals = async () => {
-  const acct = await api.db.findOne('accounts', { account: api.sender });
+actions.updateWitnessesApprovals = async (payload) => {
+  const { account, callingContractInfo } = payload;
 
+  if (callingContractInfo === undefined) return;
+  if (callingContractInfo.name !== 'tokens') return;
+
+  const acct = await api.db.findOne('accounts', { account });
   if (acct !== null) {
     // calculate approval weight of the account
     // eslint-disable-next-line no-template-curly-in-string
-    const balance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+    const balance = await api.db.findOneInTable('tokens', 'balances', { account, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
     let approvalWeight = 0;
     if (balance && balance.stake) {
       approvalWeight = balance.stake;
     }
 
+    if (balance && balance.pendingUnstake) {
+      approvalWeight = api.BigNumber(approvalWeight)
+        .plus(balance.pendingUnstake)
+        // eslint-disable-next-line no-template-curly-in-string
+        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+    }
+
     if (balance && balance.delegationsIn) {
-      // eslint-disable-next-line no-template-curly-in-string
-      approvalWeight = api.BigNumber(approvalWeight).plus(balance.delegationsIn).toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+      approvalWeight = api.BigNumber(approvalWeight)
+        .plus(balance.delegationsIn)
+        // eslint-disable-next-line no-template-curly-in-string
+        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
     }
 
     const oldApprovalWeight = acct.approvalWeight;
 
-    // eslint-disable-next-line no-template-curly-in-string
-    const deltaApprovalWeight = api.BigNumber(approvalWeight).minus(oldApprovalWeight).toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+    const deltaApprovalWeight = api.BigNumber(approvalWeight)
+      .minus(oldApprovalWeight)
+      // eslint-disable-next-line no-template-curly-in-string
+      .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
 
     acct.approvalWeight = approvalWeight;
 
     if (!api.BigNumber(deltaApprovalWeight).eq(0)) {
       await api.db.update('accounts', acct);
 
-      const approvals = await api.db.find('approvals', { from: api.sender });
+      const approvals = await api.db.find('approvals', { from: account });
 
       for (let index = 0; index < approvals.length; index += 1) {
         const approval = approvals[index];
-
         await updateWitnessRank(approval.to, deltaApprovalWeight);
       }
     }
@@ -176,19 +192,26 @@ actions.approve = async (payload) => {
             approvalWeight = balance.stake;
           }
 
+          if (balance && balance.pendingUnstake) {
+            approvalWeight = api.BigNumber(approvalWeight)
+              .plus(balance.pendingUnstake)
+              // eslint-disable-next-line no-template-curly-in-string
+              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+          }
+
           if (balance && balance.delegationsIn) {
-            // eslint-disable-next-line no-template-curly-in-string
-            approvalWeight = api.BigNumber(approvalWeight).plus(balance.delegationsIn).toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+            approvalWeight = api.BigNumber(approvalWeight)
+              .plus(balance.delegationsIn)
+              // eslint-disable-next-line no-template-curly-in-string
+              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
           }
 
           acct.approvals += 1;
-          acct.approvalWeight.$numberDecimal = approvalWeight;
+          acct.approvalWeight = approvalWeight;
 
           await api.db.update('accounts', acct);
 
-          if (api.BigNumber(approvalWeight).gt(0)) {
-            await updateWitnessRank(witness, approvalWeight);
-          }
+          await updateWitnessRank(witness, approvalWeight);
         }
       }
     }
@@ -236,14 +259,12 @@ actions.disapprove = async (payload) => {
           }
 
           acct.approvals -= 1;
-          acct.approvalWeight.$numberDecimal = approvalWeight;
+          acct.approvalWeight = approvalWeight;
 
           await api.db.update('accounts', acct);
 
           // update the rank of the witness that received the disapproval
-          if (api.BigNumber(approvalWeight).gt(0)) {
-            await updateWitnessRank(witness, `-${approvalWeight}`);
-          }
+          await updateWitnessRank(witness, `-${approvalWeight}`);
         }
       }
     }
@@ -259,30 +280,34 @@ actions.manageWitnessesSchedule = async () => {
     totalApprovalWeight,
     nextScheduleCalculation,
     lastVerifiedBlockNumber,
+    proposedBlock,
   } = params;
 
   // check the current schedule
-  let schedule = await api.db.findOne('schedules', { blockNumber: lastVerifiedBlockNumber + 1 });
+  const currentBlock = lastVerifiedBlockNumber + 1;
+  let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
 
-  // if the scheduled witness has not signed the block on time we need to reschedule a new witness
-  if (schedule && api.blockNumber >= schedule.blockPropositionDeadline) {
+  // if the scheduled witness has not proposed the block on time we need to reschedule a new witness
+  if (schedule
+    && api.blockNumber >= schedule.blockPropositionDeadline
+    && proposedBlock && proposedBlock.blockNumber !== currentBlock) {
     // update the witness
     const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
     scheduledWitness.missedBlocks += 1;
     scheduledWitness.missedBlocksInARow += 1;
 
-    // disable the witness if necessary
+    // disable the witness if missed MAX_BLOCK_MISSED_IN_A_ROW
     if (scheduledWitness.missedBlocksInARow >= MAX_BLOCK_MISSED_IN_A_ROW) {
       scheduledWitness.missedBlocksInARow = 0;
       scheduledWitness.enabled = false;
     }
 
-    await api.db.insert('witnesses', scheduledWitness);
+    await api.db.update('witnesses', scheduledWitness);
 
     let witnessFound = false;
     // get a deterministic random weight
     const random = api.random();
-    const randomWeight = api.BigNumber(totalApprovalWeight.$numberDecimal)
+    const randomWeight = api.BigNumber(totalApprovalWeight)
       .minus(0)
       .times(random)
       .plus(0)
@@ -350,9 +375,17 @@ actions.manageWitnessesSchedule = async () => {
     } while (witnesses.length > 0 && witnessFound === false);
   }
 
-  // check if a new schedule has to be calculated
-  if (api.blockNumber >= nextScheduleCalculation) {
+  // check if a new schedule can be calculated
+  if (api.blockNumber >= nextScheduleCalculation
+    && lastVerifiedBlockNumber === nextScheduleCalculation) {
     schedule = [];
+
+    // clean last schedule
+    const lastSchedule = await api.db.find('schedules', {});
+    for (let index = 0; index < lastSchedule.length; index += 1) {
+      await api.db.remove('schedules', lastSchedule[index]);
+    }
+
     // there has to be enough top witnesses to start a schedule
     if (numberOfApprovedWitnesses >= NB_WITNESSES) {
       /*
@@ -405,7 +438,7 @@ actions.manageWitnessesSchedule = async () => {
               // eslint-disable-next-line no-template-curly-in-string
               .plus('${CONSTANTS.UTILITY_TOKEN_MIN_VALUE}$');
 
-            randomWeight = api.BigNumber(totalApprovalWeight.$numberDecimal)
+            randomWeight = api.BigNumber(totalApprovalWeight)
               .minus(min)
               .times(random)
               .plus(min)
@@ -462,9 +495,9 @@ actions.manageWitnessesSchedule = async () => {
     // if there are enough witnesses scheduled
     if (schedule.length === NB_WITNESSES) {
       // shuffle the witnesses
-      const random = api.random();
       let j; let x;
       for (let i = schedule.length - 1; i > 0; i -= 1) {
+        const random = api.random();
         j = Math.floor(random * (i + 1));
         x = schedule[i];
         schedule[i] = schedule[j];
@@ -526,6 +559,11 @@ actions.proposeBlock = async (payload) => {
     // the sender must be the current witness
     if (blockNumber === currentBlock
       && api.sender === currentWitness) {
+      // set dispute period where the top witnesses can dispute the block
+      const schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
+      schedule.blockDisputeDeadline = api.blockNumber + BLOCK_DISPUTE_PERIOD;
+      await api.db.update('schedules', schedule);
+
       // get the block information and check against the proposed ones
       const blockInfo = await api.db.getBlockInfo(blockNumber);
 
@@ -538,26 +576,170 @@ actions.proposeBlock = async (payload) => {
         && blockInfo.hash === hash
         && blockInfo.databaseHash === databaseHash
         && blockInfo.merkleRoot === merkleRoot) {
-        // set dispute period where the top witnesses can dispute the block
-        let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
-        schedule.blockDisputeDeadline = api.blockNumber + BLOCK_DISPUTE_PERIOD;
-        await api.db.update('schedules', schedule);
-
-        // update the params
-        // get the next witness on schedule
-        schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
-
-        if (schedule !== null) {
-          params.currentWitness = schedule.witness;
-          await api.db.update('params', params);
-        }
-
-        // mark block as verified
-        api.emit('blockVerification', { verified: true });
+        // block matches
       } else {
-        // start dispute
-        api.emit('blockVerification', { verified: false });
+        // block does not match, start a dispute
+        api.emit('invalidBlockProposition', {
+          blockNumber,
+          refSteemBlockNumber: blockInfo.refSteemBlockNumber,
+          prevRefSteemBlockId: blockInfo.prevRefSteemBlockId,
+          previousHash: blockInfo.previousHash,
+          previousDatabaseHash: blockInfo.previousDatabaseHash,
+          timestamp: blockInfo.timestamp,
+          hash: blockInfo.hash,
+          databaseHash: blockInfo.databaseHash,
+          merkleRoot: blockInfo.merkleRoot,
+        });
+      }
+
+      // save the proposed block (will be used in case of a dispute)
+      params.proposedBlock = {
+        blockNumber,
+        refSteemBlockNumber,
+        prevRefSteemBlockId,
+        previousHash,
+        previousDatabaseHash,
+        timestamp,
+        hash,
+        databaseHash,
+        merkleRoot,
+      };
+      await api.db.update('params', params);
+    }
+  }
+};
+
+actions.disputeBlock = async (payload) => {
+  const {
+    blockNumber,
+    refSteemBlockNumber,
+    prevRefSteemBlockId,
+    previousHash,
+    previousDatabaseHash,
+    timestamp,
+    hash,
+    databaseHash,
+    merkleRoot,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (isSignedWithActiveKey === true
+    && blockNumber
+    && refSteemBlockNumber
+    && prevRefSteemBlockId
+    && previousHash
+    && previousDatabaseHash
+    && timestamp
+    && hash
+    && databaseHash
+    && merkleRoot) {
+    const params = await api.db.findOne('params', {});
+    const { lastVerifiedBlockNumber, currentWitness } = params;
+    const currentBlock = lastVerifiedBlockNumber + 1;
+    const newProposedBlock = {
+      blockNumber,
+      refSteemBlockNumber,
+      prevRefSteemBlockId,
+      previousHash,
+      previousDatabaseHash,
+      timestamp,
+      hash,
+      databaseHash,
+      merkleRoot,
+    };
+
+    // the block proposed must be the current block waiting for verification
+    // the witness that proposed the block cannot open a dispute
+    if (blockNumber === currentBlock && api.sender !== currentWitness) {
+      // the sender must be a witness part from the schedule
+      let schedule = await api.db.findOne('schedules', { witness: api.sender });
+
+      if (schedule !== null) {
+        // check if there is already a dispute opened by this witness
+        let dispute = await api.db.findOne('disputes', { witnesses: api.sender });
+
+        if (dispute === null) {
+          // check if there is already a dispute with the same block proposition
+          dispute = await api.db.findOne('disputes', newProposedBlock);
+
+          if (dispute !== null) {
+            dispute.numberPropositions += 1;
+            dispute.witnesses.push(api.sender);
+            await api.db.update('disputes', dispute);
+          } else {
+            dispute = newProposedBlock;
+            dispute.numberPropositions = 1;
+            dispute.witnesses = [api.sender];
+            await api.db.insert('disputes', dispute);
+          }
+
+          // check if a proposition matches NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK
+          dispute = await api.db.findOne('disputes', {
+            numberPropositions: {
+              $gte: NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK,
+            },
+          });
+
+          if (dispute !== null) {
+            // if the dispute has been resolved, disable the current witness
+            const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
+            scheduledWitness.missedBlocks += 1;
+            scheduledWitness.missedBlocksInARow = 0;
+            scheduledWitness.enabled = false;
+
+            await api.db.update('witnesses', scheduledWitness);
+
+            // update the params
+            // get the next witness on schedule
+            schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
+
+            if (schedule !== null) {
+              params.currentWitness = schedule.witness;
+            }
+
+            // mark the current block as verified
+            params.lastVerifiedBlockNumber = currentBlock;
+            await api.db.update('params', params);
+          }
+        }
       }
     }
+  }
+};
+
+actions.checkBlockVerificationStatus = async () => {
+  if (api.sender !== 'null') return;
+
+  const params = await api.db.findOne('params', {});
+  const { lastVerifiedBlockNumber, proposedBlock } = params;
+  const currentBlock = lastVerifiedBlockNumber + 1;
+
+  let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
+  const disputes = await api.db.find('disputes', { blockNumber: currentBlock });
+
+  // if there is no dispute regarding the current block
+  // and the dispute period expired
+  if (disputes.length === 0
+    && api.blockNumber >= schedule.blockDisputeDeadline
+    && proposedBlock.blockNumber === currentBlock) {
+    // update the witness that just verified the block
+    const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
+
+    if (scheduledWitness.missedBlocksInARow > 0) {
+      scheduledWitness.missedBlocksInARow = 0;
+      await api.db.update('witnesses', scheduledWitness);
+    }
+
+    // update the params
+    // get the next witness on schedule
+    schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
+
+    if (schedule !== null) {
+      params.currentWitness = schedule.witness;
+    }
+
+    // mark the current block as verified
+    params.lastVerifiedBlockNumber = currentBlock;
+    await api.db.update('params', params);
   }
 };
