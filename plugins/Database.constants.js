@@ -25,6 +25,7 @@ const PLUGIN_ACTIONS = {
   INIT_DATABASE_HASH: 'initDatabaseHash',
   GET_DATABASE_HASH: 'getDatabaseHash',
   TABLE_EXISTS: 'tableExists',
+  VERIFY_BLOCK: 'verifyBlock',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;

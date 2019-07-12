@@ -229,6 +229,33 @@ actions.getBlockInfo = async (blockNumber, callback) => {
 };
 
 /**
+ * Mark a block as verified by a witness
+ * @param {Integer} blockNumber block umber to mark verified
+ * @param {String} witness name of the witness that verified the block
+ */
+actions.verifyBlock = async (payload, callback) => {
+  try {
+    const { blockNumber, witness } = payload;
+    const block = await chain.findOne({ _id: blockNumber });
+
+    block.verified = true;
+    block.witness = witness;
+
+    await chain.updateOne(
+      { _id: block._id }, // eslint-disable-line no-underscore-dangle
+      { $set: block },
+    );
+
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+  }
+};
+
+/**
  * Get the information of a contract (owner, source code, etc...)
  * @param {String} contract name of the contract
  * @returns {Object} returns the contract info if it exists, null otherwise

@@ -21,7 +21,8 @@ class Block {
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
-    this.signature = '';
+    this.witness = '';
+    this.verified = false;
   }
 
   // calculate the hash of the block
@@ -97,6 +98,7 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
     }
 
+    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'checkBlockVerificationStatus', ''));
     virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'manageWitnessesSchedule', ''));
 
     const nbVirtualTransactions = virtualTransactions.length;
@@ -111,6 +113,20 @@ class Block {
       // the "unknown error" errors are removed as they are related to a non existing action
       if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
         this.virtualTransactions.push(transaction);
+        if (transaction.contract === 'witnesses'
+          && transaction.action === 'checkBlockVerificationStatus') {
+          const logs = JSON.parse(transaction.logs);
+          const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : [];
+          if (event) {
+            if (event.data.blockNumber && event.data.witness) {
+              await ipc.send({ // eslint-disable-line
+                to: DB_PLUGIN_NAME,
+                action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
+                payload: event.data,
+              });
+            }
+          }
+        }
       }
     }
 
@@ -122,8 +138,6 @@ class Block {
       const merkleRoots = this.calculateMerkleRoot(finalTransactions);
       this.merkleRoot = merkleRoots.hash;
       this.databaseHash = merkleRoots.databaseHash;
-      const buffMR = Buffer.from(this.merkleRoot, 'hex');
-      this.signature = activeSigningKey.sign(buffMR).toString();
     }
   }
 
