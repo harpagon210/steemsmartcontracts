@@ -122,7 +122,7 @@ let witnessesContractPayload = {
 };
 
 describe('witnesses', function () {
-  this.timeout(10000);
+  this.timeout(60000);
 
   before((done) => {
     new Promise(async (resolve) => {
@@ -1391,7 +1391,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('proposes blocks for verification', (done) => {
+  it.skip('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1507,6 +1507,217 @@ describe('witnesses', function () {
       });
 
       let schedule = res.payload;
+      assert.equal(schedule.blockNumber, 2);
+      assert.equal(schedule.blockPropositionDeadline, 13);
+      assert.equal(schedule.blockDisputeDeadline, 13);
+
+      for (let index = 0; index < 10; index++) {
+        transactions = [];
+        txId++
+        // send whatever transaction;
+        transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+
+        block = {
+          refSteemBlockNumber: 12345678903,
+          refSteemBlockId: 'ABCD1',
+          prevRefSteemBlockId: 'ABCD2',
+          timestamp: '2018-06-09T00:00:01',
+          transactions,
+        };
+
+        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+      }
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2
+      });
+
+      blockRes = res.payload;
+      assert.equal(blockRes.verified, true);
+      assert.equal(blockRes.witness, 'witness15');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+            
+          }
+        }
+      });
+
+      params = res.payload;
+
+      assert.equal(params.lastVerifiedBlockNumber, 2);
+      
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('generates a new schedule one the current once is complete', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      let txId = 100;
+      let transactions = [];
+      transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+
+      // register 100 witnesses
+      for (let index = 0; index < 100; index++) {
+        txId++;
+        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      }
+
+      let block = {
+        refSteemBlockNumber: 32713425,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      for (let index = 0; index < 30; index++) {
+        txId++;
+        transactions.push(new Transaction(1, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+      }
+
+      block = {
+        refSteemBlockNumber: 32713425,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'schedules',
+          query: {
+          }
+        }
+      });
+
+      let schedule = res.payload;
+
+      for (let index = 0; index < 21; index++) {
+        txId++;
+
+        res = await send(database.PLUGIN_NAME, 'MASTER', {
+          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: schedule[index].blockNumber
+        });
+  
+        let blockRes = res.payload;
+
+        const {
+          blockNumber,
+          previousHash,
+          previousDatabaseHash,
+          hash,
+          databaseHash,
+          merkleRoot,
+        } = blockRes;
+  
+        let payload = {
+          blockNumber,
+          previousHash,
+          previousDatabaseHash,
+          hash,
+          databaseHash,
+          merkleRoot,
+          isSignedWithActiveKey: true 
+        };
+
+        transactions = [];
+        transactions.push(new Transaction(1, `TXID${txId}`, schedule[index].witness, 'witnesses', 'proposeBlock', JSON.stringify(payload)));
+
+        block = {
+          refSteemBlockNumber: 32713425,
+          refSteemBlockId: 'ABCD1',
+          prevRefSteemBlockId: 'ABCD2',
+          timestamp: '2018-06-01T00:00:00',
+          transactions,
+        };
+
+        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+        for (let j = 0; j < 11; j++) {
+          transactions = [];
+          txId++
+          // send whatever transaction;
+          transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+          block = {
+            refSteemBlockNumber: 32713425,
+            refSteemBlockId: 'ABCD1',
+            prevRefSteemBlockId: 'ABCD2',
+            timestamp: '2018-06-01T00:00:00',
+            transactions,
+          };
+
+          await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+        }
+      }
+  
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 5
+      });
+
+      let blockRes = res.payload;
+      console.log(blockRes)
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+            
+          }
+        }
+      });
+
+      let params = res.payload;
+
+      assert.equal(params.proposedBlock.blockNumber, payload.blockNumber);
+      assert.equal(params.proposedBlock.previousHash, payload.previousHash);
+      assert.equal(params.proposedBlock.previousDatabaseHash, payload.previousDatabaseHash);
+      assert.equal(params.proposedBlock.hash, payload.hash);
+      assert.equal(params.proposedBlock.databaseHash, payload.databaseHash);
+      assert.equal(params.proposedBlock.merkleRoot, payload.merkleRoot);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'schedules',
+          query: {
+            witness: 'witness15'
+          }
+        }
+      });
+
+      schedule = res.payload;
       assert.equal(schedule.blockNumber, 2);
       assert.equal(schedule.blockPropositionDeadline, 13);
       assert.equal(schedule.blockDisputeDeadline, 13);

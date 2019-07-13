@@ -546,7 +546,8 @@ actions.proposeBlock = async (payload) => {
     const params = await api.db.findOne('params', {});
     const { lastVerifiedBlockNumber, currentWitness } = params;
     const currentBlock = lastVerifiedBlockNumber + 1;
-
+    api.debug(`proposing block ${blockNumber} by ${api.sender}`)
+    api.debug(`lastVerifiedBlockNumber ${lastVerifiedBlockNumber} / currentWitness ${currentWitness}`)
     // the block proposed must be the current block waiting for signature
     // the sender must be the current witness
     if (blockNumber === currentBlock
@@ -566,7 +567,10 @@ actions.proposeBlock = async (payload) => {
         && blockInfo.databaseHash === databaseHash
         && blockInfo.merkleRoot === merkleRoot) {
         // block matches
+        api.debug(`validated block ${blockNumber} by ${api.sender}`)
+        api.debug(`current block ${api.blockNumber}`)
       } else {
+        api.debug(`not validated block ${blockNumber} by ${api.sender}`)
         // block does not match, start a dispute
         api.emit('invalidBlockProposition', {
           blockNumber,
