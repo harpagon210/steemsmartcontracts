@@ -167,7 +167,7 @@ describe('witnesses', function () {
         })
   });
   
-  it.skip('registers witnesses', (done) => {
+  it('registers witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -178,8 +178,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
         refSteemBlockNumber: 32713425,
@@ -205,17 +205,17 @@ describe('witnesses', function () {
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].RPCPUrl, "my.awesome.node");
+      assert.equal(witnesses[0].RPCUrl, "my.awesome.node");
       assert.equal(witnesses[0].enabled, true);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].RPCPUrl, "my.awesome.node.too");
+      assert.equal(witnesses[1].RPCUrl, "my.awesome.node.too");
       assert.equal(witnesses[1].enabled, false);
 
       transactions = [];
-      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.new.awesome.node", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.new.awesome.node.too", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.new.awesome.node", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.new.awesome.node.too", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
         refSteemBlockNumber: 32713425,
@@ -241,12 +241,12 @@ describe('witnesses', function () {
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].RPCPUrl, "my.new.awesome.node");
+      assert.equal(witnesses[0].RPCUrl, "my.new.awesome.node");
       assert.equal(witnesses[0].enabled, false);
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].RPCPUrl, "my.new.awesome.node.too");
+      assert.equal(witnesses[1].RPCUrl, "my.new.awesome.node.too");
       assert.equal(witnesses[1].enabled, true);
 
       resolve();
@@ -258,7 +258,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('approves witnesses', (done) => {
+  it('approves witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -269,8 +269,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -353,7 +353,7 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "200.00000000");
 
       transactions = [];
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -461,7 +461,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('disapproves witnesses', (done) => {
+  it('disapproves witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -472,12 +472,12 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -672,7 +672,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('updates witnesses approvals when staking, unstaking, delegating and undelegating the utility token', (done) => {
+  it('updates witnesses approvals when staking, unstaking, delegating and undelegating the utility token', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -683,8 +683,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -1222,7 +1222,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('schedules witnesses', (done) => {
+  it('schedules witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1238,7 +1238,7 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1280,87 +1280,87 @@ describe('witnesses', function () {
 
       let schedule = res.payload;
 
-      assert.equal(schedule[0].witness, "witness15");
+      assert.equal(schedule[0].witness, "witness26");
       assert.equal(schedule[0].blockNumber, 2);
       assert.equal(schedule[0].blockPropositionDeadline, 13);
 
-      assert.equal(schedule[1].witness, "witness21");
+      assert.equal(schedule[1].witness, "witness33");
       assert.equal(schedule[1].blockNumber, 3);
       assert.equal(schedule[1].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[2].witness, "witness23");
+      assert.equal(schedule[2].witness, "witness18");
       assert.equal(schedule[2].blockNumber, 4);
       assert.equal(schedule[2].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[3].witness, "witness30");
+      assert.equal(schedule[3].witness, "witness20");
       assert.equal(schedule[3].blockNumber, 5);
       assert.equal(schedule[3].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[4].witness, "witness18");
+      assert.equal(schedule[4].witness, "witness27");
       assert.equal(schedule[4].blockNumber, 6);
       assert.equal(schedule[4].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[5].witness, "witness27");
+      assert.equal(schedule[5].witness, "witness24");
       assert.equal(schedule[5].blockNumber, 7);
       assert.equal(schedule[5].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[6].witness, "witness19");
+      assert.equal(schedule[6].witness, "witness21");
       assert.equal(schedule[6].blockNumber, 8);
       assert.equal(schedule[6].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[7].witness, "witness22");
+      assert.equal(schedule[7].witness, "witness23");
       assert.equal(schedule[7].blockNumber, 9);
       assert.equal(schedule[7].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[8].witness, "witness34");
+      assert.equal(schedule[8].witness, "witness29");
       assert.equal(schedule[8].blockNumber, 10);
       assert.equal(schedule[8].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[9].witness, "witness32");
+      assert.equal(schedule[9].witness, "witness15");
       assert.equal(schedule[9].blockNumber, 11);
       assert.equal(schedule[9].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[10].witness, "witness25");
+      assert.equal(schedule[10].witness, "witness31");
       assert.equal(schedule[10].blockNumber, 12);
       assert.equal(schedule[10].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[11].witness, "witness29");
+      assert.equal(schedule[11].witness, "witness34");
       assert.equal(schedule[11].blockNumber, 13);
       assert.equal(schedule[11].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[12].witness, "witness24");
+      assert.equal(schedule[12].witness, "witness30");
       assert.equal(schedule[12].blockNumber, 14);
       assert.equal(schedule[12].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[13].witness, "witness20");
+      assert.equal(schedule[13].witness, "witness28");
       assert.equal(schedule[13].blockNumber, 15);
       assert.equal(schedule[13].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[14].witness, "witness28");
+      assert.equal(schedule[14].witness, "witness17");
       assert.equal(schedule[14].blockNumber, 16);
       assert.equal(schedule[14].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[15].witness, "witness11");
+      assert.equal(schedule[15].witness, "witness22");
       assert.equal(schedule[15].blockNumber, 17);
       assert.equal(schedule[15].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[16].witness, "witness17");
+      assert.equal(schedule[16].witness, "witness25");
       assert.equal(schedule[16].blockNumber, 18);
       assert.equal(schedule[16].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[17].witness, "witness26");
+      assert.equal(schedule[17].witness, "witness32");
       assert.equal(schedule[17].blockNumber, 19);
       assert.equal(schedule[17].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[18].witness, "witness16");
+      assert.equal(schedule[18].witness, "witness8");
       assert.equal(schedule[18].blockNumber, 20);
       assert.equal(schedule[18].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[19].witness, "witness33");
+      assert.equal(schedule[19].witness, "witness19");
       assert.equal(schedule[19].blockNumber, 21);
       assert.equal(schedule[19].blockPropositionDeadline, 0);
 
-      assert.equal(schedule[20].witness, "witness31");
+      assert.equal(schedule[20].witness, "witness16");
       assert.equal(schedule[20].blockNumber, 22);
       assert.equal(schedule[20].blockPropositionDeadline, 0);
 
@@ -1380,7 +1380,7 @@ describe('witnesses', function () {
       assert.equal(params.totalApprovalWeight, '3000.00000000');
       assert.equal(params.numberOfApprovedWitnesses, 30);
       assert.equal(params.lastVerifiedBlockNumber, 1);
-      assert.equal(params.currentWitness, 'witness15');
+      assert.equal(params.currentWitness, 'witness26');
       
       resolve();
     })
@@ -1391,7 +1391,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('verifies a block', (done) => {
+  it('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1407,7 +1407,7 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1463,7 +1463,7 @@ describe('witnesses', function () {
         merkleRoot,
         isSignedWithActiveKey: true 
       }
-      transactions.push(new Transaction(1, 'TXID1000', 'witness15', 'witnesses', 'proposeBlock', JSON.stringify(payload)));
+      transactions.push(new Transaction(1, 'TXID1000', 'witness26', 'witnesses', 'proposeBlock', JSON.stringify(payload)));
 
       block = {
         refSteemBlockNumber: 32713425,
@@ -1476,24 +1476,25 @@ describe('witnesses', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        action: database.PLUGIN_ACTIONS.FIND,
         payload: {
           contract: 'witnesses',
-          table: 'params',
+          table: 'proposedBlocks',
           query: {
             
           }
         }
       });
 
-      let params = res.payload;
+      let proposedBlocks = res.payload;
 
-      assert.equal(params.proposedBlock.blockNumber, payload.blockNumber);
-      assert.equal(params.proposedBlock.previousHash, payload.previousHash);
-      assert.equal(params.proposedBlock.previousDatabaseHash, payload.previousDatabaseHash);
-      assert.equal(params.proposedBlock.hash, payload.hash);
-      assert.equal(params.proposedBlock.databaseHash, payload.databaseHash);
-      assert.equal(params.proposedBlock.merkleRoot, payload.merkleRoot);
+      assert.equal(proposedBlocks[0].witness, 'witness26');
+      assert.equal(proposedBlocks[0].blockNumber, payload.blockNumber);
+      assert.equal(proposedBlocks[0].previousHash, payload.previousHash);
+      assert.equal(proposedBlocks[0].previousDatabaseHash, payload.previousDatabaseHash);
+      assert.equal(proposedBlocks[0].hash, payload.hash);
+      assert.equal(proposedBlocks[0].databaseHash, payload.databaseHash);
+      assert.equal(proposedBlocks[0].merkleRoot, payload.merkleRoot);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1501,7 +1502,7 @@ describe('witnesses', function () {
           contract: 'witnesses',
           table: 'schedules',
           query: {
-            witness: 'witness15'
+            witness: 'witness26'
           }
         }
       });
@@ -1535,7 +1536,7 @@ describe('witnesses', function () {
 
       blockRes = res.payload;
       assert.equal(blockRes.verified, true);
-      assert.equal(blockRes.witness, 'witness15');
+      assert.equal(blockRes.witness, 'witness26');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1561,7 +1562,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('generates a new schedule one the current once is complete', (done) => {
+  it('generates a new schedule once the current one is complete', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1577,7 +1578,7 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCPUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1652,39 +1653,111 @@ describe('witnesses', function () {
 
         block = {
           refSteemBlockNumber: 32713425,
-          refSteemBlockId: 'ABCD1',
-          prevRefSteemBlockId: 'ABCD2',
+          refSteemBlockId: 'ABCD13',
+          prevRefSteemBlockId: 'ABCD29',
           timestamp: '2018-06-01T00:00:00',
           transactions,
         };
 
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-        for (let j = 0; j < 11; j++) {
-          transactions = [];
-          txId++
-          // send whatever transaction;
-          transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
-          block = {
-            refSteemBlockNumber: 32713425,
-            refSteemBlockId: 'ABCD1',
-            prevRefSteemBlockId: 'ABCD2',
-            timestamp: '2018-06-01T00:00:00',
-            transactions,
-          };
-
-          await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-        }
       }
-  
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 5
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'schedules',
+          query: {
+            round: 2
+          }
+        }
       });
 
-      let blockRes = res.payload;
-      console.log(blockRes)
+      schedule = res.payload;
+
+      assert.equal(schedule[0].witness, "witness16");
+      assert.equal(schedule[0].blockNumber, 23);
+      assert.equal(schedule[0].blockPropositionDeadline, 34);
+
+      assert.equal(schedule[1].witness, "witness23");
+      assert.equal(schedule[1].blockNumber, 24);
+      assert.equal(schedule[1].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[2].witness, "witness34");
+      assert.equal(schedule[2].blockNumber, 25);
+      assert.equal(schedule[2].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[3].witness, "witness18");
+      assert.equal(schedule[3].blockNumber, 26);
+      assert.equal(schedule[3].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[4].witness, "witness26");
+      assert.equal(schedule[4].blockNumber, 27);
+      assert.equal(schedule[4].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[5].witness, "witness30");
+      assert.equal(schedule[5].blockNumber, 28);
+      assert.equal(schedule[5].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[6].witness, "witness24");
+      assert.equal(schedule[6].blockNumber, 29);
+      assert.equal(schedule[6].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[7].witness, "witness25");
+      assert.equal(schedule[7].blockNumber, 30);
+      assert.equal(schedule[7].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[8].witness, "witness15");
+      assert.equal(schedule[8].blockNumber, 31);
+      assert.equal(schedule[8].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[9].witness, "witness28");
+      assert.equal(schedule[9].blockNumber, 32);
+      assert.equal(schedule[9].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[10].witness, "witness21");
+      assert.equal(schedule[10].blockNumber, 33);
+      assert.equal(schedule[10].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[11].witness, "witness31");
+      assert.equal(schedule[11].blockNumber, 34);
+      assert.equal(schedule[11].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[12].witness, "witness17");
+      assert.equal(schedule[12].blockNumber, 35);
+      assert.equal(schedule[12].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[13].witness, "witness27");
+      assert.equal(schedule[13].blockNumber, 36);
+      assert.equal(schedule[13].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[14].witness, "witness33");
+      assert.equal(schedule[14].blockNumber, 37);
+      assert.equal(schedule[14].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[15].witness, "witness20");
+      assert.equal(schedule[15].blockNumber, 38);
+      assert.equal(schedule[15].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[16].witness, "witness19");
+      assert.equal(schedule[16].blockNumber, 39);
+      assert.equal(schedule[16].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[17].witness, "witness29");
+      assert.equal(schedule[17].blockNumber, 40);
+      assert.equal(schedule[17].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[18].witness, "witness32");
+      assert.equal(schedule[18].blockNumber, 41);
+      assert.equal(schedule[18].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[19].witness, "witness22");
+      assert.equal(schedule[19].blockNumber, 42);
+      assert.equal(schedule[19].blockPropositionDeadline, 0);
+
+      assert.equal(schedule[20].witness, "witness11");
+      assert.equal(schedule[20].blockNumber, 43);
+      assert.equal(schedule[20].blockPropositionDeadline, 0);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1698,55 +1771,24 @@ describe('witnesses', function () {
       });
 
       let params = res.payload;
+      assert.equal(params.lastVerifiedBlockNumber, 12);
+      assert.equal(params.currentWitness, 'witness16');
 
-      assert.equal(params.proposedBlock.blockNumber, payload.blockNumber);
-      assert.equal(params.proposedBlock.previousHash, payload.previousHash);
-      assert.equal(params.proposedBlock.previousDatabaseHash, payload.previousDatabaseHash);
-      assert.equal(params.proposedBlock.hash, payload.hash);
-      assert.equal(params.proposedBlock.databaseHash, payload.databaseHash);
-      assert.equal(params.proposedBlock.merkleRoot, payload.merkleRoot);
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'witnesses',
-          table: 'schedules',
-          query: {
-            witness: 'witness15'
-          }
-        }
-      });
-
-      schedule = res.payload;
-      assert.equal(schedule.blockNumber, 2);
-      assert.equal(schedule.blockPropositionDeadline, 13);
-      assert.equal(schedule.blockDisputeDeadline, 13);
-
-      for (let index = 0; index < 10; index++) {
+      for (let j = 0; j < 10; j++) {
         transactions = [];
         txId++
         // send whatever transaction;
         transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
-
         block = {
-          refSteemBlockNumber: 12345678903,
-          refSteemBlockId: 'ABCD1',
-          prevRefSteemBlockId: 'ABCD2',
-          timestamp: '2018-06-09T00:00:01',
+          refSteemBlockNumber: 32713426,
+          refSteemBlockId: 'ABCD123',
+          prevRefSteemBlockId: 'ABCD24',
+          timestamp: '2018-06-01T00:00:00',
           transactions,
         };
 
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      }
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2
-      });
-
-      blockRes = res.payload;
-      assert.equal(blockRes.verified, true);
-      assert.equal(blockRes.witness, 'witness15');
+      }  
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1760,8 +1802,17 @@ describe('witnesses', function () {
       });
 
       params = res.payload;
+      assert.equal(params.lastVerifiedBlockNumber, 22);
+      assert.equal(params.currentWitness, 'witness16');
 
-      assert.equal(params.lastVerifiedBlockNumber, 2);
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 22
+      });
+
+      blockRes = res.payload;
+      assert.equal(blockRes.verified, true);
+      assert.equal(blockRes.witness, 'witness16');
       
       resolve();
     })
