@@ -1,7 +1,6 @@
 {
     "chainId": "mainnet1",
     "rpcNodePort": 5000,
-    "p2pPort": 5001,
     "databaseURL": "mongodb://localhost:27017",
     "databaseName": "ssc",
     "dataDirectory": "./data/",
