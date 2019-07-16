@@ -21,7 +21,7 @@ class Block {
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
-    this.witness = '';
+    this.witnesses = [];
     this.verified = false;
   }
 
@@ -112,18 +112,17 @@ class Block {
       // the "unknown error" errors are removed as they are related to a non existing action
       if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
         this.virtualTransactions.push(transaction);
+        // if a block has been verified
         if (transaction.contract === 'witnesses'
           && transaction.action === 'checkBlockVerificationStatus') {
           const logs = JSON.parse(transaction.logs);
-          const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : [];
-          if (event) {
-            if (event.data.blockNumber && event.data.witness) {
-              await ipc.send({ // eslint-disable-line
-                to: DB_PLUGIN_NAME,
-                action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
-                payload: event.data,
-              });
-            }
+          const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : null;
+          if (event && event.data && event.data.blockNumber && event.data.witnesses) {
+            await ipc.send({ // eslint-disable-line
+              to: DB_PLUGIN_NAME,
+              action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
+              payload: event.data,
+            });
           }
         }
       }

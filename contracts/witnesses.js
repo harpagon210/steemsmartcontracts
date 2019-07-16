@@ -564,7 +564,8 @@ actions.proposeBlock = async (payload) => {
         // save the proposed block
         await api.db.insert('proposedBlocks', {
           blockNumber,
-          witness: api.sender,
+          witnesses: [{ witness: api.sender, txID: api.transactionId }],
+          round: schedule.round,
           previousHash,
           previousDatabaseHash,
           hash,
@@ -622,18 +623,20 @@ actions.disputeBlock = async (payload) => {
     if (proposedBlock !== null && proposedBlock.witness !== api.sender) {
       // check if the block can still be disputed
       let schedule = await api.db.findOne('schedules', { blockNumber });
+      // check if a dispute has been started before the deadline
+      let dispute = await api.db.findOne('disputes', { blockNumber });
 
-      if (api.blockNumber <= schedule.blockPropositionDeadline) {
+      if (api.blockNumber <= schedule.blockPropositionDeadline || dispute != null) {
         // check if the sender is part of the round
         schedule = await api.db.findOne('schedules', { round: proposedBlock.round, witness: api.sender });
 
         if (schedule !== null) {
           // check if there is already a dispute opened by this witness
-          let dispute = await api.db.findOne('disputes', { blockNumber, witnesses: api.sender });
+          dispute = await api.db.findOne('disputes', { blockNumber, 'witnesses.witness': api.sender });
 
           // if there is already one, remove the previous proposition
           if (dispute !== null) {
-            dispute.witnesses = dispute.witnesses.filter(w => w !== api.sender);
+            dispute.witnesses = dispute.witnesses.filter(w => w.witness !== api.sender);
             dispute.numberPropositions -= 1;
             if (dispute.numberPropositions <= 0) {
               await api.db.remove('disputes', dispute);
@@ -655,12 +658,12 @@ actions.disputeBlock = async (payload) => {
 
           if (dispute !== null) {
             dispute.numberPropositions += 1;
-            dispute.witnesses.push(api.sender);
+            dispute.witnesses.push({ witness: api.sender, txID: api.transactionId });
             await api.db.update('disputes', dispute);
           } else {
             dispute = newProposedBlock;
             dispute.numberPropositions = 1;
-            dispute.witnesses = [api.sender];
+            dispute.witnesses = [{ witness: api.sender, txID: api.transactionId }];
             await api.db.insert('disputes', dispute);
           }
 
@@ -695,6 +698,11 @@ actions.disputeBlock = async (payload) => {
               await api.db.remove('disputes', disputes[index]);
             }
 
+            // update proposedBlock
+            proposedBlock.witnesses = dispute.witnesses;
+            await api.db.update('proposedBlocks', proposedBlock);
+
+            /*
             // mark the current block as verified
             const params = await api.db.findOne('params', {});
             params.lastVerifiedBlockNumber = blockNumber;
@@ -702,9 +710,12 @@ actions.disputeBlock = async (payload) => {
 
             // remove the proposed block
             await api.db.remove('proposedBlocks', proposedBlock);
-            api.debug(`block ${proposedBlock.blockNumber} verified on block ${api.blockNumber} `)
+            api.debug(`consensus reached, block ${proposedBlock.blockNumber} verified on block ${api.blockNumber} `)
             // TODO: burn the rewards for the production of this block
-            api.emit('blockVerified', { blockNumber: proposedBlock.blockNumber, witness: 'null' });
+            api.emit('blockVerified', {
+              blockNumber,
+              witnesses: dispute.witnesses,
+            });
 
             // if the block was the last of the round
             const { round } = schedule;
@@ -716,6 +727,7 @@ actions.disputeBlock = async (payload) => {
                 await api.db.remove('schedules', lastRound[index]);
               }
             }
+            */
           }
         }
       }
@@ -744,11 +756,20 @@ actions.checkBlockVerificationStatus = async () => {
       // update the witness that just verified the block
       const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
 
-      // clear the missed blocks
-      if (scheduledWitness.missedBlocksInARow > 0) {
+      // check that the witness that proposed the block
+      // is actually part of the witnesses that verified the block
+      if (proposedBlock.witnesses.find(w => w.witness === schedule.witness)
+        && scheduledWitness.missedBlocksInARow > 0) {
+        // clear the missed blocks
         scheduledWitness.missedBlocksInARow = 0;
-        await api.db.update('witnesses', scheduledWitness);
+      } else {
+        // disable the witness
+        scheduledWitness.missedBlocks += 1;
+        scheduledWitness.missedBlocksInARow = 0;
+        scheduledWitness.enabled = false;
       }
+
+      await api.db.update('witnesses', scheduledWitness);
 
       // mark the current block as verified
       params.lastVerifiedBlockNumber = currentBlock;
@@ -758,7 +779,11 @@ actions.checkBlockVerificationStatus = async () => {
       await api.db.remove('proposedBlocks', proposedBlock);
       api.debug(`block ${currentBlock} verified on block ${api.blockNumber} `)
       // TODO: reward the witness for the production of this block
-      api.emit('blockVerified', { blockNumber: currentBlock, witness: scheduledWitness.account });
+      // if
+      api.emit('blockVerified', {
+        blockNumber: currentBlock,
+        witnesses: proposedBlock.witnesses,
+      });
 
       // if the block was the last of the round
       const { round } = schedule;

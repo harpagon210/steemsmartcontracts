@@ -231,15 +231,15 @@ actions.getBlockInfo = async (blockNumber, callback) => {
 /**
  * Mark a block as verified by a witness
  * @param {Integer} blockNumber block umber to mark verified
- * @param {String} witness name of the witness that verified the block
+ * @param {String} witnesses names of the witness that verified the block as well as the txIDs related
  */
 actions.verifyBlock = async (payload, callback) => {
   try {
-    const { blockNumber, witness } = payload;
+    const { blockNumber, witnesses } = payload;
     const block = await chain.findOne({ _id: blockNumber });
 
     block.verified = true;
-    block.witness = witness;
+    block.witnesses = witnesses;
 
     await chain.updateOne(
       { _id: block._id }, // eslint-disable-line no-underscore-dangle
