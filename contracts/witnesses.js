@@ -600,11 +600,8 @@ actions.proposeBlock = async (payload) => {
 actions.disputeBlock = async (payload) => {
   const {
     blockNumber,
-    refSteemBlockNumber,
-    prevRefSteemBlockId,
     previousHash,
     previousDatabaseHash,
-    timestamp,
     hash,
     databaseHash,
     merkleRoot,
@@ -612,41 +609,47 @@ actions.disputeBlock = async (payload) => {
   } = payload;
 
   if (isSignedWithActiveKey === true
-    && blockNumber
-    && refSteemBlockNumber
-    && prevRefSteemBlockId
-    && previousHash
-    && previousDatabaseHash
-    && timestamp
-    && hash
-    && databaseHash
-    && merkleRoot) {
-    const params = await api.db.findOne('params', {});
-    const { lastVerifiedBlockNumber, currentWitness } = params;
-    const currentBlock = lastVerifiedBlockNumber + 1;
-    const newProposedBlock = {
-      blockNumber,
-      refSteemBlockNumber,
-      prevRefSteemBlockId,
-      previousHash,
-      previousDatabaseHash,
-      timestamp,
-      hash,
-      databaseHash,
-      merkleRoot,
-    };
+    && blockNumber && Number.isInteger(blockNumber)
+    && previousHash && typeof previousHash === 'string' && previousHash.length === 64
+    && previousDatabaseHash && typeof previousDatabaseHash === 'string' && previousDatabaseHash.length === 64
+    && hash && typeof hash === 'string' && hash.length === 64
+    && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
+    && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
+    // check if the block has been proposed for validation
+    const proposedBlock = await api.db.findOne('proposedBlocks', { blockNumber });
 
-    // the block proposed must be the current block waiting for verification
     // the witness that proposed the block cannot open a dispute
-    if (blockNumber === currentBlock && api.sender !== currentWitness) {
-      // the sender must be a witness part from the schedule
-      let schedule = await api.db.findOne('schedules', { witness: api.sender });
+    if (proposedBlock !== null && proposedBlock.witness !== api.sender) {
+      // check if the block can still be disputed
+      let schedule = await api.db.findOne('schedules', { blockNumber });
 
-      if (schedule !== null) {
-        // check if there is already a dispute opened by this witness
-        let dispute = await api.db.findOne('disputes', { witnesses: api.sender });
+      if (api.blockNumber <= schedule.blockPropositionDeadline) {
+        // check if the sender is part of the round
+        schedule = await api.db.findOne('schedules', { round: proposedBlock.round, witness: api.sender });
 
-        if (dispute === null) {
+        if (schedule !== null) {
+          // check if there is already a dispute opened by this witness
+          let dispute = await api.db.findOne('disputes', { blockNumber, witnesses: api.sender });
+
+          // if there is already one, remove the previous proposition
+          if (dispute !== null) {
+            dispute.witnesses = dispute.witnesses.filter(w => w !== api.sender);
+            dispute.numberPropositions -= 1;
+            if (dispute.numberPropositions <= 0) {
+              await api.db.remove('disputes', dispute);
+            } else {
+              await api.db.update('disputes', dispute);
+            }
+          }
+
+          const newProposedBlock = {
+            blockNumber,
+            previousHash,
+            previousDatabaseHash,
+            hash,
+            databaseHash,
+            merkleRoot,
+          };
           // check if there is already a dispute with the same block proposition
           dispute = await api.db.findOne('disputes', newProposedBlock);
 
@@ -663,31 +666,56 @@ actions.disputeBlock = async (payload) => {
 
           // check if a proposition matches NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK
           dispute = await api.db.findOne('disputes', {
+            blockNumber,
             numberPropositions: {
               $gte: NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK,
             },
           });
 
           if (dispute !== null) {
-            // if the dispute has been resolved, disable the current witness
-            const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
-            scheduledWitness.missedBlocks += 1;
-            scheduledWitness.missedBlocksInARow = 0;
-            scheduledWitness.enabled = false;
+            // if the dispute has been resolved
+            // and if the result is different from what the scheduled witness sent
+            // disable the scheduled witness
+            if (proposedBlock.previousHash !== dispute.previousHash
+              || proposedBlock.previousDatabaseHash !== dispute.previousDatabaseHash
+              || proposedBlock.hash !== dispute.hash
+              || proposedBlock.databaseHash !== dispute.databaseHash
+              || proposedBlock.merkleRoot !== dispute.merkleRoot) {
+              const scheduledWitness = await api.db.findOne('witnesses', { account: proposedBlock.witness });
+              scheduledWitness.missedBlocks += 1;
+              scheduledWitness.missedBlocksInARow = 0;
+              scheduledWitness.enabled = false;
 
-            await api.db.update('witnesses', scheduledWitness);
+              await api.db.update('witnesses', scheduledWitness);
+            }
 
-            // update the params
-            // get the next witness on schedule
-            schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
-
-            if (schedule !== null) {
-              params.currentWitness = schedule.witness;
+            // clean the disputes for that block number
+            const disputes = await api.db.find('disputes', { blockNumber });
+            for (let index = 0; index < disputes.length; index += 1) {
+              await api.db.remove('disputes', disputes[index]);
             }
 
             // mark the current block as verified
-            params.lastVerifiedBlockNumber = currentBlock;
+            const params = await api.db.findOne('params', {});
+            params.lastVerifiedBlockNumber = blockNumber;
             await api.db.update('params', params);
+
+            // remove the proposed block
+            await api.db.remove('proposedBlocks', proposedBlock);
+            api.debug(`block ${proposedBlock.blockNumber} verified on block ${api.blockNumber} `)
+            // TODO: burn the rewards for the production of this block
+            api.emit('blockVerified', { blockNumber: proposedBlock.blockNumber, witness: 'null' });
+
+            // if the block was the last of the round
+            const { round } = schedule;
+            schedule = await api.db.findOne('schedules', { blockNumber: blockNumber + 1 });
+            if (schedule !== null && schedule.round !== round) {
+              // clean last round
+              const lastRound = await api.db.find('schedules', { round });
+              for (let index = 0; index < lastRound.length; index += 1) {
+                await api.db.remove('schedules', lastRound[index]);
+              }
+            }
           }
         }
       }
@@ -705,11 +733,11 @@ actions.checkBlockVerificationStatus = async () => {
   let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
   const proposedBlock = await api.db.findOne('proposedBlocks', { blockNumber: currentBlock });
 
-  // if there was a schdule and the dispute period expired
+  // if there was a schedule and the dispute period expired
   if (schedule
     && api.blockNumber >= schedule.blockDisputeDeadline
     && proposedBlock !== null) {
-    const disputes = await api.db.find('disputes', { });
+    const disputes = await api.db.find('disputes', { blockNumber: currentBlock });
 
     // if there are no disputes regarding the current block
     if (disputes.length === 0) {
@@ -729,6 +757,7 @@ actions.checkBlockVerificationStatus = async () => {
       // remove the proposed block
       await api.db.remove('proposedBlocks', proposedBlock);
       api.debug(`block ${currentBlock} verified on block ${api.blockNumber} `)
+      // TODO: reward the witness for the production of this block
       api.emit('blockVerified', { blockNumber: currentBlock, witness: scheduledWitness.account });
 
       // if the block was the last of the round

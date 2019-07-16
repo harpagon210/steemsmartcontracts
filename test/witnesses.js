@@ -1562,7 +1562,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('generates a new schedule once the current one is complete', (done) => {
+  it('generates a new schedule once the current one is completed', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
