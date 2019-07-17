@@ -21,6 +21,7 @@ const conf = {
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
+  streamNodes: ["https://api.steemit.com"],
 };
 
 let plugins = {};
@@ -1391,7 +1392,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('verifies a block', (done) => {
+  it('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1488,7 +1489,8 @@ describe('witnesses', function () {
 
       let proposedBlocks = res.payload;
 
-      assert.equal(proposedBlocks[0].witness, 'witness26');
+      assert.equal(proposedBlocks[0].witnesses[0].witness, 'witness26');
+      assert.equal(proposedBlocks[0].witnesses[0].txID, 'TXID1000');
       assert.equal(proposedBlocks[0].blockNumber, payload.blockNumber);
       assert.equal(proposedBlocks[0].previousHash, payload.previousHash);
       assert.equal(proposedBlocks[0].previousDatabaseHash, payload.previousDatabaseHash);
@@ -1563,7 +1565,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('generates a new schedule once the current one is completed', (done) => {
+  it('generates a new schedule once the current one is completed', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -2000,19 +2002,6 @@ describe('witnesses', function () {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'witnesses',
-          table: 'disputes',
-          query: {
-            
-          }
-        }
-      });
-
-      disputes = res.payload;
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,

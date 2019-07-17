@@ -1,5 +1,6 @@
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
+const dsteem = require('dsteem');
 
 const { SmartContracts } = require('./SmartContracts');
 const { Transaction } = require('../libs/Transaction');
@@ -73,8 +74,109 @@ class Block {
     return this.calculateMerkleRoot(newTransactions);
   }
 
+  // dispute a block if a proposed block doesn't match the one produced by this node
+  static async handleDispute(action, proposedBlock, ipc, steemClient) {
+    // eslint-disable-next-line no-await-in-loop
+    let res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+      payload: proposedBlock.blockNumber,
+    });
+
+    const block = res.payload;
+    if (block !== null) {
+      const {
+        blockNumber,
+        previousHash,
+        previousDatabaseHash,
+        hash,
+        databaseHash,
+        merkleRoot,
+      } = block;
+
+      // check if this witness already disputed the block
+      res = await ipc.send({
+        to: DB_PLUGIN_NAME,
+        action: DB_PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'disputes',
+          query: {
+            blockNumber,
+            'witnesses.witness': steemClient.account,
+          },
+        },
+      });
+
+      if (res.payload === null) {
+        // get the round of the block
+        res = await ipc.send({
+          to: DB_PLUGIN_NAME,
+          action: DB_PLUGIN_ACTIONS.FIND_ONE,
+          payload: {
+            contract: 'witnesses',
+            table: 'proposedBlocks',
+            query: {
+              blockNumber,
+            },
+          },
+        });
+
+        if (res.payload !== null) {
+          const { round } = res.payload;
+
+          // check if the witness is allowed to dispute the block
+          res = await ipc.send({
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTIONS.FIND_ONE,
+            payload: {
+              contract: 'witnesses',
+              table: 'schedules',
+              query: {
+                round,
+                witness: steemClient.account,
+              },
+            },
+          });
+
+          if (res.payload !== null) {
+            let disputeBlock = false;
+            const json = {
+              contractName: 'witnesses',
+              contractAction: 'disputeBlock',
+              contractPayload: {
+                blockNumber,
+                previousHash,
+                previousDatabaseHash,
+                hash,
+                databaseHash,
+                merkleRoot,
+              },
+            };
+            if (action === 'proposeBlock') {
+              if (blockNumber !== proposedBlock.blockNumber
+                || previousHash !== proposedBlock.previousHash
+                || previousDatabaseHash !== proposedBlock.previousDatabaseHash
+                || hash !== proposedBlock.hash
+                || databaseHash !== proposedBlock.databaseHash
+                || merkleRoot !== proposedBlock.merkleRoot) {
+                disputeBlock = true;
+              }
+            } else if (action === 'disputeBlock') {
+              disputeBlock = true;
+            }
+
+            if (disputeBlock === true) {
+              steemClient.sendCustomJSON(json);
+            }
+          }
+        }
+      }
+    }
+  }
+
   // produce the block (deploy a smart contract or execute a smart contract)
-  async produceBlock(ipc, jsVMTimeout, activeSigningKey) {
+  async produceBlock(ipc, jsVMTimeout, steemClient) {
     const nbTransactions = this.transactions.length;
 
     let currentDatabaseHash = this.previousDatabaseHash;
@@ -84,6 +186,19 @@ class Block {
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
 
       currentDatabaseHash = transaction.databaseHash;
+
+      // check if a dispute is needed when a new block has been proposed
+      if (steemClient.account !== null
+        && transaction.sender !== steemClient.account
+        && transaction.contract === 'witnesses'
+        && (transaction.action === 'proposeBlock' || transaction.action === 'disputeBlock')
+        && transaction.logs === '{}') {
+        const blockInfo = JSON.parse(transaction.payload);
+
+        if (blockInfo && blockInfo.blockNumber) {
+          Block.handleDispute(transaction.action, blockInfo, ipc, steemClient);
+        }
+      }
     }
 
     // remove comment, comment_options and votes if not relevant
