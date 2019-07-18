@@ -17,7 +17,6 @@
     "commander": "^2.19.0",
     "cors": "^2.8.5",
     "crypto-js": "^3.1.9-1",
-    "currency.js": "^1.2.1",
     "dotenv": "^6.2.0",
     "dsteem": "^0.10.1",
     "express": "^4.16.4",
@@ -32,9 +31,7 @@
     "seedrandom": "^3.0.1",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
-    "winston": "^3.1.0",
-    "ws": "^7.0.1",
-    "ws-events": "^1.0.0"
+    "winston": "^3.1.0"
   },
   "devDependencies": {
     "eslint": "^5.12.1",

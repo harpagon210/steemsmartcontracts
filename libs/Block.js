@@ -1,6 +1,5 @@
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
-const dsteem = require('dsteem');
 
 const { SmartContracts } = require('./SmartContracts');
 const { Transaction } = require('../libs/Transaction');
@@ -76,6 +75,7 @@ class Block {
 
   // dispute a block if a proposed block doesn't match the one produced by this node
   static async handleDispute(action, proposedBlock, ipc, steemClient) {
+    if (process.env.NODE_MODE === 'REPLAY') return;
     // eslint-disable-next-line no-await-in-loop
     let res = await ipc.send({
       to: DB_PLUGIN_NAME,
@@ -121,9 +121,9 @@ class Block {
             },
           },
         });
-
-        if (res.payload !== null) {
-          const { round } = res.payload;
+        const proposedBlockInDB = res.payload;
+        if (proposedBlockInDB !== null && proposedBlockInDB.witness !== steemClient.account) {
+          const { round } = proposedBlock;
 
           // check if the witness is allowed to dispute the block
           res = await ipc.send({

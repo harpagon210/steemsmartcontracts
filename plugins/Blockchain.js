@@ -17,6 +17,7 @@ const ipc = new IPC(PLUGIN_NAME);
 let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
+let lastProposedBlockNumber = 0;
 const blockProductionQueue = new Queue();
 const steemClient = {
   account: null,
@@ -76,6 +77,61 @@ function addBlock(block) {
   return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
 }
 
+async function checkIfNeedToProposeBlock() {
+  if (steemClient.account === null || process.env.NODE_MODE === 'REPLAY') return;
+
+  let res = await ipc.send({
+    to: DB_PLUGIN_NAME,
+    action: DB_PLUGIN_ACTIONS.FIND_ONE,
+    payload: {
+      contract: 'witnesses',
+      table: 'params',
+      query: {
+      },
+    },
+  });
+
+  const params = res.payload;
+
+  // if it's this witness turn and the block has not been proposed yet
+  if (params && params.currentWitness === steemClient.account
+    && params.lastProposedBlockNumber !== lastProposedBlockNumber) {
+    res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+      payload: lastProposedBlockNumber + 1,
+    });
+
+    const block = res.payload;
+    if (block !== null) {
+      const {
+        blockNumber,
+        previousHash,
+        previousDatabaseHash,
+        hash,
+        databaseHash,
+        merkleRoot,
+      } = block;
+
+      const json = {
+        contractName: 'witnesses',
+        contractAction: 'proposeBlock',
+        contractPayload: {
+          blockNumber,
+          previousHash,
+          previousDatabaseHash,
+          hash,
+          databaseHash,
+          merkleRoot,
+        },
+      };
+
+      await steemClient.sendCustomJSON(json);
+      lastProposedBlockNumber = blockNumber;
+    }
+  }
+}
+
 // produce all the pending transactions, that will result in the creation of a block
 async function producePendingTransactions(
   refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
@@ -98,6 +154,7 @@ async function producePendingTransactions(
 
     if (newBlock.transactions.length > 0 || newBlock.virtualTransactions.length > 0) {
       await addBlock(newBlock);
+      checkIfNeedToProposeBlock();
     }
   }
 }
