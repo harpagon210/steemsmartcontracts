@@ -18,6 +18,8 @@ let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
 let lastProposedBlockNumber = 0;
+let lastDisputedBlockNumber = 0;
+let blockPropositionHandler = null;
 const blockProductionQueue = new Queue();
 const steemClient = {
   account: null,
@@ -34,21 +36,31 @@ const steemClient = {
     const transaction = {
       required_auths: [this.account],
       required_posting_auths: [],
-      id: this.sidechainId,
+      id: `ssc-${this.sidechainId}`,
       json: JSON.stringify(json),
     };
 
     if (this.client === null) {
-      this.client = new dsteem.Client(this.getSteemNode());
+      this.client = new dsteem.Client(this.getSteemNode(), {
+        addressPrefix: 'TST',
+        chainId: '46d90780152dac449ab5a8b6661c969bf391ac7e277834c9b96278925c243ea8',
+      });
     }
 
     try {
       await this.client.broadcast.json(transaction, this.signingKey);
+      if (json.contractAction === 'proposeBlock'
+      && json.contractPayload.blockNumber > lastProposedBlockNumber) {
+        lastProposedBlockNumber = json.contractPayload.blockNumber;
+      } else if (json.contractAction === 'disputeBlock'
+      && json.contractPayload.blockNumber > lastDisputedBlockNumber) {
+        lastDisputedBlockNumber = json.contractPayload.blockNumber;
+      }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(error);
       this.client = null;
-      this.sendCustomJSON(json);
+      setTimeout(() => this.sendCustomJSON(json), 1000);
     }
   },
 };
@@ -99,11 +111,12 @@ async function checkIfNeedToProposeBlock() {
     res = await ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: lastProposedBlockNumber + 1,
+      payload: params.lastProposedBlockNumber + 1,
     });
 
     const block = res.payload;
-    if (block !== null) {
+    if (block !== null
+      && block.blockNumber !== lastProposedBlockNumber) {
       const {
         blockNumber,
         previousHash,
@@ -127,9 +140,12 @@ async function checkIfNeedToProposeBlock() {
       };
 
       await steemClient.sendCustomJSON(json);
-      lastProposedBlockNumber = blockNumber;
     }
   }
+
+  blockPropositionHandler = setTimeout(() => {
+    checkIfNeedToProposeBlock();
+  }, 3000);
 }
 
 // produce all the pending transactions, that will result in the creation of a block
@@ -154,7 +170,6 @@ async function producePendingTransactions(
 
     if (newBlock.transactions.length > 0 || newBlock.virtualTransactions.length > 0) {
       await addBlock(newBlock);
-      checkIfNeedToProposeBlock();
     }
   }
 }
@@ -258,7 +273,7 @@ const produceNewBlockSync = async (block, callback = null) => {
 // when stopping, we wait until the current block is produced
 function stop(callback) {
   stopRequested = true;
-
+  if (blockPropositionHandler) clearTimeout(blockPropositionHandler);
   if (producing) process.nextTick(() => stop(callback));
 
   stopRequested = false;
@@ -268,7 +283,7 @@ function stop(callback) {
 async function startBlockProduction() {
   // get a block from the queue
   const block = blockProductionQueue.pop();
-
+  
   if (block) {
     await produceNewBlockSync(block);
   }
@@ -280,6 +295,8 @@ function init(conf) {
   javascriptVMTimeout = conf.javascriptVMTimeout; // eslint-disable-line prefer-destructuring
   conf.streamNodes.forEach(node => steemClient.nodes.push(node));
   steemClient.sidechainId = conf.chainId;
+
+  checkIfNeedToProposeBlock();
 }
 
 ipc.onReceiveMessage((message) => {

@@ -16,7 +16,10 @@ class Streamer {
     this.currentBlock = currentBlock;
     this.pollingTime = pollingTime;
     this.headBlockNumber = 0;
-    this.client = process.env.NODE_ENV === 'test' ? new dsteem.Client('https://testnet.steemitdev.com', { addressPrefix: 'TST', chainId: '46d82ab7d8db682eb1959aed0ada039a6d49afa1602491f93dde9cac3e8e6c32' }) : new dsteem.Client(nodeUrl);
+    this.client = new dsteem.Client(nodeUrl, {
+      addressPrefix: 'TST',
+      chainId: '46d90780152dac449ab5a8b6661c969bf391ac7e277834c9b96278925c243ea8',
+    });
 
     this.updaterGlobalProps = null;
     this.poller = null;
@@ -62,10 +65,10 @@ class Streamer {
 
   async stream(reject) {
     try {
-      console.log('head_block_number', this.headBlockNumber); // eslint-disable-line no-console
-      console.log('currentBlock', this.currentBlock); // eslint-disable-line no-console
+      //console.log('head_block_number', this.headBlockNumber); // eslint-disable-line no-console
+      //console.log('currentBlock', this.currentBlock); // eslint-disable-line no-console
       const delta = this.headBlockNumber - this.currentBlock;
-      console.log(`Steem blockchain is ${delta > 0 ? delta : 0} block(s) ahead`); // eslint-disable-line no-console
+      //console.log(`Steem blockchain is ${delta > 0 ? delta : 0} block(s) ahead`); // eslint-disable-line no-console
       const block = await this.client.database.getBlock(this.currentBlock);
       let addBlockToBuffer = false;
 

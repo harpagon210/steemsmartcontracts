@@ -493,6 +493,14 @@ const manageWitnessesSchedule = async () => {
         schedule[j] = x;
       }
 
+      // make sure the last witness of the previous round is not the first witness of this round
+      if (schedule[0].witness === params.lastWitnessPreviousRound) {
+        const firstWitness = schedule[0].witness;
+        const secondWitness = schedule[1].witness;
+        schedule[0].witness = secondWitness;
+        schedule[1].witness = firstWitness;
+      }
+
       // block number attribution
       // eslint-disable-next-line prefer-destructuring
       let blockNumber = lastProposedBlockNumber === 0
@@ -518,6 +526,7 @@ const manageWitnessesSchedule = async () => {
       }
 
       params.currentWitness = schedule[0].witness;
+      params.lastWitnessPreviousRound = schedule[schedule.length - 1].witness;
 
       await api.db.update('params', params);
     }
@@ -584,6 +593,10 @@ actions.proposeBlock = async (payload) => {
         }
 
         await api.db.update('params', params);
+
+        if (params.currentWitness === null) {
+          await manageWitnessesSchedule();
+        }
 
         blockAddedForVerification = true;
       }
@@ -709,67 +722,74 @@ actions.disputeBlock = async (payload) => {
 
 actions.checkBlockVerificationStatus = async () => {
   if (api.sender !== 'null') return;
+  let proposedBlock = null;
+  let verifiedBlock = null;
 
-  const params = await api.db.findOne('params', {});
-  const { lastVerifiedBlockNumber } = params;
-  const currentBlock = lastVerifiedBlockNumber + 1;
+  do {
+    verifiedBlock = false;
+    const params = await api.db.findOne('params', {});
+    const { lastVerifiedBlockNumber } = params;
+    const currentBlock = lastVerifiedBlockNumber + 1;
 
-  let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
-  const proposedBlock = await api.db.findOne('proposedBlocks', { blockNumber: currentBlock });
+    let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
+    proposedBlock = await api.db.findOne('proposedBlocks', { blockNumber: currentBlock });
 
-  // if there was a schedule and the dispute period expired
-  if (schedule
-    && api.blockNumber >= schedule.blockDisputeDeadline
-    && proposedBlock !== null) {
-    const disputes = await api.db.find('disputes', { blockNumber: currentBlock });
+    // if there was a schedule and the dispute period expired
+    if (schedule
+      && api.blockNumber >= schedule.blockDisputeDeadline
+      && proposedBlock !== null) {
+      const disputes = await api.db.find('disputes', { blockNumber: currentBlock });
 
-    // if there are no disputes regarding the current block
-    if (disputes.length === 0) {
-      // update the witness that just verified the block
-      const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
+      // if there are no disputes regarding the current block
+      if (disputes.length === 0) {
+        // update the witness that just verified the block
+        const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
 
-      // check that the witness that proposed the block
-      // is actually part of the witnesses that verified the block
-      if (proposedBlock.witnesses.find(w => w.witness === schedule.witness)) {
-        if (scheduledWitness.missedBlocksInARow > 0) {
-          // clear the missed blocks
+        // check that the witness that proposed the block
+        // is actually part of the witnesses that verified the block
+        if (proposedBlock.witnesses.find(w => w.witness === schedule.witness)) {
+          if (scheduledWitness.missedBlocksInARow > 0) {
+            // clear the missed blocks
+            scheduledWitness.missedBlocksInARow = 0;
+          }
+        } else {
+          // disable the witness
+          scheduledWitness.missedBlocks += 1;
           scheduledWitness.missedBlocksInARow = 0;
+          scheduledWitness.enabled = false;
         }
-      } else {
-        // disable the witness
-        scheduledWitness.missedBlocks += 1;
-        scheduledWitness.missedBlocksInARow = 0;
-        scheduledWitness.enabled = false;
-      }
 
-      await api.db.update('witnesses', scheduledWitness);
+        await api.db.update('witnesses', scheduledWitness);
 
-      // mark the current block as verified
-      params.lastVerifiedBlockNumber = currentBlock;
-      await api.db.update('params', params);
+        // mark the current block as verified
+        params.lastVerifiedBlockNumber = currentBlock;
+        await api.db.update('params', params);
 
-      // remove the proposed block
-      await api.db.remove('proposedBlocks', proposedBlock);
-      api.debug(`block ${currentBlock} verified on block ${api.blockNumber} `)
-      // TODO: reward the witness for the production of this block
-      // do not reward when the block was verified via dipsute (more than one witness)
-      api.emit('blockVerified', {
-        blockNumber: currentBlock,
-        witnesses: proposedBlock.witnesses,
-      });
+        // remove the proposed block
+        await api.db.remove('proposedBlocks', proposedBlock);
+        api.debug(`block ${currentBlock} verified on block ${api.blockNumber} `)
+        // TODO: reward the witness for the production of this block
+        // do not reward when the block was verified via dipsute (more than one witness)
+        api.emit('blockVerified', {
+          blockNumber: currentBlock,
+          witnesses: proposedBlock.witnesses,
+        });
 
-      // if the block was the last of the round
-      const { round } = schedule;
-      schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
-      if (schedule !== null && schedule.round !== round) {
-        // clean last round
-        const lastRound = await api.db.find('schedules', { round });
-        for (let index = 0; index < lastRound.length; index += 1) {
-          await api.db.remove('schedules', lastRound[index]);
+        // if the block was the last of the round
+        const { round } = schedule;
+        schedule = await api.db.findOne('schedules', { blockNumber: currentBlock + 1 });
+        if (schedule !== null && schedule.round !== round) {
+          // clean last round
+          const lastRound = await api.db.find('schedules', { round });
+          for (let index = 0; index < lastRound.length; index += 1) {
+            await api.db.remove('schedules', lastRound[index]);
+          }
         }
+
+        verifiedBlock = true;
       }
     }
-  }
+  } while (verifiedBlock === true);
 
   await manageWitnessesSchedule();
 };

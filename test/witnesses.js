@@ -3,6 +3,7 @@ const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
 const { MongoClient } = require('mongodb');
+const dsteem = require('dsteem');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -10,7 +11,8 @@ const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
 
-//process.env.NODE_ENV = 'test';
+//process.env.ACCOUNT = 'witness20';
+//process.env.ACTIVE_SIGNING_KEY = dsteem.PrivateKey.fromLogin(process.env.ACCOUNT, 'testnet', 'active').toString();
 
 const conf = {
   chainId: "test-chain-id",

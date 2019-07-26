@@ -15,6 +15,5 @@
         "https://steemd.minnowsupportproject.org"
     ],
     "startSteemBlock": 29862600,
-    "genesisSteemBlock": 29862600,
-    "witnessAccount": "harpagon"
+    "genesisSteemBlock": 29862600
 }

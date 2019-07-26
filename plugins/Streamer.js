@@ -248,7 +248,7 @@ async function getBlock(reject) {
 
     const block = streamer.getNextBlock();
     if (block && !stopStream) {
-      console.log(`Last Steem block parsed: ${block.blockNumber}`); // eslint-disable-line
+      //console.log(`Last Steem block parsed: ${block.blockNumber}`); // eslint-disable-line
       if (currentBlock !== block.blockNumber) {
         throw new BlockNumberException(`there is a discrepancy between the current block number (${currentBlock}) and the last streamed block number (${block.blockNumber})`);
       } else {
