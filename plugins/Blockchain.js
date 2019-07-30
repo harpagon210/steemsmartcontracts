@@ -283,7 +283,7 @@ function stop(callback) {
 async function startBlockProduction() {
   // get a block from the queue
   const block = blockProductionQueue.pop();
-  
+
   if (block) {
     await produceNewBlockSync(block);
   }
@@ -296,7 +296,7 @@ function init(conf) {
   conf.streamNodes.forEach(node => steemClient.nodes.push(node));
   steemClient.sidechainId = conf.chainId;
 
-  checkIfNeedToProposeBlock();
+  // checkIfNeedToProposeBlock();
 }
 
 ipc.onReceiveMessage((message) => {
