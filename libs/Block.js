@@ -21,8 +21,9 @@ class Block {
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
-    this.witnesses = [];
-    this.verified = false;
+    this.witness = '';
+    this.signingKey = '';
+    this.signature = '';
   }
 
   // calculate the hash of the block
@@ -199,6 +200,21 @@ class Block {
           Block.handleDispute(transaction.action, blockInfo, ipc, steemClient);
         }
       }
+
+      // if a block has been verified
+      if (transaction.contract === 'witnesses'
+        && transaction.action === 'proposeBlock') {
+        /*const logs = JSON.parse(transaction.logs);
+        const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : null;
+        if (event && event.data && event.data.blockNumber && event.data.witnesses) {
+          await ipc.send({ // eslint-disable-line
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
+            payload: event.data,
+          });
+        }
+        */
+      }
     }
 
     // remove comment, comment_options and votes if not relevant
@@ -227,19 +243,6 @@ class Block {
       // the "unknown error" errors are removed as they are related to a non existing action
       if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
         this.virtualTransactions.push(transaction);
-        // if a block has been verified
-        if (transaction.contract === 'witnesses'
-          && transaction.action === 'checkBlockVerificationStatus') {
-          const logs = JSON.parse(transaction.logs);
-          const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : null;
-          if (event && event.data && event.data.blockNumber && event.data.witnesses) {
-            await ipc.send({ // eslint-disable-line
-              to: DB_PLUGIN_NAME,
-              action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
-              payload: event.data,
-            });
-          }
-        }
       }
     }
 

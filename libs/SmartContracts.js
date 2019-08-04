@@ -1,5 +1,6 @@
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
+const dsteem = require('dsteem');
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const BigNumber = require('bignumber.js');
@@ -153,6 +154,26 @@ class SmartContracts {
             db,
             BigNumber,
             validator,
+            hash: (payloadToHash) => {
+              if (typeof payloadToHash === 'string') {
+                return SHA256(payloadToHash).toString(enchex);
+              }
+
+              return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
+            },
+            checkSignature: (payloadToCheck, signature, publicKey) => {
+              if ((typeof payloadToCheck !== 'string'
+              && typeof payloadToCheck !== 'object')
+              || typeof signature !== 'string'
+              || typeof publicKey !== 'string') return null;
+
+              const sig = dsteem.Signature.fromString(signature);
+              const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
+              const payloadHash = SHA256(finalPayload).toString(enchex);
+              const buffer = Buffer.from(payloadHash, 'hex');
+
+              return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+            },
             random: () => rng(),
             debug: log => console.log(log), // eslint-disable-line no-console
             // execute a smart contract from the current smart contract
@@ -320,6 +341,21 @@ class SmartContracts {
           BigNumber,
           validator,
           random: () => rng(),
+          hash: (payloadToHash) => {
+            if (typeof payloadToHash === 'string') {
+              return SHA256(payloadToHash).toString(enchex);
+            }
+            return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
+          },
+          checkSignature: (hash, signature, publicKey) => {
+            if (typeof hash !== 'string'
+            || typeof signature !== 'string'
+            || typeof publicKey !== 'string') return null;
+            const sig = dsteem.Signature.fromString(signature);
+            const buffer = Buffer.from(hash, 'hex');
+
+            return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+          },
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: async (
