@@ -390,15 +390,17 @@ class SmartContracts {
   // run the contractCode in a VM with the vmState as a state for the VM
   static runContractCode(vmState, contractCode, jsVMTimeout) {
     return new Promise((resolve) => {
+      let vm = null;
       try {
         // console.log('vmState', vmState)
         // run the code in the VM
-        const vm = new VM({
+        vm = new VM({
           timeout: jsVMTimeout,
           sandbox: {
             ...vmState,
             done: (error) => {
               // console.log('error', error);
+              vm = null;
               resolve(error);
             },
           },
@@ -406,6 +408,7 @@ class SmartContracts {
 
         vm.run(contractCode);
       } catch (err) {
+        vm = null;
         resolve(err);
       }
     });
