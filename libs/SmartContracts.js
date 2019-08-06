@@ -12,6 +12,9 @@ const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTION
 const RESERVED_CONTRACT_NAMES = ['contract', 'blockProduction', 'null'];
 const RESERVED_ACTIONS = ['createSSC'];
 
+const JSVMs = [];
+const MAXJSVMs = 5;
+
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
   static async deploySmartContract(
@@ -54,31 +57,35 @@ class SmartContracts {
         // this code template is used to manage the code of the smart contract
         // this way we keep control of what can be executed in a smart contract
         let codeTemplate = `
-          RegExp.prototype.constructor = function () { };
-          RegExp.prototype.exec = function () {  };
-          RegExp.prototype.test = function () {  };
-
-          let actions = {};
-
-          ###ACTIONS###
-
-          const execute = async function () {
-            try {
-              if (api.action && typeof api.action === 'string' && typeof actions[api.action] === 'function') {
-                if (api.action !== 'createSSC') {
-                  actions.createSSC = null;
+          function wrapper () {
+            RegExp.prototype.constructor = function () { };
+            RegExp.prototype.exec = function () {  };
+            RegExp.prototype.test = function () {  };
+  
+            let actions = {};
+  
+            ###ACTIONS###
+  
+            const execute = async function () {
+              try {
+                if (api.action && typeof api.action === 'string' && typeof actions[api.action] === 'function') {
+                  if (api.action !== 'createSSC') {
+                    actions.createSSC = null;
+                  }
+                  await actions[api.action](api.payload);
+                  done(null);
+                } else {
+                  done('invalid action');
                 }
-                await actions[api.action](api.payload);
-                done(null);
-              } else {
-                done('invalid action');
+              } catch (error) {
+                done(error);
               }
-            } catch (error) {
-              done(error);
             }
+  
+            execute();
           }
 
-          execute();
+          wrapper();
         `;
 
         // the code of the smart contarct comes as a Base64 encoded string
@@ -387,28 +394,67 @@ class SmartContracts {
     }
   }
 
+  static getJSVM(jsVMTimeout) {
+    let vm = null;
+
+    vm = JSVMs.find(v => v.inUse === false);
+
+    if (vm === undefined) {
+      if (JSVMs.length < MAXJSVMs) {
+        vm = {
+          vm: new VM({
+            timeout: jsVMTimeout,
+            sandbox: {
+            },
+          }),
+          inUse: true,
+        };
+        JSVMs.push(vm);
+      }
+    }
+
+    if (vm === undefined) {
+      vm = null;
+    } else {
+      // eslint-disable-next-line no-underscore-dangle
+      Object.keys(vm.vm._context).filter(key => key !== 'VMError' && key !== 'Buffer' && key !== 'api').forEach((key) => {
+        // eslint-disable-next-line no-underscore-dangle
+        delete vm.vm._context[key];
+      });
+      // eslint-disable-next-line no-underscore-dangle
+      vm.vm._context.api = {};
+      vm.inUse = true;
+    }
+
+    return vm;
+  }
+
   // run the contractCode in a VM with the vmState as a state for the VM
   static runContractCode(vmState, contractCode, jsVMTimeout) {
     return new Promise((resolve) => {
-      let vm = null;
+      const vm = SmartContracts.getJSVM(jsVMTimeout);
       try {
-        // console.log('vmState', vmState)
         // run the code in the VM
-        vm = new VM({
-          timeout: jsVMTimeout,
-          sandbox: {
-            ...vmState,
-            done: (error) => {
-              // console.log('error', error);
-              vm = null;
-              resolve(error);
-            },
-          },
-        });
+        if (vm !== null) {
+          // eslint-disable-next-line no-underscore-dangle
+          Object.keys(vmState.api).forEach((key) => {
+            // eslint-disable-next-line no-underscore-dangle
+            vm.vm._context.api[key] = vmState.api[key];
+          });
+          // eslint-disable-next-line no-underscore-dangle
+          vm.vm._context.done = (error) => {
+            // console.log('error', error);
+            vm.inUse = false;
+            resolve(error);
+          };
 
-        vm.run(contractCode);
+          vm.vm.run(contractCode);
+        } else {
+          resolve('no JS VM available');
+        }
       } catch (err) {
-        vm = null;
+        // console.log('error', err);
+        vm.inUse = false;
         resolve(err);
       }
     });
