@@ -483,7 +483,7 @@ const connectToWitnesses = async () => {
   }
 };
 
-const proposeBlock = async (witness, block, tryNumber = 0) => {
+const proposeBlock = async (witness, block, attempt = 0) => {
   const witnessSocket = Object.values(webSockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
@@ -495,10 +495,10 @@ const proposeBlock = async (witness, block, tryNumber = 0) => {
     if (witnessInfo !== null) {
       connectToWitness(witnessInfo);
       setTimeout(() => {
-        const newTryNumber = tryNumber + 1;
+        const newAttempt = attempt + 1;
         // we stop after 3 tries
-        if (tryNumber <= 3) {
-          proposeBlock(witness, block, newTryNumber);
+        if (attempt <= 3) {
+          proposeBlock(witness, block, newAttempt);
         }
       }, 3000);
     }
