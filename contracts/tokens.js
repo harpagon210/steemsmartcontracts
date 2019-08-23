@@ -1,6 +1,5 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
-
 const AUTHORIZATION_TYPES = ['transfer'];
 const countDecimals = value => api.BigNumber(value).dp();
 
@@ -43,10 +42,6 @@ actions.createSSC = async () => {
     await api.db.update('tokens', token);
   }
 
-  // enable staking and delegation for ENG
-  // eslint-disable-next-line no-template-curly-in-string
-  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
-
   /**
    * Adds the table to store authorized contracts to do certain actions, i.e. transfer
    */
@@ -54,6 +49,10 @@ actions.createSSC = async () => {
   if (tableExists === false) {
     await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action', 'type']);
   }
+
+  // enable staking and delegation for ENG
+  // eslint-disable-next-line no-template-curly-in-string
+  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
   if (token.stakingEnabled === undefined || token.stakingEnabled === false) {
     token.stakingEnabled = true;
@@ -64,6 +63,17 @@ actions.createSSC = async () => {
     token.undelegationCooldown = 7;
     await api.db.update('tokens', token);
   }
+};
+
+const balanceTemplate = {
+  account: null,
+  symbol: null,
+  balance: '0',
+  stake: '0',
+  pendingUnstake: '0',
+  delegationsIn: '0',
+  delegationsOut: '0',
+  pendingUndelegations: '0',
 };
 
 /**
@@ -253,17 +263,6 @@ actions.authorizeTransfer = async (payload) => {
   return false;
 };
 
-const balanceTemplate = {
-  account: null,
-  symbol: null,
-  balance: '0',
-  stake: '0',
-  pendingUnstake: '0',
-  delegationsIn: '0',
-  delegationsOut: '0',
-  pendingUndelegations: '0',
-};
-
 const calculateBalance = (balance, quantity, precision, add) => (add
   ? api.BigNumber(balance).plus(quantity).toFixed(precision)
   : api.BigNumber(balance).minus(quantity).toFixed(precision));
@@ -303,6 +302,8 @@ const addStake = async (account, token, quantity) => {
 
     return true;
   }
+
+  return false;
 };
 
 const subStake = async (account, token, quantity) => {

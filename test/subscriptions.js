@@ -154,6 +154,7 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = res.payload;
+      console.log(tx);
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'subscribe').data;
 
