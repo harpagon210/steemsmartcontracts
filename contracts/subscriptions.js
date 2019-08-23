@@ -26,14 +26,14 @@ actions.createSSC = async () => {
      * recur {Number} how often the payment should be sent per period (i.e. every 1 month)
      * max {Number} the number of max installments this subscription should ever pay
      */
-    await api.db.createTable('subscriptions', ['id', 'provider', 'subscriber', 'beneficiaries', 'quantity', 'symbol', 'period', 'recur', 'max']);
+    await api.db.createTable('subscriptions', ['provider', 'subscriber', 'symbol']);
     /**
      * Stores the installments paid by the subscriber
      *
      * subscriptionId {String} The unique id for the subscription being paid
      * timestamp {Date} full date when this installment was paid
      */
-    await api.db.createTable('installments', ['subscriptionId', 'timestamp']);
+    await api.db.createTable('installments', ['timestamp']);
   }
 };
 
@@ -190,6 +190,7 @@ const removeSubscription = async (subscription) => {
     await api.executeSmartContract('tokens', 'removeAuthorization', {
       contract: CONTRACT_NAME,
       version: api.contractVersion,
+      account: api.sender,
       symbol: subscription.symbol,
       action: 'installment',
       type: 'transfer',

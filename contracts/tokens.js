@@ -136,7 +136,7 @@ actions.addAuthorization = async (payload) => {
       && contract.length > 3
       && contract.length < 50
       && version
-      && typeof version === 'number'
+      && Number.isInteger(version)
       && !api.BigNumber(version).isNaN()
       && api.BigNumber(version).gte(1)
       && action
@@ -182,17 +182,20 @@ actions.addAuthorization = async (payload) => {
  */
 actions.removeAuthorization = async (payload) => {
   const {
-    contract,
     version,
     action,
     symbol,
     type,
+    callingContractInfo,
   } = payload;
+  const contract = callingContractInfo ? callingContractInfo.contract : payload.contract;
+  const account = callingContractInfo ? callingContractInfo.acceleration : api.sender;
+
   if (api.assert(contract
     && contract.length > 3
     && contract.length < 50
     && version
-    && typeof version === 'number'
+    && Number.isInteger(version)
     && !api.BigNumber(version).isNaN()
     && api.BigNumber(version).gte(1)
     && action
@@ -206,7 +209,7 @@ actions.removeAuthorization = async (payload) => {
     const token = await api.db.findOne('tokens', { symbol });
     if (api.assert(token !== null, 'symbol does not exist')) {
       const authorization = await api.db.findOne('authorizations', {
-        account: api.sender,
+        account,
         contract,
         version,
         action,
@@ -217,7 +220,7 @@ actions.removeAuthorization = async (payload) => {
         await api.db.remove('authorizations', authorization);
 
         api.emit('removeAuthorization', {
-          account: api.sender, contract, version, symbol, action,
+          account, contract, version, symbol, action,
         });
         return true;
       }

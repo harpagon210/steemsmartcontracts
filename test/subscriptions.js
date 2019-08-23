@@ -271,6 +271,7 @@ describe('Subscriptions smart contract', () => {
       });
 
       const tx = trxInstallment.payload;
+      console.log(tx)
       const logs = JSON.parse(tx.logs);
       const event = logs.events.find(ev => ev.contract === 'subscriptions' && ev.event == 'installment').data;
       const dbTokens = await send(database.PLUGIN_NAME, 'MASTER', {
