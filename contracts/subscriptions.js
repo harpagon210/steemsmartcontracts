@@ -3,7 +3,7 @@
 
 /**
  * A contract to enable payment subscriptions
- * @author https://github.com/eleardev
+ * @author Diego Pucci <diegopucci.me@gmail.com>
  */
 
 const CONTRACT_NAME = 'subscriptions';

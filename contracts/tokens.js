@@ -1,7 +1,6 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 const AUTHORIZATION_TYPES = ['transfer'];
-const countDecimals = value => api.BigNumber(value).dp();
 
 actions.createSSC = async () => {
   let tableExists = await api.db.tableExists('tokens');
@@ -42,14 +41,6 @@ actions.createSSC = async () => {
     await api.db.update('tokens', token);
   }
 
-  /**
-   * Adds the table to store authorized contracts to do certain actions, i.e. transfer
-   */
-  tableExists = await api.db.tableExists('authorizations');
-  if (tableExists === false) {
-    await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action', 'type']);
-  }
-
   // enable staking and delegation for ENG
   // eslint-disable-next-line no-template-curly-in-string
   token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
@@ -62,6 +53,15 @@ actions.createSSC = async () => {
     token.delegationEnabled = true;
     token.undelegationCooldown = 7;
     await api.db.update('tokens', token);
+  }
+
+  /**
+   * @author Diego Pucci <diegopucci.me@gmail.com>
+   * Adds the table to store authorized contracts to do certain actions, i.e. transfer
+   */
+  tableExists = await api.db.tableExists('authorizations');
+  if (tableExists === false) {
+    await api.db.createTable('authorizations', ['account', 'contract', 'version', 'symbol', 'action', 'type']);
   }
 };
 
@@ -76,7 +76,14 @@ const balanceTemplate = {
   pendingUndelegations: '0',
 };
 
+const calculateBalance = (balance, quantity, precision, add) => (add
+  ? api.BigNumber(balance).plus(quantity).toFixed(precision)
+  : api.BigNumber(balance).minus(quantity).toFixed(precision));
+
+const countDecimals = value => api.BigNumber(value).dp();
+
 /**
+ * @author Diego Pucci <diegopucci.me@gmail.com>
  * Adds an authorized delegatee via a contract to perform
  * the specified type of action
  */
@@ -136,6 +143,7 @@ actions.addAuthorization = async (payload) => {
 };
 
 /**
+ * @author Diego Pucci <diegopucci.me@gmail.com>
  * Removes an authorized delegatee via a contract
  */
 actions.removeAuthorization = async (payload) => {
@@ -188,6 +196,7 @@ actions.removeAuthorization = async (payload) => {
 };
 
 /**
+ * @author Diego Pucci <diegopucci.me@gmail.com>
  * Authorizes a transfer of (symbol) funds via a contract if the
  * contract has the required delegated authority to do so.
  * (see actions.addAuthorization)
@@ -263,11 +272,6 @@ actions.authorizeTransfer = async (payload) => {
   return false;
 };
 
-const calculateBalance = (balance, quantity, precision, add) => (add
-  ? api.BigNumber(balance).plus(quantity).toFixed(precision)
-  : api.BigNumber(balance).minus(quantity).toFixed(precision));
-
-const countDecimals = value => api.BigNumber(value).dp();
 
 const addStake = async (account, token, quantity) => {
   let balance = await api.db.findOne('balances', { account, symbol: token.symbol });
