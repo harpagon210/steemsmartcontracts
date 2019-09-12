@@ -224,9 +224,11 @@ describe('smart tokens', function () {
       transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "symbol": "NKT", "precision": 8, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1238', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 7, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1239', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1240', 'satoshi', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 365, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'satoshi', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 18250, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "satoshi", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'satoshi', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 18250, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1241', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 0, "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1242', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 366, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 18251, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1243', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 7, "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1244', 'harpagon', 'tokens', 'enableDelegation', '{ "symbol": "TKN", "undelegationCooldown": 7, "isSignedWithActiveKey": true }'));
 
@@ -248,10 +250,11 @@ describe('smart tokens', function () {
       let txs = res.payload.transactions;
 
       assert.equal(JSON.parse(txs[4].logs).errors[0], 'staking not enabled');
-      assert.equal(JSON.parse(txs[6].logs).errors[0], 'must be the issuer');
-      assert.equal(JSON.parse(txs[7].logs).errors[0], 'undelegationCooldown must be an integer between 1 and 365');
-      assert.equal(JSON.parse(txs[8].logs).errors[0], 'undelegationCooldown must be an integer between 1 and 365');
-      assert.equal(JSON.parse(txs[10].logs).errors[0], 'delegation already enabled');
+      assert.equal(JSON.parse(txs[6].logs).errors[0], 'you must have enough tokens to cover  fees');
+      assert.equal(JSON.parse(txs[8].logs).errors[0], 'must be the issuer');
+      assert.equal(JSON.parse(txs[9].logs).errors[0], 'undelegationCooldown must be an integer between 1 and 18250');
+      assert.equal(JSON.parse(txs[10].logs).errors[0], 'undelegationCooldown must be an integer between 1 and 18250');
+      assert.equal(JSON.parse(txs[12].logs).errors[0], 'delegation already enabled');
 
       resolve();
     })
@@ -944,8 +947,10 @@ describe('smart tokens', function () {
       transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "symbol": "TKN", "precision": 8, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "symbol": "NKT", "precision": 8, "maxSupply": "1000", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(12345678901, 'TXID1237', 'satoshi', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1238', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 0, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 366, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "satoshi", "quantity": "1000", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 7, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID12310', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 0, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID12311', 'harpagon', 'tokens', 'enableStaking', '{ "symbol": "TKN", "unstakingCooldown": 18251, "numberTransactions": 1, "isSignedWithActiveKey": true }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -982,9 +987,10 @@ describe('smart tokens', function () {
 
       let txs = res.payload.transactions;
 
-      assert.equal(JSON.parse(txs[4].logs).errors[0], 'must be the issuer');
-      assert.equal(JSON.parse(txs[5].logs).errors[0], 'unstakingCooldown must be an integer between 1 and 365');
-      assert.equal(JSON.parse(txs[6].logs).errors[0], 'unstakingCooldown must be an integer between 1 and 365');
+      assert.equal(JSON.parse(txs[4].logs).errors[0], 'you must have enough tokens to cover  fees');
+      assert.equal(JSON.parse(txs[6].logs).errors[0], 'must be the issuer');
+      assert.equal(JSON.parse(txs[7].logs).errors[0], 'unstakingCooldown must be an integer between 1 and 18250');
+      assert.equal(JSON.parse(txs[8].logs).errors[0], 'unstakingCooldown must be an integer between 1 and 18250');
 
       resolve();
     })
