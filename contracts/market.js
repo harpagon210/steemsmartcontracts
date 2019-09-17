@@ -324,7 +324,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           }
 
           // add the trade to the history
-          await updateTradesHistory('buy', symbol, buyOrder.quantity, sellOrder.price, qtyTokensToSend);
+          await updateTradesHistory('buy', account, sellOrder.account, symbol, buyOrder.quantity, sellOrder.price, qtyTokensToSend);
 
           // update the volume
           volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -391,7 +391,7 @@ const findMatchingSellOrders = async (order, tokenPrecision) => {
           }
 
           // add the trade to the history
-          await updateTradesHistory('buy', symbol, sellOrder.quantity, sellOrder.price, qtyTokensToSend);
+          await updateTradesHistory('buy', account, sellOrder.account, symbol, sellOrder.quantity, sellOrder.price, qtyTokensToSend);
 
           // update the volume
           volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -521,7 +521,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           }
 
           // add the trade to the history
-          await updateTradesHistory('sell', symbol, sellOrder.quantity, buyOrder.price, qtyTokensToSend);
+          await updateTradesHistory('sell', buyOrder.account, account, symbol, sellOrder.quantity, buyOrder.price, qtyTokensToSend);
 
           // update the volume
           volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -593,7 +593,7 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
           }
 
           // add the trade to the history
-          await updateTradesHistory('sell', symbol, buyOrder.quantity, buyOrder.price, qtyTokensToSend);
+          await updateTradesHistory('sell', buyOrder.account, account, symbol, buyOrder.quantity, buyOrder.price, qtyTokensToSend);
 
           // update the volume
           volumeTraded = api.BigNumber(volumeTraded).plus(qtyTokensToSend);
@@ -801,7 +801,7 @@ const updateAskMetric = async (symbol) => {
   await api.db.update('metrics', metric);
 };
 
-const updateTradesHistory = async (type, symbol, quantity, price, volume) => {
+const updateTradesHistory = async (type, buyer, seller, symbol, quantity, price, volume) => {
   const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
   const timestampSec = blockDate.getTime() / 1000;
   const timestampMinus24hrs = blockDate.setDate(blockDate.getDate() - 1) / 1000;
@@ -838,6 +838,8 @@ const updateTradesHistory = async (type, symbol, quantity, price, volume) => {
   // add order to the history
   const newTrade = {};
   newTrade.type = type;
+  newTrade.buyer = buyer;
+  newTrade.seller = seller;
   newTrade.symbol = symbol;
   newTrade.quantity = quantity;
   newTrade.price = price;

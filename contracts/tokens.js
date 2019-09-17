@@ -11,7 +11,14 @@ actions.createSSC = async () => {
 
     const params = {};
     params.tokenCreationFee = '0';
+    // params.updateStakingParamsFee = '100';
+    // params.updateDelegationParamsFee = '100';
     await api.db.insert('params', params);
+  } else {
+    const params = await api.db.findOne('params', {});
+    params.enableDelegationFee = '1000';
+    params.enableStakingFee = '1000';
+    await api.db.update('params', params);
   }
 
   tableExists = await api.db.tableExists('pendingUnstakes');
@@ -19,23 +26,167 @@ actions.createSSC = async () => {
     await api.db.createTable('pendingUnstakes', ['account', 'unstakeCompleteTimestamp']);
   }
 
+  tableExists = await api.db.tableExists('delegations');
+  if (tableExists === false) {
+    await api.db.createTable('delegations', ['from', 'to']);
+    await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);
+  }
+
   // update STEEMP decimal places
-  const token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
+  let token = await api.db.findOne('tokens', { symbol: 'STEEMP' });
 
   if (token && token.precision < 8) {
     token.precision = 8;
     await api.db.update('tokens', token);
   }
+
+  // enable staking and delegation for ENG
+  // eslint-disable-next-line no-template-curly-in-string
+  token = await api.db.findOne('tokens', { symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+
+  if (token.stakingEnabled === undefined || token.stakingEnabled === false) {
+    token.stakingEnabled = true;
+    token.totalStaked = '0';
+    token.unstakingCooldown = 40;
+    token.numberTransactions = 4;
+    token.delegationEnabled = true;
+    token.undelegationCooldown = 7;
+    await api.db.update('tokens', token);
+  }
+};
+
+const balanceTemplate = {
+  account: null,
+  symbol: null,
+  balance: '0',
+  stake: '0',
+  pendingUnstake: '0',
+  delegationsIn: '0',
+  delegationsOut: '0',
+  pendingUndelegations: '0',
+};
+
+const calculateBalance = (balance, quantity, precision, add) => (add
+  ? api.BigNumber(balance).plus(quantity).toFixed(precision)
+  : api.BigNumber(balance).minus(quantity).toFixed(precision));
+
+const countDecimals = value => api.BigNumber(value).dp();
+
+const addStake = async (account, token, quantity) => {
+  let balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+
+  if (balance === null) {
+    balance = balanceTemplate;
+    balance.account = account;
+    balance.symbol = token.symbol;
+
+    balance = await api.db.insert('balances', balance);
+  }
+
+  if (balance.stake === undefined) {
+    balance.stake = '0';
+    balance.pendingUnstake = '0';
+  }
+
+  const originalStake = balance.stake;
+
+  balance.stake = calculateBalance(balance.stake, quantity, token.precision, true);
+  if (api.assert(api.BigNumber(balance.stake).gt(originalStake), 'cannot add')) {
+    await api.db.update('balances', balance);
+
+    if (token.totalStaked === undefined) {
+      // eslint-disable-next-line no-param-reassign
+      token.totalStaked = '0';
+    }
+
+    // eslint-disable-next-line no-param-reassign
+    token.totalStaked = calculateBalance(token.totalStaked, quantity, token.precision, true);
+    await api.db.update('tokens', token);
+
+    return true;
+  }
+
+  return false;
+};
+
+const subStake = async (account, token, quantity) => {
+  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.stake).gte(quantity), 'overdrawn stake')) {
+    const originalStake = balance.stake;
+    const originalPendingStake = balance.pendingUnstake;
+
+    balance.stake = calculateBalance(balance.stake, quantity, token.precision, false);
+    balance.pendingUnstake = calculateBalance(
+      balance.pendingUnstake, quantity, token.precision, true,
+    );
+
+    if (api.assert(api.BigNumber(balance.stake).lt(originalStake)
+      && api.BigNumber(balance.pendingUnstake).gt(originalPendingStake), 'cannot subtract')) {
+      await api.db.update('balances', balance);
+
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const subBalance = async (account, token, quantity, table) => {
+  const balance = await api.db.findOne(table, { account, symbol: token.symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')
+    && api.assert(api.BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
+    const originalBalance = balance.balance;
+
+    balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
+
+    if (api.assert(api.BigNumber(balance.balance).lt(originalBalance), 'cannot subtract')) {
+      await api.db.update(table, balance);
+
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const addBalance = async (account, token, quantity, table) => {
+  let balance = await api.db.findOne(table, { account, symbol: token.symbol });
+  if (balance === null) {
+    balance = balanceTemplate;
+    balance.account = account;
+    balance.symbol = token.symbol;
+    balance.balance = quantity;
+
+
+    await api.db.insert(table, balance);
+
+    return true;
+  }
+
+  const originalBalance = balance.balance;
+
+  balance.balance = calculateBalance(balance.balance, quantity, token.precision, true);
+  if (api.assert(api.BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
+    await api.db.update(table, balance);
+    return true;
+  }
+
+  return false;
 };
 
 actions.updateParams = async (payload) => {
   if (api.sender !== api.owner) return;
 
-  const { tokenCreationFee } = payload;
+  const { tokenCreationFee /* , updateStakingParamsFee, updateDelegationParamsFee */ } = payload;
 
   const params = await api.db.findOne('params', {});
 
-  params.tokenCreationFee = typeof tokenCreationFee === 'number' ? tokenCreationFee.toFixed('${BP_CONSTANTS.UTILITY_TOKEN_PRECISION}$') : tokenCreationFee;
+  params.tokenCreationFee = tokenCreationFee;
+  // params.updateStakingParamsFee = updateStakingParamsFee;
+  // params.updateDelegationParamsFee = updateDelegationParamsFee;
 
   await api.db.update('params', params);
 };
@@ -92,6 +243,25 @@ actions.updateMetadata = async (payload) => {
   }
 };
 
+actions.updatePrecision = async (payload) => {
+  const { symbol, precision, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string')
+    && api.assert((precision > 0 && precision <= 8) && (Number.isInteger(precision)), 'invalid precision')) {
+    // check if the token exists
+    const token = await api.db.findOne('tokens', { symbol });
+
+    if (token) {
+      if (api.assert(token.issuer === api.sender, 'must be the issuer')
+        && api.assert(precision > token.precision, 'precision can only be increased')) {
+        token.precision = precision;
+        await api.db.update('tokens', token);
+      }
+    }
+  }
+};
+
 actions.transferOwnership = async (payload) => {
   const { symbol, to, isSignedWithActiveKey } = payload;
 
@@ -125,14 +295,16 @@ actions.create = async (payload) => {
   const { tokenCreationFee } = params;
 
   // get api.sender's UTILITY_TOKEN_SYMBOL balance
-  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  // eslint-disable-next-line no-template-curly-in-string
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
 
   const authorizedCreation = api.BigNumber(tokenCreationFee).lte(0)
     ? true
     : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(tokenCreationFee);
 
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
-    && api.assert(name && typeof name === 'string'
+      && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+      && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
       && ((precision && typeof precision === 'number') || precision === 0)
@@ -167,7 +339,8 @@ actions.create = async (payload) => {
           circulatingSupply: '0',
           stakingEnabled: false,
           unstakingCooldown: 1,
-          nbDays100PercentVoteRegeneration: 1,
+          delegationEnabled: false,
+          undelegationCooldown: 0,
         };
 
         await api.db.insert('tokens', newToken);
@@ -175,7 +348,8 @@ actions.create = async (payload) => {
         // burn the token creation fees
         if (api.BigNumber(tokenCreationFee).gt(0)) {
           await actions.transfer({
-            to: 'null', symbol: "'${BP_CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey,
+            // eslint-disable-next-line no-template-curly-in-string
+            to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: tokenCreationFee, isSignedWithActiveKey,
           });
         }
       }
@@ -203,7 +377,6 @@ actions.issue = async (payload) => {
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(api.BigNumber(quantity).gt(0), 'must issue positive quantity')
       && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
-
       // a valid steem account is between 3 and 16 characters in length
       if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
         // we made all the required verification, let's now issue the tokens
@@ -364,7 +537,6 @@ actions.transferFromContract = async (payload) => {
           if (api.assert(token !== null, 'symbol does not exist')
             && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
             && api.assert(api.BigNumber(quantity).gt(0), 'must transfer positive quantity')) {
-
             if (await subBalance(from, token, quantity, 'contractsBalances')) {
               const res = await addBalance(finalTo, token, quantity, table);
 
@@ -467,7 +639,8 @@ actions.checkPendingUnstakes = async () => {
         nextTransactionTimestamp: {
           $lte: timestamp,
         },
-      });
+      },
+    );
 
     let nbPendingUnstakes = pendingUnstakes.length;
     while (nbPendingUnstakes > 0) {
@@ -498,10 +671,24 @@ actions.enableStaking = async (payload) => {
     isSignedWithActiveKey,
   } = payload;
 
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { enableStakingFee } = params;
+
+  // get api.sender's UTILITY_TOKEN_SYMBOL balance
+  // eslint-disable-next-line no-template-curly-in-string
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  const enoughFunds = utilityTokenBalance
+    && api.BigNumber(utilityTokenBalance.balance).gte(enableStakingFee);
+  const authorized = enableStakingFee === undefined
+    || api.BigNumber(enableStakingFee).lte(0)
+    || enoughFunds;
+
+  if (api.assert(authorized, 'you must have enough tokens to cover  fees')
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
-    && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 365, 'unstakingCooldown must be an integer between 1 and 365')
-    && api.assert(numberTransactions && Number.isInteger(numberTransactions) && numberTransactions > 0 && numberTransactions <= 365, 'numberTransactions must be an integer between 1 and 365')) {
+    && api.assert(unstakingCooldown && Number.isInteger(unstakingCooldown) && unstakingCooldown > 0 && unstakingCooldown <= 18250, 'unstakingCooldown must be an integer between 1 and 18250')
+    && api.assert(numberTransactions && Number.isInteger(numberTransactions) && numberTransactions > 0 && numberTransactions <= 18250, 'numberTransactions must be an integer between 1 and 18250')) {
     const token = await api.db.findOne('tokens', { symbol });
 
     if (api.assert(token !== null, 'symbol does not exist')
@@ -512,33 +699,49 @@ actions.enableStaking = async (payload) => {
       token.unstakingCooldown = unstakingCooldown;
       token.numberTransactions = numberTransactions;
       await api.db.update('tokens', token);
+
+      // burn the fees
+      if (api.BigNumber(enableStakingFee).gt(0)) {
+        await actions.transfer({
+          // eslint-disable-next-line no-template-curly-in-string
+          to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: enableStakingFee, isSignedWithActiveKey,
+        });
+      }
     }
   }
 };
 
 actions.stake = async (payload) => {
-  const { symbol, quantity, isSignedWithActiveKey } = payload;
+  const {
+    symbol,
+    quantity,
+    to,
+    isSignedWithActiveKey,
+  } = payload;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-      && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
+    && to && typeof to === 'string'
+    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     // a valid steem account is between 3 and 16 characters in length
     const token = await api.db.findOne('tokens', { symbol });
 
+    const finalTo = to.trim();
+
     // the symbol must exist
     // then we need to check that the quantity is correct
-    if (api.assert(token !== null, 'symbol does not exist')
+    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')
+      && api.assert(token !== null, 'symbol does not exist')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
       if (await subBalance(api.sender, token, quantity, 'balances')) {
-        const res = await addStake(api.sender, token, quantity);
+        const res = await addStake(finalTo, token, quantity);
 
         if (res === false) {
           await addBalance(api.sender, token, quantity, 'balances');
         } else {
-          api.emit('stake', { account: api.sender, symbol, quantity });
+          api.emit('stake', { account: finalTo, symbol, quantity });
         }
       }
     }
@@ -576,7 +779,6 @@ actions.unstake = async (payload) => {
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-
     // a valid steem account is between 3 and 16 characters in length
     const token = await api.db.findOne('tokens', { symbol });
 
@@ -586,7 +788,6 @@ actions.unstake = async (payload) => {
       && api.assert(token.stakingEnabled === true, 'staking not enabled')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(api.BigNumber(quantity).gt(0), 'must unstake positive quantity')) {
-
       if (await subStake(api.sender, token, quantity)) {
         await startUnstake(api.sender, token, quantity);
 
@@ -646,111 +847,350 @@ actions.cancelUnstake = async (payload) => {
   }
 };
 
-const addStake = async (account, token, quantity) => {
-  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+actions.enableDelegation = async (payload) => {
+  const {
+    symbol,
+    undelegationCooldown,
+    isSignedWithActiveKey,
+  } = payload;
 
-  if (balance.stake === undefined) {
-    balance.stake = '0';
-    balance.pendingUnstake = '0';
-  }
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { enableDelegationFee } = params;
 
-  const originalStake = balance.stake;
+  // get api.sender's UTILITY_TOKEN_SYMBOL balance
+  // eslint-disable-next-line no-template-curly-in-string
+  const utilityTokenBalance = await api.db.findOne('balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+  const enoughFunds = utilityTokenBalance
+    && api.BigNumber(utilityTokenBalance.balance).gte(enableDelegationFee);
+  const authorized = enableDelegationFee === undefined
+    || api.BigNumber(enableDelegationFee).lte(0)
+    || enoughFunds;
 
-  balance.stake = calculateBalance(balance.stake, quantity, token.precision, true);
-  if (api.assert(api.BigNumber(balance.stake).gt(originalStake), 'cannot add')) {
-    await api.db.update('balances', balance);
+  if (api.assert(authorized, 'you must have enough tokens to cover  fees')
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
+    && api.assert(undelegationCooldown && Number.isInteger(undelegationCooldown) && undelegationCooldown > 0 && undelegationCooldown <= 18250, 'undelegationCooldown must be an integer between 1 and 18250')) {
+    const token = await api.db.findOne('tokens', { symbol });
 
-    if (token.totalStaked === undefined) {
-      token.totalStaked = '0';
+    if (api.assert(token !== null, 'symbol does not exist')
+      && api.assert(token.issuer === api.sender, 'must be the issuer')
+      && api.assert(token.stakingEnabled === true, 'staking not enabled')
+      && api.assert(token.delegationEnabled === undefined || token.delegationEnabled === false, 'delegation already enabled')) {
+      token.delegationEnabled = true;
+      token.undelegationCooldown = undelegationCooldown;
+      await api.db.update('tokens', token);
+
+      // burn the fees
+      if (api.BigNumber(enableDelegationFee).gt(0)) {
+        await actions.transfer({
+          // eslint-disable-next-line no-template-curly-in-string
+          to: 'null', symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'", quantity: enableDelegationFee, isSignedWithActiveKey,
+        });
+      }
     }
-
-    token.totalStaked = calculateBalance(token.totalStaked, quantity, token.precision, true);
-    await api.db.update('tokens', token);
-
-    return true;
   }
-
-  return false;
 };
 
-const subStake = async (account, token, quantity) => {
-  const balance = await api.db.findOne('balances', { account, symbol: token.symbol });
+actions.delegate = async (payload) => {
+  const {
+    symbol,
+    quantity,
+    to,
+    isSignedWithActiveKey,
+  } = payload;
 
-  if (api.assert(balance !== null, 'balance does not exist')
-    && api.assert(api.BigNumber(balance.stake).gte(quantity), 'overdrawn stake')) {
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && to && typeof to === 'string'
+    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+    const finalTo = to.trim();
+    // a valid steem account is between 3 and 16 characters in length
+    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+      const token = await api.db.findOne('tokens', { symbol });
+
+      // the symbol must exist
+      // then we need to check that the quantity is correct
+      if (api.assert(token !== null, 'symbol does not exist')
+        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+        && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalTo !== api.sender, 'cannot delegate to yourself')
+        && api.assert(api.BigNumber(quantity).gt(0), 'must delegate positive quantity')) {
+        const balanceFrom = await api.db.findOne('balances', { account: api.sender, symbol });
+
+        if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')
+          && api.assert(api.BigNumber(balanceFrom.stake).gte(quantity), 'overdrawn stake')) {
+          if (balanceFrom.stake === undefined) {
+            // update old balances with new properties
+            balanceFrom.stake = '0';
+            balanceFrom.pendingUnstake = '0';
+            balanceFrom.delegationsIn = '0';
+            balanceFrom.delegationsOut = '0';
+            balanceFrom.pendingUndelegations = '0';
+          } else if (balanceFrom.delegationsIn === undefined) {
+            // update old balances with new properties
+            balanceFrom.delegationsIn = '0';
+            balanceFrom.delegationsOut = '0';
+            balanceFrom.pendingUndelegations = '0';
+            if (balanceFrom.delegatedStake) {
+              delete balanceFrom.delegatedStake;
+              delete balanceFrom.receivedStake;
+            }
+          }
+
+          let balanceTo = await api.db.findOne('balances', { account: finalTo, symbol });
+
+          if (balanceTo === null) {
+            balanceTo = balanceTemplate;
+            balanceTo.account = finalTo;
+            balanceTo.symbol = symbol;
+
+            balanceTo = await api.db.insert('balances', balanceTo);
+          } else if (balanceTo.stake === undefined) {
+            // update old balances with new properties
+            balanceTo.stake = '0';
+            balanceTo.pendingUnstake = '0';
+            balanceTo.delegationsIn = '0';
+            balanceTo.delegationsOut = '0';
+            balanceTo.pendingUndelegations = '0';
+          } else if (balanceTo.delegationsIn === undefined) {
+            // update old balances with new properties
+            balanceTo.delegationsIn = '0';
+            balanceTo.delegationsOut = '0';
+            balanceTo.pendingUndelegations = '0';
+
+            if (balanceTo.delegatedStake) {
+              delete balanceTo.delegatedStake;
+              delete balanceTo.receivedStake;
+            }
+          }
+
+          // look for an existing delegation
+          let delegation = await api.db.findOne('delegations', { to: finalTo, from: api.sender, symbol });
+          const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+          const timestamp = blockDate.getTime();
+
+          if (delegation == null) {
+            // update balanceFrom
+            balanceFrom.stake = calculateBalance(
+              balanceFrom.stake, quantity, token.precision, false,
+            );
+            balanceFrom.delegationsOut = calculateBalance(
+              balanceFrom.delegationsOut, quantity, token.precision, true,
+            );
+
+            await api.db.update('balances', balanceFrom);
+
+            // update balanceTo
+            balanceTo.delegationsIn = calculateBalance(
+              balanceTo.delegationsIn, quantity, token.precision, true,
+            );
+
+            await api.db.update('balances', balanceTo);
+
+            delegation = {};
+            delegation.from = api.sender;
+            delegation.to = finalTo;
+            delegation.symbol = symbol;
+            delegation.quantity = quantity;
+            delegation.created = timestamp;
+            delegation.updated = timestamp;
+
+            await api.db.insert('delegations', delegation);
+
+            api.emit('delegate', { to: finalTo, symbol, quantity });
+          } else {
+            // if a delegation already exists, increase it
+
+            // update balanceFrom
+            balanceFrom.stake = calculateBalance(
+              balanceFrom.stake, quantity, token.precision, false,
+            );
+            balanceFrom.delegationsOut = calculateBalance(
+              balanceFrom.delegationsOut, quantity, token.precision, true,
+            );
+
+            await api.db.update('balances', balanceFrom);
+
+            // update balanceTo
+            balanceTo.delegationsIn = calculateBalance(
+              balanceTo.delegationsIn, quantity, token.precision, true,
+            );
+
+            await api.db.update('balances', balanceTo);
+
+            // update delegation
+            delegation.quantity = calculateBalance(
+              delegation.quantity, quantity, token.precision, true,
+            );
+
+            // update the timestamp
+            delegation.updated = timestamp;
+
+            await api.db.update('delegations', delegation);
+            api.emit('delegate', { to: finalTo, symbol, quantity });
+          }
+        }
+      }
+    }
+  }
+};
+
+actions.undelegate = async (payload) => {
+  const {
+    symbol,
+    quantity,
+    from,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && from && typeof from === 'string'
+    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+    const finalFrom = from.trim();
+    // a valid steem account is between 3 and 16 characters in length
+    if (api.assert(finalFrom.length >= 3 && finalFrom.length <= 16, 'invalid from')) {
+      const token = await api.db.findOne('tokens', { symbol });
+
+      // the symbol must exist
+      // then we need to check that the quantity is correct
+      if (api.assert(token !== null, 'symbol does not exist')
+        && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+        && api.assert(token.delegationEnabled === true, 'delegation not enabled')
+        && api.assert(finalFrom !== api.sender, 'cannot undelegate from yourself')
+        && api.assert(api.BigNumber(quantity).gt(0), 'must undelegate positive quantity')) {
+        const balanceTo = await api.db.findOne('balances', { account: api.sender, symbol });
+
+        if (api.assert(balanceTo !== null, 'balanceTo does not exist')
+          && api.assert(api.BigNumber(balanceTo.delegationsOut).gte(quantity), 'overdrawn delegation')) {
+          const balanceFrom = await api.db.findOne('balances', { account: finalFrom, symbol });
+
+          if (api.assert(balanceFrom !== null, 'balanceFrom does not exist')) {
+            // look for an existing delegation
+            const delegation = await api.db.findOne('delegations', { to: finalFrom, from: api.sender, symbol });
+
+            if (api.assert(delegation !== null, 'delegation does not exist')
+              && api.assert(api.BigNumber(delegation.quantity).gte(quantity), 'overdrawn delegation')) {
+              // update balanceTo
+              balanceTo.pendingUndelegations = calculateBalance(
+                balanceFrom.pendingUndelegations, quantity, token.precision, true,
+              );
+              balanceTo.delegationsOut = calculateBalance(
+                balanceTo.delegationsOut, quantity, token.precision, false,
+              );
+
+              await api.db.update('balances', balanceTo);
+
+              // update balanceFrom
+              balanceFrom.delegationsIn = calculateBalance(
+                balanceFrom.delegationsIn, quantity, token.precision, false,
+              );
+
+              await api.db.update('balances', balanceFrom);
+
+              // update delegation
+              delegation.quantity = calculateBalance(
+                delegation.quantity, quantity, token.precision, false,
+              );
+
+              if (api.BigNumber(delegation.quantity).gt(0)) {
+                await api.db.update('delegations', delegation);
+              } else {
+                await api.db.remove('delegations', delegation);
+              }
+
+              // add pending undelegation
+              const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+              const cooldownPeriodMillisec = token.undelegationCooldown * 24 * 3600 * 1000;
+
+              const completeTimestamp = blockDate.getTime() + cooldownPeriodMillisec;
+
+              const undelegation = {
+                account: api.sender,
+                symbol: token.symbol,
+                quantity,
+                completeTimestamp,
+                txID: api.transactionId,
+              };
+
+              await api.db.insert('pendingUndelegations', undelegation);
+
+              api.emit('undelegateStart', { from: finalFrom, symbol, quantity });
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+const processUndelegation = async (undelegation) => {
+  const {
+    account,
+    symbol,
+    quantity,
+  } = undelegation;
+
+  const balance = await api.db.findOne('balances', { account, symbol });
+  const token = await api.db.findOne('tokens', { symbol });
+
+  if (api.assert(balance !== null, 'balance does not exist')) {
     const originalStake = balance.stake;
-    const originalPendingStake = balance.pendingUnstake;
+    const originalPendingUndelegations = balance.pendingUndelegations;
 
-    balance.stake = calculateBalance(balance.stake, quantity, token.precision, false);
-    balance.pendingUnstake = calculateBalance(
-      balance.pendingUnstake, quantity, token.precision, true,
+    // update the balance
+    balance.stake = calculateBalance(
+      balance.stake, quantity, token.precision, true,
+    );
+    balance.pendingUndelegations = calculateBalance(
+      balance.pendingUndelegations, quantity, token.precision, false,
     );
 
-    if (api.assert(api.BigNumber(balance.stake).lt(originalStake)
-      && api.BigNumber(balance.pendingUnstake).gt(originalPendingStake), 'cannot subtract')) {
+    if (api.assert(api.BigNumber(balance.pendingUndelegations).lt(originalPendingUndelegations)
+        && api.BigNumber(balance.stake).gt(originalStake), 'cannot subtract')) {
       await api.db.update('balances', balance);
 
-      return true;
+      // remove pendingUndelegation
+      await api.db.remove('pendingUndelegations', undelegation);
+
+      api.emit('undelegateDone', { account, symbol, quantity });
     }
   }
-
-  return false;
 };
 
-const subBalance = async (account, token, quantity, table) => {
-  const balance = await api.db.findOne(table, { account, symbol: token.symbol });
+actions.checkPendingUndelegations = async () => {
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+    const timestamp = blockDate.getTime();
 
-  if (api.assert(balance !== null, 'balance does not exist')
-    && api.assert(api.BigNumber(balance.balance).gte(quantity), 'overdrawn balance')) {
-    const originalBalance = balance.balance;
+    // get all the pending unstakes that are ready to be released
+    let pendingUndelegations = await api.db.find(
+      'pendingUndelegations',
+      {
+        completeTimestamp: {
+          $lte: timestamp,
+        },
+      },
+    );
 
-    balance.balance = calculateBalance(balance.balance, quantity, token.precision, false);
+    let nbPendingUndelegations = pendingUndelegations.length;
+    while (nbPendingUndelegations > 0) {
+      for (let index = 0; index < nbPendingUndelegations; index += 1) {
+        const pendingUndelegation = pendingUndelegations[index];
+        await processUndelegation(pendingUndelegation);
+      }
 
-    if (api.assert(api.BigNumber(balance.balance).lt(originalBalance), 'cannot subtract')) {
-      await api.db.update(table, balance);
+      pendingUndelegations = await api.db.find(
+        'pendingUndelegations',
+        {
+          completeTimestamp: {
+            $lte: timestamp,
+          },
+        },
+      );
 
-      return true;
+      nbPendingUndelegations = pendingUndelegations.length;
     }
   }
-
-  return false;
 };
-
-const addBalance = async (account, token, quantity, table) => {
-  let balance = await api.db.findOne(table, { account, symbol: token.symbol });
-  if (balance === null) {
-    balance = {
-      account,
-      symbol: token.symbol,
-      balance: quantity,
-      stake: '0',
-      delegatedStake: '0',
-      receivedStake: '0',
-      pendingUnstake: '0',
-      // votingPower: '100',
-      // lastVoteTime: 0,
-    };
-
-    await api.db.insert(table, balance);
-
-    return true;
-  }
-
-  const originalBalance = balance.balance;
-
-  balance.balance = calculateBalance(balance.balance, quantity, token.precision, true);
-  if (api.assert(api.BigNumber(balance.balance).gt(originalBalance), 'cannot add')) {
-    await api.db.update(table, balance);
-    return true;
-  }
-
-  return false;
-};
-
-const calculateBalance = (balance, quantity, precision, add) => {
-  return add
-    ? api.BigNumber(balance).plus(quantity).toFixed(precision)
-    : api.BigNumber(balance).minus(quantity).toFixed(precision);
-};
-
-const countDecimals = value => api.BigNumber(value).dp();

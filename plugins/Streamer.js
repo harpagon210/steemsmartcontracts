@@ -171,6 +171,13 @@ function parseTransactions(refBlockNumber, block) {
                   delete contractPayload.permlink;
                 }
 
+                // callingContractInfo is a reserved property
+                // it is used to provide information about a contract when calling
+                // a contract action from another contract
+                if (contractPayload.callingContractInfo) {
+                  delete contractPayload.callingContractInfo;
+                }
+
                 // set the sender to null when calling the comment action
                 // this way we allow people to create comments only via the comment operation
                 if (operation[0] === 'comment' && contractName === 'comments' && contractAction === 'comment') {

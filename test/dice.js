@@ -7,6 +7,7 @@ const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
+const { CONSTANTS } = require('../libs/Constants');
 
 //process.env.NODE_ENV = 'test';
 
@@ -94,8 +95,6 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
-const STEEM_PEGGED_ACCOUNT = 'steem-peg';
-
 // dice
 describe.skip('dice', () => {
   it('makes you win', (done) => {
@@ -108,9 +107,9 @@ describe.skip('dice', () => {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
-      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "STEEMP", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1237', 'satoshi', 'dice', 'roll', `{ "roll": 95, "amount": "33" , "isSignedWithActiveKey": true }`));
 
       let block = new Block(30983000, 'ABCD2', 'ABCD1', '2018-06-01T00:00:00', transactions);
@@ -150,9 +149,9 @@ describe.skip('dice', () => {
 
       let transactions = [];
    
-      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "STEEMP", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1237', 'satoshi', 'dice', 'roll', `{ "roll": 2, "amount": "33" , "isSignedWithActiveKey": true }`));
 
       let block = new Block(30983000, 'ABCD2', 'ABCD1', '2018-06-01T00:00:00', transactions);
