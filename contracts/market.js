@@ -60,6 +60,8 @@ actions.createSSC = async () => {
     await api.db.createTable('tradesHistory', ['symbol']);
     await api.db.createTable('metrics', ['symbol']);
   }
+
+  await processBuyOrders();
 };
 
 actions.cancel = async (payload) => {
