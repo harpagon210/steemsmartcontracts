@@ -4,6 +4,53 @@ const STEEM_PEGGED_SYMBOL = 'STEEMP';
 const STEEM_PEGGED_SYMBOL_PRESICION = 8;
 const CONTRACT_NAME = 'market';
 
+const processBuyOrders = async (tokens = '0', index = 0) => {
+  let res = await api.db.find('buyBook', {}, 1000, index);
+
+  if (res.length <= 0) {
+    res = await api.db.findInTable(
+      'tokens',
+      'contractsBalances',
+      { symbol: STEEM_PEGGED_SYMBOL },
+      1000,
+      0,
+    );
+    if (res.length > 0) {
+      const diff = api.BigNumber(res[0].balance)
+        .minus(tokens)
+        .toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
+
+      await api.db.createTable('temp');
+      const temp = {};
+      temp.diff = diff;
+      await api.db.insert('temp', temp);
+    }
+  } else {
+    let newTokens = tokens;
+    res.forEach((order) => {
+      newTokens = api.BigNumber(newTokens)
+        .plus(order.tokensLocked)
+        .toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
+    });
+
+    await processBuyOrders(newTokens, index + 1000);
+  }
+};
+
+actions.unlockTokens = async () => {
+  if (api.sender !== 'steemsc') return;
+
+  const temp = await api.db.findOne('temp', {});
+  const { diff } = temp;
+
+  // unlock tokens
+  await api.transferTokens('steem-peg', STEEM_PEGGED_SYMBOL, diff, 'user');
+
+  temp.diff = 0;
+
+  await api.db.update('temp', temp);
+};
+
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('buyBook');
 
@@ -13,6 +60,8 @@ actions.createSSC = async () => {
     await api.db.createTable('tradesHistory', ['symbol']);
     await api.db.createTable('metrics', ['symbol']);
   }
+
+  await processBuyOrders();
 };
 
 actions.cancel = async (payload) => {
@@ -516,6 +565,14 @@ const findMatchingBuyOrders = async (order, tokenPrecision) => {
             api.debug(account);
             api.debug(STEEM_PEGGED_SYMBOL);
             api.debug(qtyTokensToSend);
+          }
+
+          const buyOrdertokensLocked = api.BigNumber(buyOrder.tokensLocked)
+            .minus(qtyTokensToSend)
+            .toFixed(STEEM_PEGGED_SYMBOL_PRESICION);
+
+          if (api.BigNumber(buyOrdertokensLocked).gt(0)) {
+            await api.transferTokens(buyOrder.account, STEEM_PEGGED_SYMBOL, buyOrdertokensLocked, 'user');
           }
 
           // remove the buy order
