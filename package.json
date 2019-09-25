@@ -29,6 +29,8 @@
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
     "seedrandom": "^3.0.1",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
     "winston": "^3.1.0",

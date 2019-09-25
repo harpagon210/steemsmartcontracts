@@ -2,10 +2,12 @@
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
-const WebSocket = require('ws');
-const WSEvents = require('ws-events');
+const io = require('socket.io');
+const ioclient = require('socket.io-client');
+const http = require('http');
 const { IPC } = require('../libs/IPC');
 const { Queue } = require('../libs/Queue');
+
 
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
@@ -19,13 +21,12 @@ const actions = {};
 
 const ipc = new IPC(PLUGIN_NAME);
 
-let webSocketServer = null;
-const webSockets = {};
+let socketServer = null;
+const sockets = {};
 let lastProposedBlockNumber = 0;
 let lastProposedBlock = null;
 let lastVerifiedBlockNumber = 0;
 let blockPropositionHandler = null;
-let acknowledgmentsWatchdogHandler = null;
 let sendingToSidechain = false;
 
 const steemClient = {
@@ -61,7 +62,9 @@ const steemClient = {
         await this.client.broadcast.json(transaction, this.signingKey);
         if (json.contractAction === 'proposeBlock') {
           lastProposedBlock = null;
-          lastVerifiedBlockNumber = json.contractPayload.blockNumber;
+          if (json.contractPayload.blockNumber > lastVerifiedBlockNumber) {
+            lastVerifiedBlockNumber = json.contractPayload.blockNumber;
+          }
         }
         sendingToSidechain = false;
       }
@@ -137,62 +140,21 @@ const findOne = async (contract, table, query) => {
   return res.payload;
 };
 
-const pendingEvents = {};
-let eventID = 1;
-
-const emitWithAck = (socket, event, data) => {
-  const newEvent = {
-    socket,
-    event,
-    data,
-    attempts: 0,
-    timestamp: new Date(),
-    ID: eventID,
-  };
-
-  const finalData = data;
-  finalData.ID = eventID;
-
-  socket.ws.emit(event, finalData);
-
-  pendingEvents[eventID] = newEvent;
-  eventID = eventID + 1 >= Number.MAX_SAFE_INTEGER ? 1 : eventID + 1;
-};
-
-const receiveAcknowledgmentHandler = async (id, data) => {
-  if (webSockets[id] && webSockets[id].authenticated === true) {
-    const { ID } = data;
-
-    console.log('ack received', ID)
-
-    const event = pendingEvents[ID];
-    console.log(event.socket.witness.account)
-    console.log(webSockets[id].witness.account)
-    if (event && event.socket.witness.account === webSockets[id].witness.account) {
-      delete pendingEvents[eventID];
-    } else {
-      console.error(`witness ${webSockets[id].witness.account} not authenticated`);
-    }
-  } else if (webSockets[id] && webSockets[id].authenticated === false) {
-    console.error(`witness ${webSockets[id].witness.account} not authenticated`);
-  }
-};
-
 const errorHandler = async (id, error) => {
   console.error(id, error);
 
   if (error.code === 'ECONNREFUSED') {
-    if (webSockets[id]) {
-      console.log(`closed connection with peer ${webSockets[id].witness.account}`);
-      delete webSockets[id];
+    if (sockets[id]) {
+      console.log(`closed connection with peer ${sockets[id].witness.account}`);
+      delete sockets[id];
     }
   }
 };
 
-const closeHandler = async (id, code, reason) => {
-  if (webSockets[id]) {
-    console.log(`closed connection with peer ${webSockets[id].witness.account}`, code, reason);
-    delete webSockets[id];
+const disconnectHandler = async (id, reason) => {
+  if (sockets[id]) {
+    console.log(`closed connection with peer ${sockets[id].witness.account}`, reason);
+    delete sockets[id];
   }
 };
 
@@ -211,10 +173,9 @@ const signPayload = (payload) => {
   return this.signingKey.sign(buffer).toString();
 };
 
-const verifyBlockHandler = async (id, data) => {
-  if (lastProposedBlock !== null && webSockets[id] && webSockets[id].authenticated === true) {
-    console.log('verification received from', webSockets[id].witness.account)
-    const witnessSocket = webSockets[id];
+const verifyBlockHandler = async (witnessAccount, data) => {
+  if (lastProposedBlock !== null) {
+    console.log('verification received from', witnessAccount);
     const {
       blockNumber,
       previousHash,
@@ -223,10 +184,7 @@ const verifyBlockHandler = async (id, data) => {
       databaseHash,
       merkleRoot,
       signature,
-      ID,
     } = data;
-
-    witnessSocket.ws.emit('receiveAcknowledgment', { ID });
 
     if (signature && typeof signature === 'string'
       && blockNumber && Number.isInteger(blockNumber)
@@ -237,7 +195,7 @@ const verifyBlockHandler = async (id, data) => {
       && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
       && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
       // get witness signing key
-      const witness = await findOne('witnesses', 'witnesses', { account: witnessSocket.witness.account });
+      const witness = await findOne('witnesses', 'witnesses', { account: witnessAccount });
       if (witness !== null) {
         const { signingKey } = witness;
         const block = {
@@ -258,7 +216,7 @@ const verifyBlockHandler = async (id, data) => {
           if (checkSignature(block, signature, signingKey)) {
             // check if we reached the consensus
             lastProposedBlock.signatures.push({
-              witness: witnessSocket.witness.account,
+              witness: witnessAccount,
               signature,
             });
             if (lastProposedBlock.signatures.length >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK) {
@@ -284,15 +242,13 @@ const verifyBlockHandler = async (id, data) => {
         }
       }
     }
-  } else if (webSockets[id] && webSockets[id].authenticated === false) {
-    console.error(`witness ${webSockets[id].witness.account} not authenticated`);
   }
 };
 
-const proposeBlockHandler = async (id, data) => {
-  console.log('proposition received', id, data.blockNumber)
-  if (webSockets[id] && webSockets[id].authenticated === true) {
-    const witnessSocket = webSockets[id];
+const proposeBlockHandler = async (id, data, cb) => {
+  console.log('proposition received', id, data.blockNumber);
+  if (sockets[id] && sockets[id].authenticated === true) {
+    const witnessSocket = sockets[id];
 
     const {
       blockNumber,
@@ -302,10 +258,7 @@ const proposeBlockHandler = async (id, data) => {
       databaseHash,
       merkleRoot,
       signature,
-      ID,
     } = data;
-
-    witnessSocket.ws.emit('receiveAcknowledgment', { ID });
 
     if (signature && typeof signature === 'string'
       && blockNumber && Number.isInteger(blockNumber)
@@ -350,23 +303,30 @@ const proposeBlockHandler = async (id, data) => {
                 && blockFromNode.hash === hash
                 && blockFromNode.databaseHash === databaseHash
                 && blockFromNode.merkleRoot === merkleRoot) {
-                lastVerifiedBlockNumber = blockNumber;
+                if (blockNumber > lastVerifiedBlockNumber) {
+                  lastVerifiedBlockNumber = blockNumber;
+                }
                 const sig = signPayload(block);
                 block.signature = sig;
-                emitWithAck(witnessSocket, 'verifyBlock', block);
-                console.log('verified block', block.blockNumber)
+                cb(null, block);
+                console.log('verified block', block.blockNumber);
               } else {
                 // TODO: handle dispute
+                cb('block different', null);
               }
+            } else {
+              cb('block does not exist', null);
             }
           } else {
+            cb('invalid signature', null);
             console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
           }
         }
       }
     }
-  } else if (webSockets[id] && webSockets[id].authenticated === false) {
-    console.error(`witness ${webSockets[id].witness.account} not authenticated`);
+  } else if (sockets[id] && sockets[id].authenticated === false) {
+    cb('not authenticated', null);
+    console.error(`witness ${sockets[id].witness.account} not authenticated`);
   }
 };
 
@@ -377,47 +337,43 @@ const handshakeResponseHandler = async (id, data) => {
   if (authToken && typeof authToken === 'string' && authToken.length === 32
     && signature && typeof signature === 'string' && signature.length === 130
     && account && typeof account === 'string' && account.length >= 3 && account.length <= 16
-    && webSockets[id]) {
-    const witnessSocket = webSockets[id];
+    && sockets[id]) {
+    const witnessSocket = sockets[id];
 
     // check if this peer is a witness
     const witness = await findOne('witnesses', 'witnesses', { account });
 
     if (witness && witnessSocket.witness.authToken === authToken) {
       const {
-        IP,
         signingKey,
       } = witness;
-      const ip = id.split(':')[0];
-      if ((IP === ip || IP === ip.replace('::ffff:', ''))
-        && checkSignature({ authToken }, signature, signingKey)) {
+
+      if (checkSignature({ authToken }, signature, signingKey)) {
         witnessSocket.witness.account = account;
         witnessSocket.authenticated = true;
         authFailed = false;
-        witnessSocket.ws.on('proposeBlock', block => proposeBlockHandler(id, block));
-        witnessSocket.ws.on('verifyBlock', block => verifyBlockHandler(id, block));
-        witnessSocket.ws.on('receiveAcknowledgment', event => receiveAcknowledgmentHandler(id, event));
+        witnessSocket.socket.on('proposeBlock', (block, cb) => proposeBlockHandler(id, block, cb));
         console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
       }
     }
   }
 
-  if (authFailed === true && webSockets[id]) {
+  if (authFailed === true && sockets[id]) {
     console.log(`handshake failed, dropping connection with peer ${account}`);
-    webSockets[id].ws.terminate();
-    delete webSockets[id];
+    sockets[id].socket.disconnect();
+    delete sockets[id];
   }
 };
 
-const handshakeHandler = async (id, payload) => {
+const handshakeHandler = async (id, payload, cb) => {
   const { authToken, account, signature } = payload;
   let authFailed = true;
 
   if (authToken && typeof authToken === 'string' && authToken.length === 32
     && signature && typeof signature === 'string' && signature.length === 130
     && account && typeof account === 'string' && account.length >= 3 && account.length <= 16
-    && webSockets[id]) {
-    const witnessSocket = webSockets[id];
+    && sockets[id]) {
+    const witnessSocket = sockets[id];
 
     // check if this peer is a witness
     const witness = await findOne('witnesses', 'witnesses', {
@@ -430,54 +386,64 @@ const handshakeHandler = async (id, payload) => {
         signingKey,
       } = witness;
 
-      const ip = id.split(':')[0];
+      const ip = witnessSocket.address;
       if ((IP === ip || IP === ip.replace('::ffff:', ''))
         && checkSignature({ authToken }, signature, signingKey)) {
         witnessSocket.witness.account = account;
         authFailed = false;
-        witnessSocket.ws.emit('handshakeResponse', { authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
+        cb({ authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
 
         if (witnessSocket.authenticated !== true) {
           const respAuthToken = generateRandomString(32);
           witnessSocket.witness.authToken = respAuthToken;
-          witnessSocket.ws.emit('handshake', { authToken: respAuthToken, signature: signPayload({ authToken: respAuthToken }), account: this.witnessAccount });
+          witnessSocket.socket.emit('handshake',
+            {
+              authToken: respAuthToken,
+              signature: signPayload({ authToken: respAuthToken }),
+              account: this.witnessAccount,
+            },
+            data => handshakeResponseHandler(id, data));
         }
       }
     }
   }
 
-  if (authFailed === true && webSockets[id]) {
+  if (authFailed === true && sockets[id]) {
     console.log(`handshake failed, dropping connection with peer ${account}`);
-    webSockets[id].ws.terminate();
-    delete webSockets[id];
+    sockets[id].socket.disconnect();
+    delete sockets[id];
   }
 };
 
-const connectionHandler = async (ws, req) => {
-  const { remoteAddress, remotePort } = req.connection;
-
-  const id = `${remoteAddress.replace('::ffff:', '')}:${remotePort}`;
+const connectionHandler = async (socket) => {
+  const { id } = socket;
   // if already connected to this peer, close the web socket
-  if (webSockets[id]) {
-    ws.terminate();
+  if (sockets[id]) {
+    console.log('connectionHandler', 'closing because of existing connection with id', id);
+    socket.disconnect();
   } else {
-    const wsEvents = WSEvents(ws);
-    ws.on('close', (code, reason) => closeHandler(id, code, reason));
-    ws.on('error', error => errorHandler(id, error));
+    socket.on('close', reason => disconnectHandler(id, reason));
+    socket.on('error', error => errorHandler(id, error));
 
     const authToken = generateRandomString(32);
-    webSockets[id] = {
-      ws: wsEvents,
+    sockets[id] = {
+      socket,
+      address: socket.handshake.address,
       witness: {
         authToken,
       },
       authenticated: false,
     };
 
-    wsEvents.on('handshake', payload => handshakeHandler(id, payload));
-    wsEvents.on('handshakeResponse', data => handshakeResponseHandler(id, data));
+    socket.on('handshake', (payload, cb) => handshakeHandler(id, payload, cb));
 
-    webSockets[id].ws.emit('handshake', { authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
+    sockets[id].socket.emit('handshake',
+      {
+        authToken,
+        signature: signPayload({ authToken }),
+        account: this.witnessAccount,
+      },
+      data => handshakeResponseHandler(id, data));
   }
 };
 
@@ -489,11 +455,12 @@ const connectToWitness = (witness) => {
     signingKey,
   } = witness;
 
-  const ws = new WebSocket(`ws://${IP}:${P2PPort}`);
-  const wsEvents = WSEvents(ws);
+  const socket = ioclient.connect(`http://${IP}:${P2PPort}`);
+
   const id = `${IP}:${P2PPort}`;
-  webSockets[id] = {
-    ws: wsEvents,
+  sockets[id] = {
+    socket,
+    address: IP,
     witness: {
       account,
       signingKey,
@@ -501,10 +468,9 @@ const connectToWitness = (witness) => {
     authenticated: false,
   };
 
-  ws.on('close', (code, reason) => closeHandler(id, code, reason));
-  ws.on('error', error => errorHandler(id, error));
-  wsEvents.on('handshake', payload => handshakeHandler(id, payload));
-  wsEvents.on('handshakeResponse', data => handshakeResponseHandler(id, data));
+  socket.on('disconnect', reason => disconnectHandler(id, reason));
+  socket.on('error', error => errorHandler(id, error));
+  socket.on('handshake', (payload, cb) => handshakeHandler(id, payload, cb));
 };
 
 const connectToWitnesses = async () => {
@@ -524,7 +490,7 @@ const connectToWitnesses = async () => {
       { index: 'approvalWeight', descending: true },
     ]);
 
-  console.log(witnesses);
+  //console.log(witnesses);
   for (let index = 0; index < witnesses.length; index += 1) {
     if (witnesses[index].account !== this.witnessAccount) {
       connectToWitness(witnesses[index]);
@@ -532,23 +498,28 @@ const connectToWitnesses = async () => {
   }
 };
 
-const proposeBlock = async (witness, block, attempt = 0) => {
-  const witnessSocket = Object.values(webSockets).find(w => w.witness.account === witness);
+const proposeBlock = async (witness, block) => {
+  const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    emitWithAck(witnessSocket, 'proposeBlock', block);
-    console.log('proposing block', block.blockNumber, 'to witness', witnessSocket.witness.account)
+    witnessSocket.socket.emit('proposeBlock', block, (err, res) => {
+      if (err) console.error(witness, err);
+      if (res) {
+        verifyBlockHandler(witness, res);
+      } else if (err === 'block does not exist') {
+        setTimeout(() => {
+          proposeBlock(witness, block);
+        }, 3000);
+      }
+    });
+    console.log('proposing block', block.blockNumber, 'to witness', witnessSocket.witness.account);
   } else {
     // connect to the witness
     const witnessInfo = await findOne('witnesses', 'witnesses', { account: witness });
     if (witnessInfo !== null) {
       connectToWitness(witnessInfo);
       setTimeout(() => {
-        const newAttempt = attempt + 1;
-        // we stop after 3 tries
-        if (attempt <= 3) {
-          proposeBlock(witness, block, newAttempt);
-        }
+        proposeBlock(witness, block);
       }, 3000);
     }
   }
@@ -557,22 +528,22 @@ const proposeBlock = async (witness, block, attempt = 0) => {
 const checkIfNeedToProposeBlock = async () => {
   if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
 
-  // get the last verified blockNumber if necessary
-  if (lastVerifiedBlockNumber === 0) {
-    const params = await findOne('witnesses', 'params', {});
+  // get the last verified blockNumber
+  const params = await findOne('witnesses', 'params', {});
 
-    if (params) {
-      // eslint-disable-next-line prefer-destructuring
-      lastVerifiedBlockNumber = params.lastVerifiedBlockNumber;
-    }
+  if (params && lastVerifiedBlockNumber < params.lastVerifiedBlockNumber) {
+    // eslint-disable-next-line prefer-destructuring
+    lastVerifiedBlockNumber = params.lastVerifiedBlockNumber;
   }
 
   // get the schedule
   const currentBlockNumber = lastVerifiedBlockNumber + 1;
   let schedule = await findOne('witnesses', 'schedules', { blockNumber: currentBlockNumber });
 
-  console.log('lastVerifiedBlockNumber', lastVerifiedBlockNumber)
-  console.log('schedule', schedule)
+  console.log('lastVerifiedBlockNumber', lastVerifiedBlockNumber);
+  console.log('schedule', schedule);
+  console.log('currentBlockNumber', currentBlockNumber);
+  console.log('lastProposedBlockNumber', lastProposedBlockNumber);
 
   if (schedule !== null && schedule.witness === this.witnessAccount
     && currentBlockNumber > lastProposedBlockNumber) {
@@ -631,102 +602,6 @@ const checkIfNeedToProposeBlock = async () => {
   }, 3000);
 };
 
-const checkIfNeedToProposeBlock2 = async () => {
-  if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
-
-  const params = await findOne('witnesses', 'params', {});
-
-  // if it's this witness turn and the block has not been proposed yet
-  if (params && params.currentWitness === this.witnessAccount) {
-    const res = await ipc.send({
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: params.lastVerifiedBlockNumber + 1,
-    });
-
-    const block = res.payload;
-    if (block !== null
-      && block.blockNumber !== lastProposedBlockNumber) {
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = block;
-
-      const newBlock = {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      };
-
-      const signature = signPayload(newBlock);
-      newBlock.signature = signature;
-
-      lastProposedBlockNumber = blockNumber;
-      lastProposedBlock = newBlock;
-      lastProposedBlock.signatures = [];
-      lastProposedBlock.signatures.push({ witness: this.witnessAccount, signature });
-
-      // get the witness participating in this round
-      let schedule = await findOne('witnesses', 'schedules', { blockNumber });
-      if (schedule !== null) {
-        const { round } = schedule;
-        const schedules = await find('witnesses', 'schedules', { round });
-
-        for (let index = 0; index < schedules.length; index += 1) {
-          schedule = schedules[index];
-          if (schedule.witness !== this.witnessAccount) {
-            proposeBlock(schedule.witness, newBlock);
-          }
-        }
-      }
-    }
-  }
-
-  blockPropositionHandler = setTimeout(() => {
-    checkIfNeedToProposeBlock();
-  }, 3000);
-};
-
-const acknowledgmentsWatchdog = async () => {
-  if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
-  const now = new Date();
-  Object.keys(pendingEvents).forEach((key) => {
-    const ev = pendingEvents[key];
-    const {
-      socket,
-      event,
-      data,
-      attempts,
-      timestamp,
-    } = ev;
-
-    const timeout = 10000;
-    const attemptsMax = 3;
-    const delta = now.getTime() - timestamp.getTime();
-    if (delta >= timeout) {
-      //if (attempts < attemptsMax) {
-        socket.ws.emit(event, data);
-        ev.attempts += 1;
-        ev.timestamp = now;
-        console.log(ev)
-      //} else {
-      //  console.error('Event not acknowledged', ev.ID, ev.socket.witness.account);
-      //}
-    }
-  });
-
-  acknowledgmentsWatchdogHandler = setTimeout(() => {
-    acknowledgmentsWatchdog();
-  }, 1000);
-};
-
 // init the P2P plugin
 const init = async (conf, callback) => {
   const {
@@ -745,8 +620,10 @@ const init = async (conf, callback) => {
 
   // enable the web socket server
   if (this.signingKey && this.witnessAccount) {
-    webSocketServer = new WebSocket.Server({ port: p2pPort });
-    webSocketServer.on('connection', (ws, req) => connectionHandler(ws, req));
+    const server = http.createServer();
+    server.listen(p2pPort, '0.0.0.0');
+    socketServer = io.listen(server);
+    socketServer.on('connection', socket => connectionHandler(socket));
     console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
 
     // TEST ONLY
@@ -755,7 +632,9 @@ const init = async (conf, callback) => {
       approvalWeight: {
         $numberDecimal: '10',
       },
-      signingKey: dsteem.PrivateKey.fromLogin('harpagon', 'testnet', 'active').createPublic().toString(),
+      signingKey: dsteem.PrivateKey.fromLogin('harpagon', 'testnet', 'active')
+        .createPublic()
+        .toString(),
       IP: '127.0.0.1',
       RPCPort: 5000,
       P2PPort: 5001,
@@ -774,22 +653,23 @@ const init = async (conf, callback) => {
       enabled: true,
     });
 
-    
+
     await insert('witnesses', 'witnesses', {
       account: 'vitalik',
       approvalWeight: {
         $numberDecimal: '10',
       },
-      signingKey: dsteem.PrivateKey.fromLogin('vitalik', 'testnet', 'active').createPublic().toString(),
+      signingKey: dsteem.PrivateKey.fromLogin('vitalik', 'testnet', 'active')
+        .createPublic()
+        .toString(),
       IP: '127.0.0.1',
       RPCPort: 7000,
       P2PPort: 7001,
       enabled: true,
-    });*/
+    }); */
 
-    //connectToWitnesses();
+    // connectToWitnesses();
     checkIfNeedToProposeBlock();
-    acknowledgmentsWatchdog();
   } else {
     console.log(`P2P not started, missing env variables ACCOUNT and ACTIVE_SIGNING_KEY`); // eslint-disable-line
   }
@@ -800,9 +680,8 @@ const init = async (conf, callback) => {
 // stop the P2P plugin
 const stop = (callback) => {
   if (blockPropositionHandler) clearTimeout(blockPropositionHandler);
-  if (acknowledgmentsWatchdogHandler) clearTimeout(acknowledgmentsWatchdogHandler);
-  if (webSocketServer) {
-    webSocketServer.close();
+  if (socketServer) {
+    socketServer.close();
   }
   callback();
 };
