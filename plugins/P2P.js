@@ -16,6 +16,7 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
 
 const PLUGIN_PATH = require.resolve(__filename);
 const NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK = 3;
+const NB_BLOCKS_PER_ROUND = 4;
 
 const actions = {};
 
@@ -26,8 +27,11 @@ const sockets = {};
 let lastProposedBlockNumber = 0;
 let lastProposedBlock = null;
 let lastVerifiedBlockNumber = 0;
+let currentRound = 0;
+let currentWitness = null;
 let blockPropositionHandler = null;
 let sendingToSidechain = false;
+let blocksToPropose = [];
 
 const steemClient = {
   account: null,
@@ -56,16 +60,10 @@ const steemClient = {
     }
 
     try {
-      if (json.contractPayload.blockNumber > lastVerifiedBlockNumber
-        && sendingToSidechain === false) {
+      if (sendingToSidechain === false) {
         sendingToSidechain = true;
+        console.log('json', json)
         await this.client.broadcast.json(transaction, this.signingKey);
-        if (json.contractAction === 'proposeBlock') {
-          lastProposedBlock = null;
-          if (json.contractPayload.blockNumber > lastVerifiedBlockNumber) {
-            lastVerifiedBlockNumber = json.contractPayload.blockNumber;
-          }
-        }
         sendingToSidechain = false;
       }
     } catch (error) {
@@ -173,6 +171,146 @@ const signPayload = (payload) => {
   return this.signingKey.sign(buffer).toString();
 };
 
+const sendSignedBlock = (witness, block) => {
+  const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
+  // if a websocket with this witness is already opened and authenticated
+  if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
+    console.log('sending signed block', block.blockNumber, witness)
+    witnessSocket.socket.emit('receiveSignedBlock', block, (err, res) => {
+      if (err) console.error(witness, err);
+    });
+  } else {
+    console.error(`witness ${witness} not authenticated/connected`);
+  }
+};
+
+const addSignedBlock = async (json, receivedFromOtherWitness = false) => {
+  const blockExists = blocksToPropose
+    .find(b => b.contractPayload.blockNumber === json.contractPayload.blockNumber);
+  if (blockExists !== undefined) return;
+
+  blocksToPropose.push(json);
+
+  if (receivedFromOtherWitness === false) {
+    // propose block to the witness participating in this round
+    const schedules = await find('witnesses', 'schedules', { round: currentRound });
+    for (let index = 0; index < schedules.length; index += 1) {
+      const schedule = schedules[index];
+      if (schedule.witness !== this.witnessAccount) {
+        sendSignedBlock(schedule.witness, json.contractPayload);
+      }
+    }
+  }
+  console.log('currentWitness', currentWitness)
+  console.log('blocksToPropose.length', blocksToPropose.length)
+  if (currentWitness === this.witnessAccount
+      && blocksToPropose.length === NB_BLOCKS_PER_ROUND) {
+    await steemClient.sendCustomJSON(blocksToPropose);
+  }
+};
+
+const signedBlockHandler = async (id, data, cb) => {
+  console.log('signed block received', id, data.blockNumber);
+  if (sockets[id] && sockets[id].authenticated === true) {
+    const witnessSocket = sockets[id];
+    const {
+      blockNumber,
+      previousHash,
+      previousDatabaseHash,
+      hash,
+      databaseHash,
+      merkleRoot,
+      signatures,
+    } = data;
+
+    if (signatures && Array.isArray(signatures)
+      && signatures.length >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK
+      && blockNumber && Number.isInteger(blockNumber)
+      && blockNumber >= lastVerifiedBlockNumber
+      && previousHash && typeof previousHash === 'string' && previousHash.length === 64
+      && previousDatabaseHash && typeof previousDatabaseHash === 'string' && previousDatabaseHash.length === 64
+      && hash && typeof hash === 'string' && hash.length === 64
+      && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
+      && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
+      // check if the witness is the one scheduled for this block
+      const schedule = await findOne('witnesses', 'schedules', { blockNumber, witness: witnessSocket.witness.account });
+
+      if (schedule !== null) {
+        // get the block from the current node
+        const res = await ipc.send({
+          to: DB_PLUGIN_NAME,
+          action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: blockNumber,
+        });
+
+        const blockFromNode = res.payload;
+
+        if (blockFromNode !== null) {
+          if (blockFromNode.previousHash === previousHash
+            && blockFromNode.previousDatabaseHash === previousDatabaseHash
+            && blockFromNode.hash === hash
+            && blockFromNode.databaseHash === databaseHash
+            && blockFromNode.merkleRoot === merkleRoot) {
+            let nbValidSig = 0;
+            // check the signatures
+            for (let index = 0; index < signatures.length; index += 1) {
+              const signature = signatures[index];
+
+              // get witness signing key
+              const witness = await findOne('witnesses', 'witnesses', { account: signature.witness });
+
+              if (witness !== null) {
+                const { signingKey } = witness;
+                const block = {
+                  blockNumber,
+                  previousHash,
+                  previousDatabaseHash,
+                  hash,
+                  databaseHash,
+                  merkleRoot,
+                };
+
+                // check if the signature is valid
+                if (checkSignature(block, signature.signature, signingKey)) {
+                  nbValidSig += 1;
+                } else {
+                  cb('invalid signature', null);
+                  console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
+                  break;
+                }
+              } else {
+                cb(`invalid witness ${signature.witness}`, null);
+                break;
+              }
+            }
+
+            if (nbValidSig >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK) {
+              console.log('valid signed block');
+              const json = {
+                contractName: 'witnesses',
+                contractAction: 'proposeBlock',
+                contractPayload: data,
+              };
+              addSignedBlock(json, true);
+              cb(null, null);
+            }
+          } else {
+            // TODO: handle dispute
+            cb('block different', null);
+            console.error('block different');
+          }
+        } else {
+          cb('block does not exist', null);
+          console.error('block does not exist');
+        }
+      }
+    }
+  } else if (sockets[id] && sockets[id].authenticated === false) {
+    cb('not authenticated', null);
+    console.error(`witness ${sockets[id].witness.account} not authenticated`);
+  }
+};
+
 const verifyBlockHandler = async (witnessAccount, data) => {
   if (lastProposedBlock !== null) {
     console.log('verification received from', witnessAccount);
@@ -234,7 +372,10 @@ const verifyBlockHandler = async (witnessAccount, data) => {
                   signatures: lastProposedBlock.signatures,
                 },
               };
-              await steemClient.sendCustomJSON(json);
+              addSignedBlock(json);
+              if (blockNumber > lastVerifiedBlockNumber) {
+                lastVerifiedBlockNumber = blockNumber;
+              }
             }
           } else {
             console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
@@ -353,6 +494,7 @@ const handshakeResponseHandler = async (id, data) => {
         witnessSocket.authenticated = true;
         authFailed = false;
         witnessSocket.socket.on('proposeBlock', (block, cb) => proposeBlockHandler(id, block, cb));
+        witnessSocket.socket.on('receiveSignedBlock', (block, cb) => signedBlockHandler(id, block, cb));
         console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
       }
     }
@@ -531,9 +673,19 @@ const checkIfNeedToProposeBlock = async () => {
   // get the last verified blockNumber
   const params = await findOne('witnesses', 'params', {});
 
-  if (params && lastVerifiedBlockNumber < params.lastVerifiedBlockNumber) {
+  if (params) {
+    if (lastVerifiedBlockNumber < params.lastVerifiedBlockNumber) {
+      // eslint-disable-next-line prefer-destructuring
+      lastVerifiedBlockNumber = params.lastVerifiedBlockNumber;
+    }
+
+    if (currentRound < params.round) {
+      currentRound = params.round;
+      blocksToPropose = [];
+    }
+
     // eslint-disable-next-line prefer-destructuring
-    lastVerifiedBlockNumber = params.lastVerifiedBlockNumber;
+    currentWitness = params.currentWitness;
   }
 
   // get the schedule
@@ -581,17 +733,13 @@ const checkIfNeedToProposeBlock = async () => {
       lastProposedBlock.signatures = [];
       lastProposedBlock.signatures.push({ witness: this.witnessAccount, signature });
 
-      // get the witness participating in this round
-      schedule = await findOne('witnesses', 'schedules', { blockNumber });
-      if (schedule !== null) {
-        const { round } = schedule;
-        const schedules = await find('witnesses', 'schedules', { round });
+      // propose block to the witness participating in this round
+      const schedules = await find('witnesses', 'schedules', { round: currentRound });
 
-        for (let index = 0; index < schedules.length; index += 1) {
-          schedule = schedules[index];
-          if (schedule.witness !== this.witnessAccount) {
-            proposeBlock(schedule.witness, newBlock);
-          }
+      for (let index = 0; index < schedules.length; index += 1) {
+        schedule = schedules[index];
+        if (schedule.witness !== this.witnessAccount) {
+          proposeBlock(schedule.witness, newBlock);
         }
       }
     }

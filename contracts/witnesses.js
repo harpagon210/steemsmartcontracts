@@ -304,7 +304,7 @@ const manageWitnessesSchedule = async () => {
   let schedule = await api.db.findOne('schedules', { blockNumber: currentBlock });
 
   // if the scheduled witness has not proposed the block on time we need to reschedule a new witness
-  if (schedule
+  /*if (schedule
     && api.blockNumber >= schedule.blockPropositionDeadline) {
     // update the witness
     const scheduledWitness = await api.db.findOne('witnesses', { account: schedule.witness });
@@ -393,7 +393,7 @@ const manageWitnessesSchedule = async () => {
         );
       }
     } while (witnesses.length > 0 && witnessFound === false);
-  }
+  }*/
 
   // if the current block has not been scheduled already we have to create a new schedule
   if (schedule === null) {
