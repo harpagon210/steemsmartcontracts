@@ -21,9 +21,11 @@ class Block {
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
+    this.round = null;
+    this.roundHash = '';
     this.witness = '';
     this.signingKey = '';
-    this.signature = '';
+    this.roundSignature = '';
   }
 
   // calculate the hash of the block
@@ -31,6 +33,8 @@ class Block {
     return SHA256(
       this.previousHash
       + this.previousDatabaseHash
+      + this.databaseHash
+      + this.merkleRoot
       + this.blockNumber.toString()
       + this.refSteemBlockNumber.toString()
       + this.refSteemBlockId
@@ -187,34 +191,6 @@ class Block {
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
 
       currentDatabaseHash = transaction.databaseHash;
-
-      // check if a dispute is needed when a new block has been proposed
-      if (steemClient.account !== null
-        && transaction.sender !== steemClient.account
-        && transaction.contract === 'witnesses'
-        && (transaction.action === 'proposeBlock' || transaction.action === 'disputeBlock')
-        && transaction.logs === '{}') {
-        const blockInfo = JSON.parse(transaction.payload);
-
-        if (blockInfo && blockInfo.blockNumber) {
-          Block.handleDispute(transaction.action, blockInfo, ipc, steemClient);
-        }
-      }
-
-      // if a block has been verified
-      if (transaction.contract === 'witnesses'
-        && transaction.action === 'proposeBlock') {
-        /*const logs = JSON.parse(transaction.logs);
-        const event = logs.events ? logs.events.find(ev => ev.event === 'blockVerified') : null;
-        if (event && event.data && event.data.blockNumber && event.data.witnesses) {
-          await ipc.send({ // eslint-disable-line
-            to: DB_PLUGIN_NAME,
-            action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
-            payload: event.data,
-          });
-        }
-        */
-      }
     }
 
     // remove comment, comment_options and votes if not relevant
@@ -247,13 +223,13 @@ class Block {
     }
 
     if (this.transactions.length > 0 || this.virtualTransactions.length > 0) {
-      this.hash = this.calculateHash();
       // calculate the merkle root of the transactions' hashes and the transactions' database hashes
       const finalTransactions = this.transactions.concat(this.virtualTransactions);
 
       const merkleRoots = this.calculateMerkleRoot(finalTransactions);
       this.merkleRoot = merkleRoots.hash;
       this.databaseHash = merkleRoots.databaseHash;
+      this.hash = this.calculateHash();
     }
   }
 

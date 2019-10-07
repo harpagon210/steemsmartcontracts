@@ -168,17 +168,17 @@ class SmartContracts {
 
               return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
             },
-            checkSignature: (payloadToCheck, signature, publicKey) => {
+            checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
               if ((typeof payloadToCheck !== 'string'
               && typeof payloadToCheck !== 'object')
               || typeof signature !== 'string'
               || typeof publicKey !== 'string') return null;
-
               const sig = dsteem.Signature.fromString(signature);
               const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
-              const payloadHash = SHA256(finalPayload).toString(enchex);
+              const payloadHash = isPayloadSHA256 === true
+                ? finalPayload
+                : SHA256(finalPayload).toString(enchex);
               const buffer = Buffer.from(payloadHash, 'hex');
-
               return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
             },
             random: () => rng(),
@@ -354,14 +354,22 @@ class SmartContracts {
             }
             return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
           },
-          checkSignature: (hash, signature, publicKey) => {
-            if (typeof hash !== 'string'
+          checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
+            console.log(payloadToCheck, signature, isPayloadSHA256)
+            if ((typeof payloadToCheck !== 'string'
+            && typeof payloadToCheck !== 'object')
             || typeof signature !== 'string'
             || typeof publicKey !== 'string') return null;
             const sig = dsteem.Signature.fromString(signature);
-            const buffer = Buffer.from(hash, 'hex');
-
-            return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+            const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
+            const payloadHash = isPayloadSHA256 === true
+              ? finalPayload
+              : SHA256(finalPayload).toString(enchex);
+            console.log(finalPayload)
+            const buffer = Buffer.from(payloadHash, 'hex');
+            const resp = dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+            console.log(resp)
+            return resp;
           },
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
@@ -401,6 +409,10 @@ class SmartContracts {
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
             contract, action, contractVersion,
           ),
+          verifyBlock: async (block) => {
+            if (contract !== 'witnesses') return;
+            SmartContracts.verifyBlock(ipc, block);
+          },
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
           // add an error that will be stored in the logs
@@ -586,6 +598,14 @@ class SmartContracts {
       results.errors.push(error);
     }
     return results;
+  }
+
+  static async verifyBlock(ipc, block) {
+    await ipc.send({ // eslint-disable-line
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
+      payload: block,
+    });
   }
 
   static async createTable(ipc, tables, contractName, tableName, indexes = []) {

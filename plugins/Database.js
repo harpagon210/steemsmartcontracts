@@ -235,11 +235,21 @@ actions.getBlockInfo = async (blockNumber, callback) => {
  */
 actions.verifyBlock = async (payload, callback) => {
   try {
-    const { blockNumber, witnesses } = payload;
+    const {
+      blockNumber,
+      witness,
+      roundSignature,
+      signingKey,
+      round,
+      roundHash,
+    } = payload;
     const block = await chain.findOne({ _id: blockNumber });
 
-    block.verified = true;
-    block.witnesses = witnesses;
+    block.witness = witness;
+    block.round = round;
+    block.roundHash = roundHash;
+    block.signingKey = signingKey;
+    block.roundSignature = roundSignature;
 
     await chain.updateOne(
       { _id: block._id }, // eslint-disable-line no-underscore-dangle

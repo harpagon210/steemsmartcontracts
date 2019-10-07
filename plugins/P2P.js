@@ -16,7 +16,8 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
 
 const PLUGIN_PATH = require.resolve(__filename);
 const NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK = 3;
-const NB_BLOCKS_PER_ROUND = 4;
+const NB_WITNESSES = 4;
+const MAX_PROPOSITION_WAITING_PERIODS = 20;
 
 const actions = {};
 
@@ -24,14 +25,17 @@ const ipc = new IPC(PLUGIN_NAME);
 
 let socketServer = null;
 const sockets = {};
-let lastProposedBlockNumber = 0;
-let lastProposedBlock = null;
-let lastVerifiedBlockNumber = 0;
+
 let currentRound = 0;
 let currentWitness = null;
-let blockPropositionHandler = null;
+let lastBlockRound = 0;
+let lastVerifiedRoundNumber = 0;
+let lastProposedRoundNumber = 0;
+let lastProposedRound = null;
+let roundPropositionWaitingPeriod = 0;
+
+let proposeRoundTimeoutHandler = null;
 let sendingToSidechain = false;
-let blocksToPropose = [];
 
 const steemClient = {
   account: null,
@@ -60,10 +64,14 @@ const steemClient = {
     }
 
     try {
-      if (sendingToSidechain === false) {
+      if (json.contractPayload.round > lastVerifiedRoundNumber
+        && sendingToSidechain === false) {
         sendingToSidechain = true;
-        console.log('json', json)
         await this.client.broadcast.json(transaction, this.signingKey);
+        if (json.contractAction === 'proposeRound') {
+          lastProposedRound = null;
+          roundPropositionWaitingPeriod = 0;
+        }
         sendingToSidechain = false;
       }
     } catch (error) {
@@ -92,6 +100,27 @@ const generateRandomString = (length) => {
 
   return text;
 };
+
+async function calculateRoundHash(startBlockRound, endBlockRound) {
+  let blockNum = startBlockRound;
+  let calculatedRoundHash = '';
+  // calculate round hash
+  while (blockNum <= endBlockRound) {
+    // get the block from the current node
+    const queryRes = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+      payload: blockNum,
+    });
+
+    const blockFromNode = queryRes.payload;
+    if (blockFromNode !== null) {
+      calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
+    }
+    blockNum += 1;
+  }
+  return calculatedRoundHash;
+}
 
 const insert = async (contract, table, record) => {
   const res = await ipc.send({
@@ -156,229 +185,77 @@ const disconnectHandler = async (id, reason) => {
   }
 };
 
-const checkSignature = (payload, signature, publicKey) => {
+const checkSignature = (payload, signature, publicKey, isPayloadSHA256 = false) => {
   const sig = dsteem.Signature.fromString(signature);
-  const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
+  let payloadHash;
+
+  if (isPayloadSHA256 === true) {
+    payloadHash = payload;
+  } else {
+    payloadHash = typeof payload === 'string'
+      ? SHA256(payload).toString(enchex)
+      : SHA256(JSON.stringify(payload)).toString(enchex);
+  }
+
   const buffer = Buffer.from(payloadHash, 'hex');
 
   return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
 };
 
-const signPayload = (payload) => {
-  const payloadHash = SHA256(JSON.stringify(payload)).toString(enchex);
+const signPayload = (payload, isPayloadSHA256 = false) => {
+  let payloadHash;
+  if (isPayloadSHA256 === true) {
+    payloadHash = payload;
+  } else {
+    payloadHash = typeof payload === 'string'
+      ? SHA256(payload).toString(enchex)
+      : SHA256(JSON.stringify(payload)).toString(enchex);
+  }
+
   const buffer = Buffer.from(payloadHash, 'hex');
 
   return this.signingKey.sign(buffer).toString();
 };
 
-const sendSignedBlock = (witness, block) => {
-  const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
-  // if a websocket with this witness is already opened and authenticated
-  if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    console.log('sending signed block', block.blockNumber, witness)
-    witnessSocket.socket.emit('receiveSignedBlock', block, (err, res) => {
-      if (err) console.error(witness, err);
-    });
-  } else {
-    console.error(`witness ${witness} not authenticated/connected`);
-  }
-};
-
-const addSignedBlock = async (json, receivedFromOtherWitness = false) => {
-  const blockExists = blocksToPropose
-    .find(b => b.contractPayload.blockNumber === json.contractPayload.blockNumber);
-  if (blockExists !== undefined) return;
-
-  blocksToPropose.push(json);
-
-  if (receivedFromOtherWitness === false) {
-    // propose block to the witness participating in this round
-    const schedules = await find('witnesses', 'schedules', { round: currentRound });
-    for (let index = 0; index < schedules.length; index += 1) {
-      const schedule = schedules[index];
-      if (schedule.witness !== this.witnessAccount) {
-        sendSignedBlock(schedule.witness, json.contractPayload);
-      }
-    }
-  }
-  console.log('currentWitness', currentWitness)
-  console.log('blocksToPropose.length', blocksToPropose.length)
-  if (currentWitness === this.witnessAccount
-      && blocksToPropose.length === NB_BLOCKS_PER_ROUND) {
-    await steemClient.sendCustomJSON(blocksToPropose);
-  }
-};
-
-const signedBlockHandler = async (id, data, cb) => {
-  console.log('signed block received', id, data.blockNumber);
-  if (sockets[id] && sockets[id].authenticated === true) {
-    const witnessSocket = sockets[id];
+const verifyRoundHandler = async (witnessAccount, data) => {
+  if (lastProposedRound !== null) {
+    console.log('verification round received from', witnessAccount);
     const {
-      blockNumber,
-      previousHash,
-      previousDatabaseHash,
-      hash,
-      databaseHash,
-      merkleRoot,
-      signatures,
-    } = data;
-
-    if (signatures && Array.isArray(signatures)
-      && signatures.length >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK
-      && blockNumber && Number.isInteger(blockNumber)
-      && blockNumber >= lastVerifiedBlockNumber
-      && previousHash && typeof previousHash === 'string' && previousHash.length === 64
-      && previousDatabaseHash && typeof previousDatabaseHash === 'string' && previousDatabaseHash.length === 64
-      && hash && typeof hash === 'string' && hash.length === 64
-      && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
-      && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
-      // check if the witness is the one scheduled for this block
-      const schedule = await findOne('witnesses', 'schedules', { blockNumber, witness: witnessSocket.witness.account });
-
-      if (schedule !== null) {
-        // get the block from the current node
-        const res = await ipc.send({
-          to: DB_PLUGIN_NAME,
-          action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-          payload: blockNumber,
-        });
-
-        const blockFromNode = res.payload;
-
-        if (blockFromNode !== null) {
-          if (blockFromNode.previousHash === previousHash
-            && blockFromNode.previousDatabaseHash === previousDatabaseHash
-            && blockFromNode.hash === hash
-            && blockFromNode.databaseHash === databaseHash
-            && blockFromNode.merkleRoot === merkleRoot) {
-            let nbValidSig = 0;
-            // check the signatures
-            for (let index = 0; index < signatures.length; index += 1) {
-              const signature = signatures[index];
-
-              // get witness signing key
-              const witness = await findOne('witnesses', 'witnesses', { account: signature.witness });
-
-              if (witness !== null) {
-                const { signingKey } = witness;
-                const block = {
-                  blockNumber,
-                  previousHash,
-                  previousDatabaseHash,
-                  hash,
-                  databaseHash,
-                  merkleRoot,
-                };
-
-                // check if the signature is valid
-                if (checkSignature(block, signature.signature, signingKey)) {
-                  nbValidSig += 1;
-                } else {
-                  cb('invalid signature', null);
-                  console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
-                  break;
-                }
-              } else {
-                cb(`invalid witness ${signature.witness}`, null);
-                break;
-              }
-            }
-
-            if (nbValidSig >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK) {
-              console.log('valid signed block');
-              const json = {
-                contractName: 'witnesses',
-                contractAction: 'proposeBlock',
-                contractPayload: data,
-              };
-              addSignedBlock(json, true);
-              cb(null, null);
-            }
-          } else {
-            // TODO: handle dispute
-            cb('block different', null);
-            console.error('block different');
-          }
-        } else {
-          cb('block does not exist', null);
-          console.error('block does not exist');
-        }
-      }
-    }
-  } else if (sockets[id] && sockets[id].authenticated === false) {
-    cb('not authenticated', null);
-    console.error(`witness ${sockets[id].witness.account} not authenticated`);
-  }
-};
-
-const verifyBlockHandler = async (witnessAccount, data) => {
-  if (lastProposedBlock !== null) {
-    console.log('verification received from', witnessAccount);
-    const {
-      blockNumber,
-      previousHash,
-      previousDatabaseHash,
-      hash,
-      databaseHash,
-      merkleRoot,
+      round,
+      roundHash,
       signature,
     } = data;
 
     if (signature && typeof signature === 'string'
-      && blockNumber && Number.isInteger(blockNumber)
-      && blockNumber === lastProposedBlockNumber
-      && previousHash && typeof previousHash === 'string' && previousHash.length === 64
-      && previousDatabaseHash && typeof previousDatabaseHash === 'string' && previousDatabaseHash.length === 64
-      && hash && typeof hash === 'string' && hash.length === 64
-      && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
-      && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
+      && round && Number.isInteger(round)
+      && roundHash && typeof roundHash === 'string' && roundHash.length === 64) {
       // get witness signing key
       const witness = await findOne('witnesses', 'witnesses', { account: witnessAccount });
       if (witness !== null) {
         const { signingKey } = witness;
-        const block = {
-          blockNumber,
-          previousHash,
-          previousDatabaseHash,
-          hash,
-          databaseHash,
-          merkleRoot,
-        };
-
-        if (lastProposedBlock.previousHash === previousHash
-          && lastProposedBlock.previousDatabaseHash === previousDatabaseHash
-          && lastProposedBlock.hash === hash
-          && lastProposedBlock.databaseHash === databaseHash
-          && lastProposedBlock.merkleRoot === merkleRoot) {
+        if (lastProposedRound.roundHash === roundHash) {
           // check if the signature is valid
-          if (checkSignature(block, signature, signingKey)) {
+          if (checkSignature(roundHash, signature, signingKey, true)) {
             // check if we reached the consensus
-            lastProposedBlock.signatures.push({
-              witness: witnessAccount,
-              signature,
-            });
-            if (lastProposedBlock.signatures.length >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK) {
-              // send block to sidechain
+            lastProposedRound.signatures.push([witnessAccount, signature]);
+
+            // if all the signatures have been gathered
+            if (lastProposedRound.signatures.length >= NB_WITNESSES_REQUIRED_TO_VALIDATE_BLOCK) {
+              // send round to sidechain
               const json = {
                 contractName: 'witnesses',
-                contractAction: 'proposeBlock',
+                contractAction: 'proposeRound',
                 contractPayload: {
-                  blockNumber,
-                  previousHash,
-                  previousDatabaseHash,
-                  hash,
-                  databaseHash,
-                  merkleRoot,
-                  signatures: lastProposedBlock.signatures,
+                  round,
+                  roundHash,
+                  signatures: lastProposedRound.signatures,
                 },
               };
-              addSignedBlock(json);
-              if (blockNumber > lastVerifiedBlockNumber) {
-                lastVerifiedBlockNumber = blockNumber;
-              }
+              await steemClient.sendCustomJSON(json);
+              lastVerifiedRoundNumber = round;
             }
           } else {
-            console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
+            console.error(`invalid signature, round ${round}, witness ${witness.account}`);
           }
         }
       }
@@ -386,31 +263,22 @@ const verifyBlockHandler = async (witnessAccount, data) => {
   }
 };
 
-const proposeBlockHandler = async (id, data, cb) => {
-  console.log('proposition received', id, data.blockNumber);
+const proposeRoundHandler = async (id, data, cb) => {
+  console.log('round hash proposition received', id, data.round);
   if (sockets[id] && sockets[id].authenticated === true) {
     const witnessSocket = sockets[id];
 
     const {
-      blockNumber,
-      previousHash,
-      previousDatabaseHash,
-      hash,
-      databaseHash,
-      merkleRoot,
+      round,
+      roundHash,
       signature,
     } = data;
 
     if (signature && typeof signature === 'string'
-      && blockNumber && Number.isInteger(blockNumber)
-      && blockNumber > lastVerifiedBlockNumber
-      && previousHash && typeof previousHash === 'string' && previousHash.length === 64
-      && previousDatabaseHash && typeof previousDatabaseHash === 'string' && previousDatabaseHash.length === 64
-      && hash && typeof hash === 'string' && hash.length === 64
-      && databaseHash && typeof databaseHash === 'string' && databaseHash.length === 64
-      && merkleRoot && typeof merkleRoot === 'string' && merkleRoot.length === 64) {
+      && round && Number.isInteger(round)
+      && roundHash && typeof roundHash === 'string' && roundHash.length === 64) {
       // check if the witness is the one scheduled for this block
-      const schedule = await findOne('witnesses', 'schedules', { blockNumber, witness: witnessSocket.witness.account });
+      const schedule = await findOne('witnesses', 'schedules', { round, witness: witnessSocket.witness.account });
 
       if (schedule !== null) {
         // get witness signing key
@@ -418,49 +286,44 @@ const proposeBlockHandler = async (id, data, cb) => {
 
         if (witness !== null) {
           const { signingKey } = witness;
-          const block = {
-            blockNumber,
-            previousHash,
-            previousDatabaseHash,
-            hash,
-            databaseHash,
-            merkleRoot,
-          };
 
           // check if the signature is valid
-          if (checkSignature(block, signature, signingKey)) {
-            // get the block from the current node
-            const res = await ipc.send({
-              to: DB_PLUGIN_NAME,
-              action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-              payload: blockNumber,
-            });
+          if (checkSignature(roundHash, signature, signingKey, true)) {
+            // get the current round info
+            const params = await findOne('witnesses', 'params', {});
 
-            const blockFromNode = res.payload;
+            if (currentRound < params.round) {
+              // eslint-disable-next-line prefer-destructuring
+              currentRound = params.round;
+            }
 
-            if (blockFromNode !== null) {
-              if (blockFromNode.previousHash === previousHash
-                && blockFromNode.previousDatabaseHash === previousDatabaseHash
-                && blockFromNode.hash === hash
-                && blockFromNode.databaseHash === databaseHash
-                && blockFromNode.merkleRoot === merkleRoot) {
-                if (blockNumber > lastVerifiedBlockNumber) {
-                  lastVerifiedBlockNumber = blockNumber;
-                }
-                const sig = signPayload(block);
-                block.signature = sig;
-                cb(null, block);
-                console.log('verified block', block.blockNumber);
-              } else {
-                // TODO: handle dispute
-                cb('block different', null);
+            // eslint-disable-next-line prefer-destructuring
+            lastBlockRound = params.lastBlockRound;
+
+            const startblockNum = params.lastVerifiedBlockNumber + 1;
+            const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
+
+            if (calculatedRoundHash === roundHash) {
+              if (round > lastVerifiedRoundNumber) {
+                lastVerifiedRoundNumber = round;
               }
+
+              const sig = signPayload(calculatedRoundHash, true);
+              const roundPayload = {
+                round,
+                roundHash,
+                signature: sig,
+              };
+
+              cb(null, roundPayload);
+              console.log('verified round', round);
             } else {
-              cb('block does not exist', null);
+              // TODO: handle dispute
+              cb('round hash different', null);
             }
           } else {
             cb('invalid signature', null);
-            console.error(`invalid signature, block ${blockNumber}, witness ${witness.account}`);
+            console.error(`invalid signature, round ${round}, witness ${witness.account}`);
           }
         }
       }
@@ -493,8 +356,7 @@ const handshakeResponseHandler = async (id, data) => {
         witnessSocket.witness.account = account;
         witnessSocket.authenticated = true;
         authFailed = false;
-        witnessSocket.socket.on('proposeBlock', (block, cb) => proposeBlockHandler(id, block, cb));
-        witnessSocket.socket.on('receiveSignedBlock', (block, cb) => signedBlockHandler(id, block, cb));
+        witnessSocket.socket.on('proposeRound', (round, cb) => proposeRoundHandler(id, round, cb));
         console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
       }
     }
@@ -632,7 +494,6 @@ const connectToWitnesses = async () => {
       { index: 'approvalWeight', descending: true },
     ]);
 
-  //console.log(witnesses);
   for (let index = 0; index < witnesses.length; index += 1) {
     if (witnesses[index].account !== this.witnessAccount) {
       connectToWitness(witnesses[index]);
@@ -640,113 +501,107 @@ const connectToWitnesses = async () => {
   }
 };
 
-const proposeBlock = async (witness, block) => {
+const proposeRound = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    witnessSocket.socket.emit('proposeBlock', block, (err, res) => {
+    witnessSocket.socket.emit('proposeRound', round, (err, res) => {
       if (err) console.error(witness, err);
       if (res) {
-        verifyBlockHandler(witness, res);
-      } else if (err === 'block does not exist') {
+        verifyRoundHandler(witness, res);
+      } else if (err === 'round hash different') {
         setTimeout(() => {
-          proposeBlock(witness, block);
+          proposeRound(witness, round);
         }, 3000);
       }
     });
-    console.log('proposing block', block.blockNumber, 'to witness', witnessSocket.witness.account);
+    console.log('proposing round', round.round, 'to witness', witnessSocket.witness.account);
   } else {
     // connect to the witness
     const witnessInfo = await findOne('witnesses', 'witnesses', { account: witness });
     if (witnessInfo !== null) {
       connectToWitness(witnessInfo);
       setTimeout(() => {
-        proposeBlock(witness, block);
+        proposeRound(witness, round);
       }, 3000);
     }
   }
 };
 
-const checkIfNeedToProposeBlock = async () => {
+const manageRound = async () => {
   if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
 
-  // get the last verified blockNumber
+  // get the current round info
   const params = await findOne('witnesses', 'params', {});
 
-  if (params) {
-    if (lastVerifiedBlockNumber < params.lastVerifiedBlockNumber) {
-      // eslint-disable-next-line prefer-destructuring
-      lastVerifiedBlockNumber = params.lastVerifiedBlockNumber;
-    }
-
-    if (currentRound < params.round) {
-      currentRound = params.round;
-      blocksToPropose = [];
-    }
-
+  if (currentRound < params.round) {
     // eslint-disable-next-line prefer-destructuring
-    currentWitness = params.currentWitness;
+    currentRound = params.round;
   }
 
-  // get the schedule
-  const currentBlockNumber = lastVerifiedBlockNumber + 1;
-  let schedule = await findOne('witnesses', 'schedules', { blockNumber: currentBlockNumber });
+  // eslint-disable-next-line prefer-destructuring
+  lastBlockRound = params.lastBlockRound;
+  // eslint-disable-next-line prefer-destructuring
+  currentWitness = params.currentWitness;
 
-  console.log('lastVerifiedBlockNumber', lastVerifiedBlockNumber);
-  console.log('schedule', schedule);
-  console.log('currentBlockNumber', currentBlockNumber);
-  console.log('lastProposedBlockNumber', lastProposedBlockNumber);
+  // get the schedule for the lastBlockRound
+  console.log('currentRound', currentRound);
+  console.log('currentWitness', currentWitness);
+  console.log('lastBlockRound', lastBlockRound);
 
-  if (schedule !== null && schedule.witness === this.witnessAccount
-    && currentBlockNumber > lastProposedBlockNumber) {
+  // handle round propositions
+  if (lastProposedRound === null
+    && currentWitness !== null
+    && currentWitness === this.witnessAccount
+    && currentRound > lastProposedRoundNumber) {
     const res = await ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: currentBlockNumber,
+      payload: lastBlockRound,
     });
 
     const block = res.payload;
-    if (block !== null) {
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = block;
 
-      const newBlock = {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
+    if (block !== null) {
+      const startblockNum = params.lastVerifiedBlockNumber + 1;
+      const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
+      const signature = signPayload(calculatedRoundHash, true);
+
+      lastProposedRoundNumber = currentRound;
+      lastProposedRound = {
+        round: currentRound,
+        roundHash: calculatedRoundHash,
+        signatures: [[this.witnessAccount, signature]],
       };
 
-      const signature = signPayload(newBlock);
-      newBlock.signature = signature;
+      const round = {
+        round: currentRound,
+        roundHash: calculatedRoundHash,
+        signature,
+      };
 
-      lastProposedBlockNumber = blockNumber;
-      lastProposedBlock = newBlock;
-      lastProposedBlock.signatures = [];
-      lastProposedBlock.signatures.push({ witness: this.witnessAccount, signature });
-
-      // propose block to the witness participating in this round
+      // get the witness participating in this round
       const schedules = await find('witnesses', 'schedules', { round: currentRound });
 
       for (let index = 0; index < schedules.length; index += 1) {
-        schedule = schedules[index];
+        const schedule = schedules[index];
         if (schedule.witness !== this.witnessAccount) {
-          proposeBlock(schedule.witness, newBlock);
+          proposeRound(schedule.witness, round);
         }
       }
     }
+  } else if (lastProposedRound !== null) {
+    if (roundPropositionWaitingPeriod >= MAX_PROPOSITION_WAITING_PERIODS) {
+      lastProposedRound = null;
+      lastProposedRoundNumber = currentRound - 1;
+      roundPropositionWaitingPeriod = 0;
+    } else {
+      roundPropositionWaitingPeriod += 1;
+    }
   }
 
-  blockPropositionHandler = setTimeout(() => {
-    checkIfNeedToProposeBlock();
+  proposeRoundTimeoutHandler = setTimeout(() => {
+    manageRound();
   }, 3000);
 };
 
@@ -817,7 +672,7 @@ const init = async (conf, callback) => {
     }); */
 
     // connectToWitnesses();
-    checkIfNeedToProposeBlock();
+    manageRound();
   } else {
     console.log(`P2P not started, missing env variables ACCOUNT and ACTIVE_SIGNING_KEY`); // eslint-disable-line
   }
@@ -827,7 +682,7 @@ const init = async (conf, callback) => {
 
 // stop the P2P plugin
 const stop = (callback) => {
-  if (blockPropositionHandler) clearTimeout(blockPropositionHandler);
+  if (proposeRoundTimeoutHandler) clearTimeout(proposeRoundTimeoutHandler);
   if (socketServer) {
     socketServer.close();
   }
