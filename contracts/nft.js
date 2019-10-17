@@ -20,7 +20,7 @@ actions.createSSC = async (payload) => {
     const params = {};
     params.nftCreationFee = '100';
     params.nftIssuanceFee = '0.001';
-    params.dataPropertyCreationFee = '10';
+    params.dataPropertyCreationFee = '100';     // first 3 properties are free, then this fee applies for each one after the initial 3
     params.enableDelegationFee = '1000';
     await api.db.insert('params', params);
   }
@@ -51,17 +51,92 @@ actions.updateParams = async (payload) => {
 
 // check that token transfers succeeded
 const isTokenTransferVerified = (result, from, to, symbol, quantity) => {
-  if (res.errors === undefined
-    && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer'
+  if (result.errors === undefined
+    && result.events && result.events.find(el => el.contract === 'tokens' && el.event === 'transfer'
     && el.data.from === from && el.data.to === to && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
     return true;
   }
   return false;
 };
 
+actions.updateUrl = async (payload) => {
+  const { url, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && url && typeof url === 'string', 'invalid params')
+    && api.assert(url.length <= 255, 'invalid url: max length of 255')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        try {
+          const metadata = JSON.parse(nft.metadata);
+
+          if (api.assert(metadata && metadata.url, 'an error occured when trying to update the url')) {
+            metadata.url = url;
+            nft.metadata = JSON.stringify(metadata);
+            await api.db.update('nfts', nft);
+          }
+        } catch (e) {
+          // error when parsing the metadata
+        }
+      }
+    }
+  }
+};
+
+actions.updateMetadata = async (payload) => {
+  const { metadata, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && metadata && typeof metadata === 'object', 'invalid params')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        try {
+          const finalMetadata = JSON.stringify(metadata);
+
+          if (api.assert(finalMetadata.length <= 1000, 'invalid metadata: max length of 1000')) {
+            nft.metadata = finalMetadata;
+            await api.db.update('nfts', nft);
+          }
+        } catch (e) {
+          // error when stringifying the metadata
+        }
+      }
+    }
+  }
+};
+
+actions.transferOwnership = async (payload) => {
+  const { symbol, to, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && to && typeof to === 'string', 'invalid params')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        const finalTo = to.trim();
+
+        // a valid Steem account is between 3 and 16 characters in length
+        if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+          nft.issuer = finalTo;
+          await api.db.update('nfts', nft);
+        }
+      }
+    }
+  }
+};
+
 actions.create = async (payload) => {
   const {
-    name, symbol, isSignedWithActiveKey,
+    name, symbol, url, maxSupply, isSignedWithActiveKey,
   } = payload;
 
   // get contract params
@@ -78,9 +153,14 @@ actions.create = async (payload) => {
   if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')
       && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
       && api.assert(name && typeof name === 'string'
-      && symbol && typeof symbol === 'string', 'invalid params')) {
+      && symbol && typeof symbol === 'string'
+      && (url === undefined || (url && typeof url === 'string'))
+      && (maxSupply === undefined || (maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN())), 'invalid params')) {
     if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
-      && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')) {
+      && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+      && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
+      && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
+      && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`)) {
       // check if the NFT already exists
       const nft = await api.db.findOne('nfts', { symbol });
 
@@ -94,11 +174,22 @@ actions.create = async (payload) => {
           }
         }
 
+        const finalMaxSupply = maxSupply === undefined ? 0 : api.BigNumber(maxSupply).integerValue(api.BigNumber.ROUND_DOWN).toNumber()
+
+        const finalUrl = url === undefined ? '' : url;
+        let metadata = {
+          url: finalUrl,
+        };
+        metadata = JSON.stringify(metadata);
+
         const newNft = {
           issuer: api.sender,
           symbol,
           name,
+          metadata,
+          maxSupply: finalMaxSupply,
           supply: 0,
+          circulatingSupply: 0,
           delegationEnabled: false,
           undelegationCooldown: 0,
         };

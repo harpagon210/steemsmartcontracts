@@ -278,7 +278,7 @@ describe('nft', function() {
 
       assert.equal(params.nftCreationFee, '100');
       assert.equal(params.nftIssuanceFee, '0.001');
-      assert.equal(params.dataPropertyCreationFee, '10');
+      assert.equal(params.dataPropertyCreationFee, '100');
       assert.equal(params.enableDelegationFee, '1000');
 
       resolve();
@@ -302,11 +302,157 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "5", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true,  "name": "test NFT", "symbol": "TSTNFT" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"10", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {}
+        }
+      });
+
+      let tokens = res.payload;
+      console.log(tokens)
+
+      assert.equal(tokens[0].symbol, 'TSTNFT');
+      assert.equal(tokens[0].issuer, 'cryptomancer');
+      assert.equal(tokens[0].name, 'test NFT');
+      assert.equal(tokens[0].maxSupply, 1000);
+      assert.equal(tokens[0].supply, 0);
+      assert.equal(tokens[0].metadata, '{"url":"http://mynft.com"}');
+      assert.equal(tokens[0].circulatingSupply, 0);
+
+      assert.equal(tokens[1].symbol, 'TEST');
+      assert.equal(tokens[1].issuer, 'cryptomancer');
+      assert.equal(tokens[1].name, 'test NFT 2');
+      assert.equal(tokens[1].maxSupply, 0);
+      assert.equal(tokens[1].supply, 0);
+      assert.equal(tokens[1].metadata, '{"url":""}');
+      assert.equal(tokens[1].circulatingSupply, 0);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not allow nft creation with invalid parameters', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "1", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "4", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":false, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"dsfds" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"tSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test@NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"-1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"99999999999999999999999999999999" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "5", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[4].logs)
+      console.log(transactionsBlock1[6].logs)
+      console.log(transactionsBlock1[7].logs)
+      console.log(transactionsBlock1[8].logs)
+      console.log(transactionsBlock1[9].logs)
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[14].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'you must have enough tokens to cover the creation fees');
+      assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'invalid symbol: uppercase letters only, max length of 10');
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'invalid name: letters, numbers, whitespaces only, max length of 50');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'maxSupply must be positive');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`);
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'symbol already exists');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('updates the url of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1235', 'cryptomancer', 'nft', 'updateMetadata', '{"symbol":"TSTNFT", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
+      transactions.push(new Transaction(30896501, 'TXID1236', 'cryptomancer', 'nft', 'updateUrl', '{ "symbol": "TSTNFT", "url": "https://new.token.com" }'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -327,11 +473,400 @@ describe('nft', function() {
       });
 
       const token = res.payload;
+      console.log(token);
 
-      assert.equal(token.symbol, 'TSTNFT');
+      assert.equal(JSON.parse(token.metadata).url, 'https://new.token.com');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not update the url of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1235', 'harpagon', 'nft', 'updateUrl', '{ "symbol": "TSTNFT", "url": "https://new.token.com" }'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      const token = res.payload;
+      console.log(token);
+
+      assert.equal(JSON.parse(token.metadata).url, 'http://mynft.com');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block2 = res.payload;
+      const transactionsBlock2 = block2.transactions;
+      console.log(transactionsBlock2[0].logs);
+
+      assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('updates the metadata of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1235', 'cryptomancer', 'nft', 'updateMetadata', '{"symbol":"TSTNFT", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      const token = res.payload;
+      console.log(token);
+
+      const metadata = JSON.parse(token.metadata);
+      assert.equal(metadata.url, 'https://url.token.com');
+      assert.equal(metadata.image, 'https://image.token.com');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not update the metadata of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      transactions.push(new Transaction(30896501, 'TXID1235', 'harpagon', 'nft', 'updateMetadata', '{"symbol":"TSTNFT", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
+
+      block = {
+        refSteemBlockNumber: 30896501,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      const token = res.payload;
+      console.log(token);
+
+      const metadata = JSON.parse(token.metadata);
+      assert.equal(metadata.url, 'http://mynft.com');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block2 = res.payload;
+      const transactionsBlock2 = block2.transactions;
+      console.log(transactionsBlock2[0].logs);
+
+      assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('transfers the ownership of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      let token = res.payload;
+
       assert.equal(token.issuer, 'cryptomancer');
-      assert.equal(token.name, 'test NFT');
-      assert.equal(token.supply, 0);
+      assert.equal(token.symbol, 'TSTNFT');
+
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "satoshi", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      token = res.payload;
+      console.log(token)
+
+      assert.equal(token.issuer, 'satoshi');
+      assert.equal(token.symbol, 'TSTNFT');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not transfer the ownership of an nft', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      let token = res.payload;
+
+      assert.equal(token.issuer, 'cryptomancer');
+      assert.equal(token.symbol, 'TSTNFT');
+
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "satoshi", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "satoshi", "isSignedWithActiveKey": false }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "s", "isSignedWithActiveKey": true }'));
+
+      block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {
+            symbol: 'TSTNFT'
+          }
+        }
+      });
+
+      token = res.payload;
+      console.log(token)
+
+      assert.equal(token.issuer, 'cryptomancer');
+      assert.equal(token.symbol, 'TSTNFT');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block2 = res.payload;
+      const transactionsBlock2 = block2.transactions;
+      console.log(transactionsBlock2[0].logs);
+      console.log(transactionsBlock2[1].logs);
+      console.log(transactionsBlock2[2].logs);
+
+      assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
+      assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock2[2].logs).errors[0], 'invalid to');
 
       resolve();
     })
