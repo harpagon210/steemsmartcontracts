@@ -565,6 +565,7 @@ actions.proposeRound = async (payload) => {
 
 actions.changeCurrentWitness = async (payload) => {
   const {
+    round,
     signatures,
     isSignedWithActiveKey,
   } = payload;
@@ -575,15 +576,15 @@ actions.changeCurrentWitness = async (payload) => {
     && signatures.length >= NB_WITNESSES_SIGNATURES_REQUIRED) {
     const params = await api.db.findOne('params', {});
     const {
-      round,
       currentWitness,
       totalApprovalWeight,
       lastWitnessPreviousRound,
+      lastBlockRound,
     } = params;
 
     // check if the sender is part of the round
-    const schedule = await api.db.findOne('schedules', { round, witness: api.sender });
-    if (schedule !== null) {
+    let schedule = await api.db.findOne('schedules', { round, witness: api.sender });
+    if (round === params.round && schedule !== null) {
       // get the witnesses on schedule
       const schedules = await api.db.find('schedules', { round });
 
@@ -644,6 +645,10 @@ actions.changeCurrentWitness = async (payload) => {
           ],
         );
 
+        // get the current schedule
+        schedule = await api.db
+          .findOne('schedules', { round, witness: currentWitness, blockNumber: lastBlockRound });
+
         do {
           for (let index = 0; index < witnesses.length; index += 1) {
             const witness = witnesses[index];
@@ -665,6 +670,7 @@ actions.changeCurrentWitness = async (payload) => {
               params.currentWitness = witness.account;
               await api.db.update('params', params);
               witnessFound = true;
+              break;
             }
           }
 
