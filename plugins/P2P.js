@@ -36,6 +36,7 @@ let lastProposedRoundNumber = 0;
 let lastProposedRound = null;
 let roundPropositionWaitingPeriod = 0;
 let lastProposedWitnessChange = null;
+let lastProposedWitnessChangeRoundNumber = 0;
 
 let manageRoundTimeoutHandler = null;
 let managePendingAckHandler = null;
@@ -74,6 +75,7 @@ const steemClient = {
       if (json.contractPayload.round > lastVerifiedRoundNumber
         && sendingToSidechain === false) {
         sendingToSidechain = true;
+        console.warn(transaction)
         await this.client.broadcast.json(transaction, this.signingKey);
         if (json.contractAction === 'proposeRound') {
           lastProposedRound = null;
@@ -384,16 +386,6 @@ const proposeRoundHandler = async (id, data, cb) => {
   }
 };
 
-const checkConnectionHandler = async (id, cb) => {
-  console.log('check connection received', id);
-  if (sockets[id] && sockets[id].authenticated === true) {
-    cb(null, 'ok');
-  } else if (sockets[id] && sockets[id].authenticated === false) {
-    cb('not authenticated', null);
-    console.error(`witness ${sockets[id].witness.account} not authenticated`);
-  }
-};
-
 const proposeWitnessChangeHandler = async (id, data, cb) => {
   console.log('witness change proposition received', id, data.round);
   if (sockets[id] && sockets[id].authenticated === true) {
@@ -423,28 +415,22 @@ const proposeWitnessChangeHandler = async (id, data, cb) => {
             const witnessToCheck = params.currentWitness;
 
             if (round === params.round) {
-              // check if the witness is reachable
-              /*
+              // check if the witness is connected to this node
               const witnessSocketTmp = Object.values(sockets)
                 .find(w => w.witness.account === witnessToCheck);
               // if a websocket with this witness is already opened and authenticated
               if (witnessSocketTmp !== undefined && witnessSocketTmp.authenticated === true) {
-                witnessSocketTmp.socket.emit('ping', round, (err, res) => {
-                  if (err) console.error(witness, err);
-                  if (res) {
-                    //
-                  }
-                });
-              }*/
+                cb('witness change rejected', null);
+              } else {
+                const sig = signPayload(`${round}`);
+                const roundPayload = {
+                  round,
+                  signature: sig,
+                };
 
-              const sig = signPayload(`${round}`);
-              const roundPayload = {
-                round,
-                signature: sig,
-              };
-
-              cb(null, roundPayload);
-              console.log('witness change accepted', round);
+                console.log('witness change accepted', round);
+                cb(null, roundPayload);
+              }
             } else {
               cb('invalid round number', null);
               console.error(`invalid round number received, round ${round}, witness ${witness.account}`);
@@ -486,7 +472,6 @@ const handshakeResponseHandler = async (id, data) => {
         authFailed = false;
         witnessSocket.socket.on('proposeRound', (round, cb) => proposeRoundHandler(id, round, cb));
         witnessSocket.socket.on('proposeWitnessChange', (round, cb) => proposeWitnessChangeHandler(id, round, cb));
-        witnessSocket.socket.on('checkConnection', cb => checkConnectionHandler(id, cb));
         console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
       }
     }
@@ -557,6 +542,7 @@ const connectionHandler = async (socket) => {
     socket.disconnect();
   } else {
     socket.on('close', reason => disconnectHandler(id, reason));
+    socket.on('disconnect', reason => disconnectHandler(id, reason));
     socket.on('error', error => errorHandler(id, error));
 
     const authToken = generateRandomString(32);
@@ -778,10 +764,11 @@ const manageRound = async () => {
 
         console.log('roundPropositionWaitingPeriod', roundPropositionWaitingPeriod);
 
-        if (roundPropositionWaitingPeriod >= NB_ROUND_PROPOSITION_WAITING_PERIOS) {
+        if (roundPropositionWaitingPeriod >= NB_ROUND_PROPOSITION_WAITING_PERIOS
+          && lastProposedWitnessChangeRoundNumber < currentRound) {
+          roundPropositionWaitingPeriod = 0;
+          lastProposedWitnessChangeRoundNumber = currentRound;
           const firstWitnessRound = schedules[0];
-          console.log('firstWitnessRound', firstWitnessRound)
-
           if (this.witnessAccount === firstWitnessRound.witness) {
             // propose current witness change
             const signature = signPayload(`${currentRound}`);
