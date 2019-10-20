@@ -2,6 +2,7 @@ const CONTRACT_NAME = 'nft';
 
 // eslint-disable-next-line no-template-curly-in-string
 const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
+const MAX_NUM_AUTHORIZED_ISSUERS = 10;
 
 actions.createSSC = async (payload) => {
   let tableExists = await api.db.tableExists('nfts');
@@ -12,8 +13,8 @@ actions.createSSC = async (payload) => {
     await api.db.createTable('params');                                     // contract parameters
     await api.db.createTable('delegations', ['from', 'to']);                // NFT instance delegations
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being removed
-    await api.db.createTable('issuingAccounts', ['symbol', 'account']);                    // Steem accounts that are authorized to issue NFTs
-    await api.db.createTable('issuingContractAccounts', ['symbol', 'account']);            // Smart contracts that are authorized to issue NFTs
+    //await api.db.createTable('issuingAccounts', ['symbol', 'account']);                    // Steem accounts that are authorized to issue NFTs
+    //await api.db.createTable('issuingContractAccounts', ['symbol', 'account']);            // Smart contracts that are authorized to issue NFTs
     await api.db.createTable('propertySchema', ['symbol']);                 // data property definition for each NFT
     await api.db.createTable('properties', ['symbol', 'id']);               // data property values for individual NFT instances
 
@@ -57,6 +58,11 @@ const isTokenTransferVerified = (result, from, to, symbol, quantity) => {
     return true;
   }
   return false;
+};
+
+// check if duplicate elements in array
+const containsDuplicates = (arr) => {
+  return new Set(arr).size !== arr.length
 };
 
 actions.updateUrl = async (payload) => {
@@ -111,6 +117,71 @@ actions.updateMetadata = async (payload) => {
   }
 };
 
+actions.updateName = async (payload) => {
+  const { name, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && name && typeof name === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        nft.name = name;
+        await api.db.update('nfts', nft);
+      }
+    }
+  }
+};
+
+actions.addAuthorizedIssuingAccounts = async (payload) => {
+  const { accounts, symbol, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && accounts && typeof accounts === 'object' && Array.isArray(accounts), 'invalid params')
+    && api.assert(accounts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing accounts`)) {
+    let validContents = true;
+    accounts.forEach(account => {
+      // a valid Steem account is between 3 and 16 characters in length
+      if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
+        validContents = false;
+      }
+    });
+    if (api.assert(validContents, 'invalid account list')) {
+      // check if the NFT exists
+      const nft = await api.db.findOne('nfts', { symbol });
+      
+      if (nft) {
+        let sanitizedList = []
+        // filter out duplicate accounts
+        accounts.forEach(account => {
+          let finalAccount = account.trim().toLowerCase();
+          let isDuplicate = false;
+          for (var i = 0; i < nft.authorizedIssuingAccounts.length; i++) {
+            if (finalAccount === nft.authorizedIssuingAccounts[i]) {
+              isDuplicate = true;
+              break;
+            }
+          }
+          if (!isDuplicate) {
+            sanitizedList.push(finalAccount);
+          }
+        });
+
+        if (api.assert(nft.issuer === api.sender, 'must be the issuer')
+          && api.assert(!containsDuplicates(sanitizedList), 'cannot add the same account twice')
+          && api.assert(nft.authorizedIssuingAccounts.length + sanitizedList.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing accounts`)) {
+          const finalAccountList = nft.authorizedIssuingAccounts.concat(sanitizedList);
+          nft.authorizedIssuingAccounts = finalAccountList;
+          await api.db.update('nfts', nft);
+        }
+      }
+    }
+  }
+};
+
 actions.transferOwnership = async (payload) => {
   const { symbol, to, isSignedWithActiveKey } = payload;
 
@@ -122,7 +193,7 @@ actions.transferOwnership = async (payload) => {
 
     if (nft) {
       if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
-        const finalTo = to.trim();
+        const finalTo = to.trim().toLowerCase();
 
         // a valid Steem account is between 3 and 16 characters in length
         if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
@@ -192,6 +263,8 @@ actions.create = async (payload) => {
           circulatingSupply: 0,
           delegationEnabled: false,
           undelegationCooldown: 0,
+          authorizedIssuingAccounts: [],
+          authorizedIssuingContracts: [],
         };
 
         await api.db.insert('nfts', newNft);
