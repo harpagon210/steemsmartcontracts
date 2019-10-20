@@ -10,7 +10,7 @@ This is actually pretty easy, you basically need a Steem account and that's it. 
 
  ## 3.  Sidechain specifications
 - run on [node.js](https://nodejs.org)
-- database layer powered by [LokiJS](https://github.com/techfort/LokiJS)
+- database layer powered by [MongoDB](https://www.mongodb.com/)
 - Smart Contracts developed in Javascript
 - Smart Contracts run in a sandboxed Javascript Virtual Machine called [VM2](https://github.com/patriksimek/vm2)
 - a block on the sidechain is produced only if transactions are being parsed in a Steem block
