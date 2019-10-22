@@ -4,6 +4,7 @@ const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
 const io = require('socket.io');
 const ioclient = require('socket.io-client');
+const timeoutCallback = require('timeout-callback');
 const http = require('http');
 const { IPC } = require('../libs/IPC');
 const { Queue } = require('../libs/Queue');
@@ -16,8 +17,6 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
 
 const PLUGIN_PATH = require.resolve(__filename);
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
-const MAX_PENDING_ACK_WAITING_TIME = 10000;
-const MAX_ROUND_PROPOSITION_ATTEMPTS = 3;
 const NB_ROUND_PROPOSITION_WAITING_PERIOS = 10;
 
 const actions = {};
@@ -39,7 +38,6 @@ let lastProposedWitnessChange = null;
 let lastProposedWitnessChangeRoundNumber = 0;
 
 let manageRoundTimeoutHandler = null;
-let managePendingAckHandler = null;
 let manageP2PConnectionsTimeoutHandler = null;
 let sendingToSidechain = false;
 
@@ -637,21 +635,12 @@ const addPendingAck = (witness, round) => {
   }
 };
 
-const removePendingAck = (witness, round) => {
-  const ackId = `${witness}:${round.round}`;
-
-  if (pendingAcknowledgments[ackId]) {
-    delete pendingAcknowledgments[ackId];
-  }
-};
-
 const proposeRound = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
     addPendingAck(witness, round);
-    witnessSocket.socket.emit('proposeRound', round, (err, res) => {
-      removePendingAck(witness, round);
+    witnessSocket.socket.emit('proposeRound', round, timeoutCallback((err, res) => {
       if (err) console.error(witness, err);
       if (res) {
         verifyRoundHandler(witness, res);
@@ -660,7 +649,7 @@ const proposeRound = async (witness, round) => {
           proposeRound(witness, round);
         }, 3000);
       }
-    });
+    }));
     console.log('proposing round', round.round, 'to witness', witnessSocket.witness.account);
   } else {
     // wait for the connection to be established
@@ -674,12 +663,12 @@ const proposeWitnessChange = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    witnessSocket.socket.emit('proposeWitnessChange', round, (err, res) => {
+    witnessSocket.socket.emit('proposeWitnessChange', round, timeoutCallback((err, res) => {
       if (err) console.error(witness, err);
       if (res) {
         witnessChangeHandler(witness, res);
       }
-    });
+    }));
     console.log('proposing witness change', round.round, 'to witness', witnessSocket.witness.account);
   } else {
     // wait for the connection to be established
@@ -687,36 +676,6 @@ const proposeWitnessChange = async (witness, round) => {
       proposeWitnessChange(witness, round);
     }, 3000);
   }
-};
-
-const managePendingAck = () => {
-  if (lastProposedRound !== null) {
-    const dateNow = new Date().getTime();
-    Object.keys(pendingAcknowledgments).forEach((key) => {
-      const pendingAck = pendingAcknowledgments[key];
-      const deltaDates = dateNow - pendingAck.timestamp.getTime();
-      if (deltaDates >= MAX_PENDING_ACK_WAITING_TIME) {
-        if (pendingAcknowledgments.attempts >= MAX_ROUND_PROPOSITION_ATTEMPTS) {
-          console.error(`cannot reach witness ${pendingAck.witness} / round ${pendingAck.round.round}`);
-          delete pendingAcknowledgments[key];
-        } else {
-          // try to propose the round again
-          console.log(`proposing round ${pendingAck.round.round} to witness ${pendingAck.witness} again`);
-          proposeRound(pendingAck.witness, pendingAck.round);
-        }
-      }
-    });
-  }
-
-  managePendingAckHandler = setTimeout(() => {
-    managePendingAck();
-  }, 1000);
-};
-
-const clearPendingAck = () => {
-  Object.keys(pendingAcknowledgments).forEach((key) => {
-    delete pendingAcknowledgments[key];
-  });
 };
 
 const manageRound = async () => {
@@ -827,7 +786,6 @@ const manageRound = async () => {
           signature,
         };
 
-        clearPendingAck();
         for (let index = 0; index < schedules.length; index += 1) {
           const schedule = schedules[index];
           if (schedule.witness !== this.witnessAccount) {
@@ -949,7 +907,6 @@ const init = async (conf, callback) => {
 
     // connectToWitnesses();
     manageRound();
-    managePendingAck();
     manageP2PConnections();
   } else {
     console.log(`P2P not started, missing env variables ACCOUNT and ACTIVE_SIGNING_KEY`); // eslint-disable-line
@@ -961,7 +918,6 @@ const init = async (conf, callback) => {
 // stop the P2P plugin
 const stop = (callback) => {
   if (manageRoundTimeoutHandler) clearTimeout(manageRoundTimeoutHandler);
-  if (managePendingAckHandler) clearTimeout(managePendingAckHandler);
   if (manageP2PConnectionsTimeoutHandler) clearTimeout(manageP2PConnectionsTimeoutHandler);
 
   if (socketServer) {

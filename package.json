@@ -31,6 +31,7 @@
     "seedrandom": "^3.0.1",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
+    "timeout-callback": "^2.0.2",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
     "winston": "^3.1.0",
