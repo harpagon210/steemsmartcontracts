@@ -227,6 +227,84 @@ actions.addAuthorizedIssuingContracts = async (payload) => {
   }
 };
 
+actions.removeAuthorizedIssuingAccounts = async (payload) => {
+  const { accounts, symbol, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && accounts && typeof accounts === 'object' && Array.isArray(accounts), 'invalid params')
+    && api.assert(accounts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot remove more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing accounts`)) {
+    let validContents = true;
+    accounts.forEach(account => {
+      // a valid Steem account is between 3 and 16 characters in length
+      if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
+        validContents = false;
+      }
+    });
+    if (api.assert(validContents, 'invalid account list')) {
+      // check if the NFT exists
+      const nft = await api.db.findOne('nfts', { symbol });
+
+      if (nft) {
+        if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+          // build final list, removing entries that are both in the input list & current authorized list
+          let finalAccountList = nft.authorizedIssuingAccounts.filter(currentValue => {
+            for (var i = 0; i < accounts.length; i++) {
+              let finalAccount = accounts[i].trim().toLowerCase();
+              if (currentValue === finalAccount) {
+                return false;
+              }
+            }
+            return true;
+          });
+
+          nft.authorizedIssuingAccounts = finalAccountList;
+          await api.db.update('nfts', nft);
+        }
+      }
+    }
+  }
+};
+
+actions.removeAuthorizedIssuingContracts = async (payload) => {
+  const { contracts, symbol, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && contracts && typeof contracts === 'object' && Array.isArray(contracts), 'invalid params')
+    && api.assert(contracts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot remove more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing contracts`)) {
+    let validContents = true;
+    contracts.forEach(contract => {
+      // a valid contract name is between 3 and 50 characters in length
+      if (!(typeof contract === 'string') || !(contract.length >= 3 && contract.length <= 50)) {
+        validContents = false;
+      }
+    });
+    if (api.assert(validContents, 'invalid contract list')) {
+      // check if the NFT exists
+      const nft = await api.db.findOne('nfts', { symbol });
+
+      if (nft) {
+        if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+          // build final list, removing entries that are both in the input list & current authorized list
+          let finalContractList = nft.authorizedIssuingContracts.filter(currentValue => {
+            for (var i = 0; i < contracts.length; i++) {
+              let finalContract = contracts[i].trim();
+              if (currentValue === finalContract) {
+                return false;
+              }
+            }
+            return true;
+          });
+
+          nft.authorizedIssuingContracts = finalContractList;
+          await api.db.update('nfts', nft);
+        }
+      }
+    }
+  }
+};
+
 actions.transferOwnership = async (payload) => {
   const { symbol, to, isSignedWithActiveKey } = payload;
 
