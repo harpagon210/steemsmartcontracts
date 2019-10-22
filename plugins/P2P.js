@@ -72,10 +72,11 @@ const steemClient = {
     }
 
     try {
-      if (json.contractPayload.round > lastVerifiedRoundNumber
+      if ((json.contractPayload.round === undefined
+          || (json.contractPayload.round && json.contractPayload.round > lastVerifiedRoundNumber))
         && sendingToSidechain === false) {
         sendingToSidechain = true;
-        console.warn(transaction)
+
         await this.client.broadcast.json(transaction, this.signingKey);
         if (json.contractAction === 'proposeRound') {
           lastProposedRound = null;
@@ -277,18 +278,21 @@ const witnessChangeHandler = async (witnessAccount, data) => {
   if (lastProposedWitnessChange !== null) {
     console.log('witness change received from', witnessAccount);
     const {
-      round,
       signature,
     } = data;
 
-    if (signature && typeof signature === 'string'
-      && round && Number.isInteger(round)) {
+    if (signature && typeof signature === 'string') {
+      // get the current round info
+      const params = await findOne('witnesses', 'params', {});
+      const witnessToCheck = params.currentWitness;
+      const { round } = params;
+
       // get witness signing key
       const witness = await findOne('witnesses', 'witnesses', { account: witnessAccount });
       if (witness !== null) {
         const { signingKey } = witness;
         // check if the signature is valid
-        if (checkSignature(`${round}`, signature, signingKey)) {
+        if (checkSignature(`${witnessToCheck}:${round}`, signature, signingKey)) {
           // check if we reached the consensus
           lastProposedWitnessChange.signatures.push([witnessAccount, signature]);
 
@@ -299,7 +303,6 @@ const witnessChangeHandler = async (witnessAccount, data) => {
               contractName: 'witnesses',
               contractAction: 'changeCurrentWitness',
               contractPayload: {
-                round,
                 signatures: lastProposedWitnessChange.signatures,
               },
             };
@@ -392,52 +395,45 @@ const proposeWitnessChangeHandler = async (id, data, cb) => {
     const witnessSocket = sockets[id];
 
     const {
-      round,
       signature,
     } = data;
 
-    if (signature && typeof signature === 'string'
-      && round && Number.isInteger(round)) {
-      // check if the witness is the one scheduled for this round
-      const schedule = await findOne('witnesses', 'schedules', { round, witness: witnessSocket.witness.account });
+    if (signature && typeof signature === 'string') {
+      // get the current round info
+      const params = await findOne('witnesses', 'params', {});
+      const witnessToCheck = params.currentWitness;
+      const { round } = params;
+      // check if the witness is the first witness scheduled for this round
+      const schedules = await find('witnesses', 'schedules', { round });
 
-      if (schedule !== null) {
+      if (schedules.length > 0 && schedules[0].witness === witnessSocket.witness.account) {
         // get witness signing key
         const witness = await findOne('witnesses', 'witnesses', { account: witnessSocket.witness.account });
 
         if (witness !== null) {
           const { signingKey } = witness;
-
+          const payloadToCheck = `${witnessToCheck}:${round}`;
           // check if the signature is valid
-          if (checkSignature(`${round}`, signature, signingKey)) {
-            // get the current round info
-            const params = await findOne('witnesses', 'params', {});
-            const witnessToCheck = params.currentWitness;
-
-            if (round === params.round) {
-              // check if the witness is connected to this node
-              const witnessSocketTmp = Object.values(sockets)
-                .find(w => w.witness.account === witnessToCheck);
-              // if a websocket with this witness is already opened and authenticated
-              if (witnessSocketTmp !== undefined && witnessSocketTmp.authenticated === true) {
-                cb('witness change rejected', null);
-              } else {
-                const sig = signPayload(`${round}`);
-                const roundPayload = {
-                  round,
-                  signature: sig,
-                };
-
-                console.log('witness change accepted', round);
-                cb(null, roundPayload);
-              }
+          if (checkSignature(payloadToCheck, signature, signingKey)) {
+            // check if the witness is connected to this node
+            const witnessSocketTmp = Object.values(sockets)
+              .find(w => w.witness.account === witnessToCheck);
+            // if a websocket with this witness is already opened and authenticated
+            // TODO: try to send a request to the witness?
+            if (witnessSocketTmp !== undefined && witnessSocketTmp.authenticated === true) {
+              cb('witness change rejected', null);
             } else {
-              cb('invalid round number', null);
-              console.error(`invalid round number received, round ${round}, witness ${witness.account}`);
+              const sig = signPayload(payloadToCheck);
+              const roundPayload = {
+                signature: sig,
+              };
+
+              console.log('witness change accepted', round, 'witness change', witnessToCheck);
+              cb(null, roundPayload);
             }
           } else {
             cb('invalid signature', null);
-            console.error(`invalid signature witness change prop, round ${round}, witness ${witness.account}`);
+            console.error(`invalid signature witness change proposition, round ${round}, witness ${witness.account}`);
           }
         }
       }
@@ -494,34 +490,42 @@ const handshakeHandler = async (id, payload, cb) => {
     && sockets[id]) {
     const witnessSocket = sockets[id];
 
-    // check if this peer is a witness
-    const witness = await findOne('witnesses', 'witnesses', {
-      account,
-    });
+    // get the current round info
+    const params = await findOne('witnesses', 'params', {});
+    const { round } = params;
+    // check if the account is a witness scheduled for the current round
+    const schedule = await findOne('witnesses', 'schedules', { round, witness: account });
 
-    if (witness) {
-      const {
-        IP,
-        signingKey,
-      } = witness;
+    if (schedule) {
+      // get the witness details
+      const witness = await findOne('witnesses', 'witnesses', {
+        account,
+      });
 
-      const ip = witnessSocket.address;
-      if ((IP === ip || IP === ip.replace('::ffff:', ''))
-        && checkSignature({ authToken }, signature, signingKey)) {
-        witnessSocket.witness.account = account;
-        authFailed = false;
-        cb({ authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
+      if (witness) {
+        const {
+          IP,
+          signingKey,
+        } = witness;
 
-        if (witnessSocket.authenticated !== true) {
-          const respAuthToken = generateRandomString(32);
-          witnessSocket.witness.authToken = respAuthToken;
-          witnessSocket.socket.emit('handshake',
-            {
-              authToken: respAuthToken,
-              signature: signPayload({ authToken: respAuthToken }),
-              account: this.witnessAccount,
-            },
-            data => handshakeResponseHandler(id, data));
+        const ip = witnessSocket.address;
+        if ((IP === ip || IP === ip.replace('::ffff:', ''))
+          && checkSignature({ authToken }, signature, signingKey)) {
+          witnessSocket.witness.account = account;
+          authFailed = false;
+          cb({ authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
+
+          if (witnessSocket.authenticated !== true) {
+            const respAuthToken = generateRandomString(32);
+            witnessSocket.witness.authToken = respAuthToken;
+            witnessSocket.socket.emit('handshake',
+              {
+                authToken: respAuthToken,
+                signature: signPayload({ authToken: respAuthToken }),
+                account: this.witnessAccount,
+              },
+              data => handshakeResponseHandler(id, data));
+          }
         }
       }
     }
@@ -709,7 +713,7 @@ const managePendingAck = () => {
   }, 1000);
 };
 
-const clearPendinAck = () => {
+const clearPendingAck = () => {
   Object.keys(pendingAcknowledgments).forEach((key) => {
     delete pendingAcknowledgments[key];
   });
@@ -771,7 +775,7 @@ const manageRound = async () => {
           const firstWitnessRound = schedules[0];
           if (this.witnessAccount === firstWitnessRound.witness) {
             // propose current witness change
-            const signature = signPayload(`${currentRound}`);
+            const signature = signPayload(`${currentWitness}:${currentRound}`);
 
             lastProposedWitnessChange = {
               round: currentRound,
@@ -823,7 +827,7 @@ const manageRound = async () => {
           signature,
         };
 
-        clearPendinAck();
+        clearPendingAck();
         for (let index = 0; index < schedules.length; index += 1) {
           const schedule = schedules[index];
           if (schedule.witness !== this.witnessAccount) {

@@ -565,7 +565,6 @@ actions.proposeRound = async (payload) => {
 
 actions.changeCurrentWitness = async (payload) => {
   const {
-    round,
     signatures,
     isSignedWithActiveKey,
   } = payload;
@@ -580,6 +579,7 @@ actions.changeCurrentWitness = async (payload) => {
       totalApprovalWeight,
       lastWitnessPreviousRound,
       lastBlockRound,
+      round,
     } = params;
 
     // check if the sender is part of the round
@@ -596,7 +596,7 @@ actions.changeCurrentWitness = async (payload) => {
         if (witness !== null) {
           const signature = signatures.find(s => s[0] === witness.account);
           if (signature) {
-            if (api.checkSignature(`${round}`, signature[1], witness.signingKey)) {
+            if (api.checkSignature(`${currentWitness}:${round}`, signature[1], witness.signingKey)) {
               api.debug(`witness ${witness.account} signed witness change ${round}`);
               signaturesChecked += 1;
             }
