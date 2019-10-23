@@ -328,6 +328,65 @@ actions.transferOwnership = async (payload) => {
   }
 };
 
+actions.addProperty = async (payload) => {
+  const { symbol, name, type, isReadOnly, isSignedWithActiveKey } = payload;
+
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { dataPropertyCreationFee } = params;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && name && typeof name === 'string'
+    && (isReadOnly === undefined || typeof isReadOnly === 'boolean')
+    && type && typeof type === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid name: letters & numbers only, max length of 25')
+    && api.assert(type === 'number' || type === 'string' || type === 'boolean', 'invalid type: must be number, string, or boolean')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(!(name in nft.properties), 'cannot add the same property twice')
+        && api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        let propertyCount = Object.keys(nft.properties).length;
+        if (propertyCount >= 3) {
+          // first 3 properties are free, after that you need to pay the fee for each additional property
+          const utilityTokenBalance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: UTILITY_TOKEN_SYMBOL });
+          const authorizedCreation = api.BigNumber(dataPropertyCreationFee).lte(0)
+            ? true
+            : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(dataPropertyCreationFee);
+
+          if (api.assert(authorizedCreation, 'you must have enough tokens to cover the creation fees')) {
+            if (api.BigNumber(dataPropertyCreationFee).gt(0)) {
+              const res = await api.executeSmartContract('tokens', 'transfer', { to: 'null', symbol: UTILITY_TOKEN_SYMBOL, quantity: dataPropertyCreationFee, isSignedWithActiveKey });
+              // check if the tokens were sent
+              if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, dataPropertyCreationFee)) {
+                return false;
+              }
+            }
+          } else {
+            return false;
+          }
+        }
+
+        const finalIsReadOnly = isReadOnly === undefined ? false : isReadOnly;
+
+        const newProperty = {
+          type,
+          isReadOnly: finalIsReadOnly,
+          authorizedEditingAccounts: [],
+          authorizedEditingContracts: [],
+        };
+
+        nft.properties[name] = newProperty;
+        await api.db.update('nfts', nft);
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 actions.create = async (payload) => {
   const {
     name, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
@@ -392,6 +451,7 @@ actions.create = async (payload) => {
           undelegationCooldown: 0,
           authorizedIssuingAccounts: initialAccountList,
           authorizedIssuingContracts: [],
+          properties: {},
         };
 
         await api.db.insert('nfts', newNft);
