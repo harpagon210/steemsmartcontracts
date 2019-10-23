@@ -13,8 +13,6 @@ actions.createSSC = async (payload) => {
     await api.db.createTable('params');                                     // contract parameters
     await api.db.createTable('delegations', ['from', 'to']);                // NFT instance delegations
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being removed
-    await api.db.createTable('propertySchema', ['symbol']);                 // data property definition for each NFT
-    await api.db.createTable('properties', ['symbol', 'id']);               // data property values for individual NFT instances
 
     const params = {};
     params.nftCreationFee = '100';
@@ -61,6 +59,28 @@ const isTokenTransferVerified = (result, from, to, symbol, quantity) => {
 // check if duplicate elements in array
 const containsDuplicates = (arr) => {
   return new Set(arr).size !== arr.length
+};
+
+const isValidAccountsArray = (arr) => {
+  let validContents = true;
+  arr.forEach(account => {
+    // a valid Steem account is between 3 and 16 characters in length
+    if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
+      validContents = false;
+    }
+  });
+  return validContents;
+};
+
+const isValidContractsArray = (arr) => {
+  let validContents = true;
+  arr.forEach(contract => {
+    // a valid contract name is between 3 and 50 characters in length
+    if (!(typeof contract === 'string') || !(contract.length >= 3 && contract.length <= 50)) {
+      validContents = false;
+    }
+  });
+  return validContents;
 };
 
 actions.updateUrl = async (payload) => {
@@ -140,13 +160,7 @@ actions.addAuthorizedIssuingAccounts = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && accounts && typeof accounts === 'object' && Array.isArray(accounts), 'invalid params')
     && api.assert(accounts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing accounts`)) {
-    let validContents = true;
-    accounts.forEach(account => {
-      // a valid Steem account is between 3 and 16 characters in length
-      if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
-        validContents = false;
-      }
-    });
+    let validContents = isValidAccountsArray(accounts);
     if (api.assert(validContents, 'invalid account list')) {
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
@@ -187,13 +201,7 @@ actions.addAuthorizedIssuingContracts = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && contracts && typeof contracts === 'object' && Array.isArray(contracts), 'invalid params')
     && api.assert(contracts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing contracts`)) {
-    let validContents = true;
-    contracts.forEach(contract => {
-      // a valid contract name is between 3 and 50 characters in length
-      if (!(typeof contract === 'string') || !(contract.length >= 3 && contract.length <= 50)) {
-        validContents = false;
-      }
-    });
+    let validContents = isValidContractsArray(contracts);
     if (api.assert(validContents, 'invalid contract list')) {
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
@@ -234,13 +242,7 @@ actions.removeAuthorizedIssuingAccounts = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && accounts && typeof accounts === 'object' && Array.isArray(accounts), 'invalid params')
     && api.assert(accounts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot remove more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing accounts`)) {
-    let validContents = true;
-    accounts.forEach(account => {
-      // a valid Steem account is between 3 and 16 characters in length
-      if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
-        validContents = false;
-      }
-    });
+    let validContents = isValidAccountsArray(accounts);
     if (api.assert(validContents, 'invalid account list')) {
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
@@ -273,13 +275,7 @@ actions.removeAuthorizedIssuingContracts = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && contracts && typeof contracts === 'object' && Array.isArray(contracts), 'invalid params')
     && api.assert(contracts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot remove more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized issuing contracts`)) {
-    let validContents = true;
-    contracts.forEach(contract => {
-      // a valid contract name is between 3 and 50 characters in length
-      if (!(typeof contract === 'string') || !(contract.length >= 3 && contract.length <= 50)) {
-        validContents = false;
-      }
-    });
+    let validContents = isValidContractsArray(contracts);
     if (api.assert(validContents, 'invalid contract list')) {
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
@@ -329,7 +325,7 @@ actions.transferOwnership = async (payload) => {
 };
 
 actions.addProperty = async (payload) => {
-  const { symbol, name, type, isReadOnly, isSignedWithActiveKey } = payload;
+  const { symbol, name, type, isReadOnly, authorizedEditingAccounts, authorizedEditingContracts, isSignedWithActiveKey } = payload;
 
   // get contract params
   const params = await api.db.findOne('params', {});
@@ -339,6 +335,8 @@ actions.addProperty = async (payload) => {
     && api.assert(symbol && typeof symbol === 'string'
     && name && typeof name === 'string'
     && (isReadOnly === undefined || typeof isReadOnly === 'boolean')
+    && (authorizedEditingAccounts === undefined || (authorizedEditingAccounts && typeof authorizedEditingAccounts === 'object' && Array.isArray(authorizedEditingAccounts)))
+    && (authorizedEditingContracts === undefined || (authorizedEditingContracts && typeof authorizedEditingContracts === 'object' && Array.isArray(authorizedEditingContracts)))
     && type && typeof type === 'string', 'invalid params')
     && api.assert(api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid name: letters & numbers only, max length of 25')
     && api.assert(type === 'number' || type === 'string' || type === 'boolean', 'invalid type: must be number, string, or boolean')) {
@@ -370,21 +368,76 @@ actions.addProperty = async (payload) => {
         }
 
         const finalIsReadOnly = isReadOnly === undefined ? false : isReadOnly;
+        const initialAccountList = authorizedEditingAccounts === undefined ? [api.sender] : [];
 
         const newProperty = {
           type,
           isReadOnly: finalIsReadOnly,
-          authorizedEditingAccounts: [],
+          authorizedEditingAccounts: initialAccountList,
           authorizedEditingContracts: [],
         };
 
         nft.properties[name] = newProperty;
         await api.db.update('nfts', nft);
+
+        // optionally can add list of authorized accounts & contracts now
+        if (authorizedEditingAccounts || authorizedEditingContracts) {
+          await actions.setPropertyPermissions({ symbol, name, accounts: authorizedEditingAccounts, contracts: authorizedEditingContracts, isSignedWithActiveKey });
+        }
         return true;
       }
     }
   }
   return false;
+};
+
+actions.setPropertyPermissions = async (payload) => {
+  const { symbol, name, accounts, contracts, isSignedWithActiveKey } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && name && typeof name === 'string'
+    && (accounts === undefined || (accounts && typeof accounts === 'object' && Array.isArray(accounts)))
+    && (contracts === undefined || (contracts && typeof contracts === 'object' && Array.isArray(contracts))), 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid name: letters & numbers only, max length of 25')
+    && api.assert(accounts === undefined || accounts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized accounts`)
+    && api.assert(contracts === undefined || contracts.length <= MAX_NUM_AUTHORIZED_ISSUERS, `cannot have more than ${MAX_NUM_AUTHORIZED_ISSUERS} authorized contracts`)
+    && api.assert(accounts === undefined || isValidAccountsArray(accounts), 'invalid account list')
+    && api.assert(contracts === undefined || isValidContractsArray(contracts), 'invalid contract list')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(name in nft.properties, 'property must exist')
+        && api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        let sanitizedAccountList = []
+        let sanitizedContractList = []
+
+        if (accounts) {
+          sanitizedAccountList = accounts.map(account => account.trim().toLowerCase());
+        }
+        if (contracts) {
+          sanitizedContractList = contracts.map(contract => contract.trim());
+        }
+
+        if (api.assert(accounts === undefined || !containsDuplicates(sanitizedAccountList), 'cannot add the same account twice')
+          && api.assert(contracts === undefined || !containsDuplicates(sanitizedContractList), 'cannot add the same contract twice')) {
+          let shouldUpdate = false;
+          if (accounts) {
+            nft.properties[name].authorizedEditingAccounts = sanitizedAccountList;
+            shouldUpdate = true;
+          }
+          if (contracts) {
+            nft.properties[name].authorizedEditingContracts = sanitizedContractList;
+            shouldUpdate = true;
+          }
+          if (shouldUpdate) {
+            await api.db.update('nfts', nft);
+          }
+        }
+      }
+    }
+  }
 };
 
 actions.create = async (payload) => {
