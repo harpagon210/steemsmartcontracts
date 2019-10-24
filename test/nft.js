@@ -347,6 +347,19 @@ describe('nft', function() {
       assert.equal(JSON.stringify(tokens[1].authorizedIssuingContracts), '["tokens","dice"]');
       assert.equal(tokens[1].circulatingSupply, 0);
 
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_CONTRACT,
+        payload: {
+          name: 'nft',
+        }
+      });
+
+      let tables = res.payload.tables;
+      console.log(tables);
+      
+      assert.equal('nft_TSTNFTinstances' in tables, true);
+      assert.equal('nft_TESTinstances' in tables, true);
+
       resolve();
     })
       .then(() => {

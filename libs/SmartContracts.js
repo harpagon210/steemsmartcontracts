@@ -98,7 +98,7 @@ class SmartContracts {
 
         // prepare the db object that will be available in the VM
         const db = {
-          // createTable is only available during the smart contract deployment
+          // create a new table for the smart contract
           createTable: (tableName, indexes = []) => SmartContracts.createTable(
             ipc, tables, name, tableName, indexes,
           ),
@@ -265,8 +265,14 @@ class SmartContracts {
       const contractOwner = contractInDb.owner;
       const contractVersion = contractInDb.version;
 
+      const tables = {};
+
       // prepare the db object that will be available in the VM
       const db = {
+        // create a new table for the smart contract
+        createTable: (tableName, indexes = []) => SmartContracts.createTable(
+          ipc, tables, contract, tableName, indexes,
+        ),
         // perform a query find on a table of the smart contract
         find: (table, query, limit = 1000, offset = 0, indexes = []) => SmartContracts.find(
           ipc, contract, table, query, limit, offset, indexes,
@@ -289,6 +295,8 @@ class SmartContracts {
         remove: (table, record) => SmartContracts.remove(ipc, contract, table, record),
         // insert a record in the table of the smart contract
         update: (table, record) => SmartContracts.update(ipc, contract, table, record),
+        // check if a table exists
+        tableExists: table => SmartContracts.tableExists(ipc, contract, table),
       };
 
       // logs used to store events or errors
@@ -385,6 +393,18 @@ class SmartContracts {
         }
 
         return { logs: { errors: ['unknown error'] } };
+      }
+
+      // if new tables were created, we need to do a contract update
+      if (Object.keys(tables).length > 0) {
+        Object.assign(contractInDb.tables, tables);
+        await ipc.send(
+          {
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTIONS.UPDATE_CONTRACT,
+            payload: contractInDb,
+          },
+        );
       }
 
       return results;

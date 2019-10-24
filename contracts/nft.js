@@ -8,8 +8,8 @@ actions.createSSC = async (payload) => {
   let tableExists = await api.db.tableExists('nfts');
   if (tableExists === false) {
     await api.db.createTable('nfts', ['symbol']);                           // token definition
-    await api.db.createTable('instances', ['symbol', 'account']);           // stores ownership of individual NFT instances by Steem accounts
-    await api.db.createTable('contractInstances', ['symbol', 'account']);   // stores ownership of individual NFT instances by other smart contracts
+    //await api.db.createTable('instances', ['symbol', 'account']);           // stores ownership of individual NFT instances by Steem accounts
+    //await api.db.createTable('contractInstances', ['symbol', 'account']);   // stores ownership of individual NFT instances by other smart contracts
     await api.db.createTable('params');                                     // contract parameters
     await api.db.createTable('delegations', ['from', 'to']);                // NFT instance delegations
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being removed
@@ -507,6 +507,13 @@ actions.create = async (payload) => {
           properties: {},
         };
 
+        // create a new table to hold issued instances of this NFT
+        let instanceTableName = symbol + 'instances';
+        let tableExists = await api.db.tableExists(instanceTableName);
+        if (tableExists === false) {
+          await api.db.createTable(instanceTableName, ['account']);
+        }
+
         await api.db.insert('nfts', newNft);
 
         // optionally can add list of authorized accounts & contracts now
@@ -521,6 +528,27 @@ actions.create = async (payload) => {
     }
   }
   return false;
+};
+
+actions.issue = async (payload) => {
+  const {
+    symbol, quantity, isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')) {
+    const newTest = {
+      account: api.sender,
+      symbol,
+      data: 'woot',
+      quantity
+    };
+
+    let instanceTableName = symbol + 'instances';
+    let tableExists = await api.db.tableExists(instanceTableName);
+    if (api.assert(tableExists, 'instance table must exist')) {
+      await api.db.insert(instanceTableName, newTest);
+    }
+  }
 };
 
 /*actions.swap = async (payload) => {
