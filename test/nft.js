@@ -197,7 +197,7 @@ describe('nft', function() {
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "nftIssuanceFee": "1", "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "nftIssuanceFee": {"DEC":"500","SCT":"0.75"}, "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
       transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "22.222" }'));
 
       let block = {
@@ -224,7 +224,7 @@ describe('nft', function() {
       console.log(params)
 
       assert.equal(params.nftCreationFee, '22.222');
-      assert.equal(params.nftIssuanceFee, '1');
+      assert.equal(JSON.stringify(params.nftIssuanceFee), '{"DEC":"500","SCT":"0.75"}');
       assert.equal(params.dataPropertyCreationFee, '2');
       assert.equal(params.enableDelegationFee, '3');
 
@@ -247,7 +247,7 @@ describe('nft', function() {
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'cryptomancer', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "nftIssuanceFee": "1", "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'cryptomancer', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
       transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": 0.5 , "nftIssuanceFee": 1, "dataPropertyCreationFee": 2, "enableDelegationFee": 3 }'));
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "hi" , "nftIssuanceFee": "bob", "dataPropertyCreationFee": "u", "enableDelegationFee": "rock" }'));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "-0.5" , "nftIssuanceFee": "-1", "dataPropertyCreationFee": "-2", "enableDelegationFee": "-3" }'));
@@ -277,7 +277,7 @@ describe('nft', function() {
       console.log(params)
 
       assert.equal(params.nftCreationFee, '100');
-      assert.equal(params.nftIssuanceFee, '0.001');
+      assert.equal(JSON.stringify(params.nftIssuanceFee), '{"ENG":"0.001","PAL":"0.001"}');
       assert.equal(params.dataPropertyCreationFee, '100');
       assert.equal(params.enableDelegationFee, '1000');
 
@@ -358,7 +358,9 @@ describe('nft', function() {
       console.log(tables);
       
       assert.equal('nft_TSTNFTinstances' in tables, true);
+      assert.equal('nft_TSTNFTcontractInstances' in tables, true);
       assert.equal('nft_TESTinstances' in tables, true);
+      assert.equal('nft_TESTcontractInstances' in tables, true);
 
       resolve();
     })

@@ -8,15 +8,17 @@ actions.createSSC = async (payload) => {
   let tableExists = await api.db.tableExists('nfts');
   if (tableExists === false) {
     await api.db.createTable('nfts', ['symbol']);                           // token definition
-    //await api.db.createTable('instances', ['symbol', 'account']);           // stores ownership of individual NFT instances by Steem accounts
-    //await api.db.createTable('contractInstances', ['symbol', 'account']);   // stores ownership of individual NFT instances by other smart contracts
     await api.db.createTable('params');                                     // contract parameters
     await api.db.createTable('delegations', ['from', 'to']);                // NFT instance delegations
     await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being removed
 
     const params = {};
     params.nftCreationFee = '100';
-    params.nftIssuanceFee = '0.001';
+    // issuance fee can be paid in one of several different tokens
+    params.nftIssuanceFee = {
+      "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'": '0.001',
+      'PAL': '0.001',
+    };
     params.dataPropertyCreationFee = '100';     // first 3 properties are free, then this fee applies for each one after the initial 3
     params.enableDelegationFee = '1000';
     await api.db.insert('params', params);
@@ -33,7 +35,7 @@ actions.updateParams = async (payload) => {
   if (nftCreationFee && typeof nftCreationFee === 'string' && !api.BigNumber(nftCreationFee).isNaN() && api.BigNumber(nftCreationFee).gte(0)) {
     params.nftCreationFee = nftCreationFee;
   }
-  if (nftIssuanceFee && typeof nftIssuanceFee === 'string' && !api.BigNumber(nftIssuanceFee).isNaN() && api.BigNumber(nftIssuanceFee).gte(0)) {
+  if (nftIssuanceFee && typeof nftIssuanceFee === 'object') {
     params.nftIssuanceFee = nftIssuanceFee;
   }
   if (dataPropertyCreationFee && typeof dataPropertyCreationFee === 'string' && !api.BigNumber(dataPropertyCreationFee).isNaN() && api.BigNumber(dataPropertyCreationFee).gte(0)) {
@@ -61,11 +63,20 @@ const containsDuplicates = (arr) => {
   return new Set(arr).size !== arr.length
 };
 
+const isValidSteemAccountLength = (account) => {
+  // a valid Steem account is between 3 and 16 characters in length
+  return (account.length >= 3 && account.length <= 16);
+};
+
+const isValidContractLength = (contract) => {
+  // a valid contract name is between 3 and 50 characters in length
+  return (contract.length >= 3 && contract.length <= 50);
+}
+
 const isValidAccountsArray = (arr) => {
   let validContents = true;
   arr.forEach(account => {
-    // a valid Steem account is between 3 and 16 characters in length
-    if (!(typeof account === 'string') || !(account.length >= 3 && account.length <= 16)) {
+    if (!(typeof account === 'string') || !isValidSteemAccountLength(account)) {
       validContents = false;
     }
   });
@@ -75,8 +86,7 @@ const isValidAccountsArray = (arr) => {
 const isValidContractsArray = (arr) => {
   let validContents = true;
   arr.forEach(contract => {
-    // a valid contract name is between 3 and 50 characters in length
-    if (!(typeof contract === 'string') || !(contract.length >= 3 && contract.length <= 50)) {
+    if (!(typeof contract === 'string') || !isValidContractLength(contract)) {
       validContents = false;
     }
   });
@@ -314,8 +324,7 @@ actions.transferOwnership = async (payload) => {
       if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
         const finalTo = to.trim().toLowerCase();
 
-        // a valid Steem account is between 3 and 16 characters in length
-        if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+        if (api.assert(isValidSteemAccountLength(finalTo), 'invalid to')) {
           nft.issuer = finalTo;
           await api.db.update('nfts', nft);
         }
@@ -508,10 +517,12 @@ actions.create = async (payload) => {
         };
 
         // create a new table to hold issued instances of this NFT
-        let instanceTableName = symbol + 'instances';
-        let tableExists = await api.db.tableExists(instanceTableName);
+        const instanceTableName = symbol + 'instances';
+        const contractInstanceTableName = symbol + "contractInstances";
+        const tableExists = await api.db.tableExists(instanceTableName);
         if (tableExists === false) {
           await api.db.createTable(instanceTableName, ['account']);
+          await api.db.createTable(contractInstanceTableName, ['account']);
         }
 
         await api.db.insert('nfts', newNft);
@@ -532,21 +543,51 @@ actions.create = async (payload) => {
 
 actions.issue = async (payload) => {
   const {
-    symbol, quantity, isSignedWithActiveKey,
+    symbol, fromType, to, toType, feeSymbol, lockTokens, isSignedWithActiveKey, callingContractInfo,
   } = payload;
+  const types = ['user', 'contract'];
 
-  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')) {
-    const newTest = {
-      account: api.sender,
-      symbol,
-      data: 'woot',
-      quantity
-    };
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { nftIssuanceFee } = params;
 
-    let instanceTableName = symbol + 'instances';
-    let tableExists = await api.db.tableExists(instanceTableName);
-    if (api.assert(tableExists, 'instance table must exist')) {
-      await api.db.insert(instanceTableName, newTest);
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && fromType && typeof fromType === 'string' && types.includes(fromType)
+    && (callingContractInfo || (callingContractInfo === undefined && fromType === 'user'))
+    && to && typeof to === 'string'
+    && toType && typeof toType === 'string' && types.includes(toType)
+    && feeSymbol && typeof feeSymbol === 'string'
+    && (lockTokens === undefined || (lockTokens && typeof lockTokens === 'object')), 'invalid params')) {
+    const finalTo = toType === 'user' ? to.trim().toLowerCase() : to.trim();
+    const toValid = toType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
+    let finalFrom = api.sender;
+    if (fromType === 'contract') {
+      finalFrom = callingContractInfo.name;
+    }
+    if (api.assert(toValid, 'invalid to')) {
+      // check if the NFT exists
+      const nft = await api.db.findOne('nfts', { symbol });
+
+      if (api.assert(nft !== null, 'symbol does not exist')) {
+        // verify caller has authority to issue this NFT & we have not reached max supply
+        if (api.assert((fromType === 'contract' && nft.authorizedIssuingContracts.includes(finalFrom))
+          || (fromType === 'user' && nft.authorizedIssuingAccounts.includes(finalFrom)), 'not allowed to issue tokens')
+          && api.assert(nft.maxSupply === 0 || (nft.supply < nft.maxSupply), 'max supply limit reached')) {
+          const newTest = {
+            account: api.sender,
+            symbol,
+            data: 'woot',
+            quantity
+          };
+
+          let instanceTableName = symbol + 'instances';
+          let tableExists = await api.db.tableExists(instanceTableName);
+          if (api.assert(tableExists, 'instance table must exist')) {
+            await api.db.insert(instanceTableName, newTest);
+          }
+        }
+      }
     }
   }
 };
