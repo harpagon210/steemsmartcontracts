@@ -170,7 +170,7 @@ describe('witnesses', function () {
         })
   });
   
-  it.skip('registers witnesses', (done) => {
+  it('registers witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -181,8 +181,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
         refSteemBlockNumber: 32713425,
@@ -206,19 +206,26 @@ describe('witnesses', function () {
 
       let witnesses = res.payload;
 
-      assert.equal(witnesses[0].account, "dan");
-      assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].RPCUrl, "my.awesome.node");
+      assert.equal(witnesses[0].account, 'dan');
+      assert.equal(witnesses[0].IP, "123.456.789.123");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '0');
+      assert.equal(witnesses[0].RPCPort, 5000);
+      assert.equal(witnesses[0].P2PPort, 6000);
+      assert.equal(witnesses[0].signingKey, 'STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR');
       assert.equal(witnesses[0].enabled, true);
 
-      assert.equal(witnesses[1].account, "vitalik");
-      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].RPCUrl, "my.awesome.node.too");
+      assert.equal(witnesses[1].account, 'vitalik');
+      assert.equal(witnesses[1].IP, "123.456.789.456");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, '0');
+      assert.equal(witnesses[1].RPCPort, 7000);
+      assert.equal(witnesses[1].P2PPort, 8000);
+      assert.equal(witnesses[1].signingKey, 'STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq');
       assert.equal(witnesses[1].enabled, false);
 
       transactions = [];
-      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.new.awesome.node", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.new.awesome.node.too", "enabled": true, "isSignedWithActiveKey": true }`));
+
+      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "456.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "456.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
         refSteemBlockNumber: 32713425,
@@ -242,14 +249,20 @@ describe('witnesses', function () {
 
       witnesses = res.payload;
 
-      assert.equal(witnesses[0].account, "dan");
-      assert.equal(witnesses[0].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[0].RPCUrl, "my.new.awesome.node");
+      assert.equal(witnesses[0].account, 'dan');
+      assert.equal(witnesses[0].IP, "456.456.789.123");
+      assert.equal(witnesses[0].approvalWeight.$numberDecimal, '0');
+      assert.equal(witnesses[0].RPCPort, 5000);
+      assert.equal(witnesses[0].P2PPort, 6000);
+      assert.equal(witnesses[0].signingKey, 'STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR');
       assert.equal(witnesses[0].enabled, false);
 
-      assert.equal(witnesses[1].account, "vitalik");
-      assert.equal(witnesses[1].approvalWeight.$numberDecimal, "0");
-      assert.equal(witnesses[1].RPCUrl, "my.new.awesome.node.too");
+      assert.equal(witnesses[1].account, 'vitalik');
+      assert.equal(witnesses[1].IP, "456.456.789.456");
+      assert.equal(witnesses[1].approvalWeight.$numberDecimal, '0');
+      assert.equal(witnesses[1].RPCPort, 7000);
+      assert.equal(witnesses[1].P2PPort, 8000);
+      assert.equal(witnesses[1].signingKey, 'STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq');
       assert.equal(witnesses[1].enabled, true);
 
       resolve();
@@ -261,7 +274,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('approves witnesses', (done) => {
+  it('approves witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -272,8 +285,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -356,7 +369,7 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "200.00000000");
 
       transactions = [];
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.456.789.890", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -464,7 +477,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('disapproves witnesses', (done) => {
+  it('disapproves witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -475,12 +488,12 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.456.789.890", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -675,7 +688,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('updates witnesses approvals when staking, unstaking, delegating and undelegating the utility token', (done) => {
+  it('updates witnesses approvals when staking, unstaking, delegating and undelegating the utility token', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -686,8 +699,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node.too", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -1225,7 +1238,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('schedules witnesses', (done) => {
+  it('schedules witnesses', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1241,7 +1254,9 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        const witnessAccount = `witness${index}`;
+        const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
+        transactions.push(new Transaction(1, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.456.789.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic(ADR_PREFIX).toString()}", "enabled": false, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1394,7 +1409,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('verifies a block', (done) => {
+  it.skip('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1567,7 +1582,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('generates a new schedule once the current one is completed', (done) => {
+  it.skip('generates a new schedule once the current one is completed', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1829,7 +1844,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('disputes a block', (done) => {
+  it.skip('disputes a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);

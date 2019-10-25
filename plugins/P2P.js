@@ -4,7 +4,6 @@ const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
 const io = require('socket.io');
 const ioclient = require('socket.io-client');
-const timeoutCallback = require('timeout-callback');
 const http = require('http');
 const { IPC } = require('../libs/IPC');
 const { Queue } = require('../libs/Queue');
@@ -466,6 +465,25 @@ const handshakeResponseHandler = async (id, data) => {
         authFailed = false;
         witnessSocket.socket.on('proposeRound', (round, cb) => proposeRoundHandler(id, round, cb));
         witnessSocket.socket.on('proposeWitnessChange', (round, cb) => proposeWitnessChangeHandler(id, round, cb));
+        witnessSocket.socket.emitWithTimeout = (event, arg, cb, timeout) => {
+          const finalTimeout = timeout || 10000;
+          let called = false;
+          let timeoutHandler = null;
+          witnessSocket.socket.emit(event, arg, (err, res) => {
+            if (called) return;
+            called = true;
+            if (timeoutHandler) {
+              clearTimeout(timeoutHandler);
+            }
+            cb(err, res);
+          });
+
+          timeoutHandler = setTimeout(() => {
+            if (called) return;
+            called = true;
+            cb(new Error('callback timeout'));
+          }, finalTimeout);
+        };
         console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
       }
     }
@@ -619,28 +637,12 @@ const connectToWitnesses = async () => {
   }
 };
 
-const addPendingAck = (witness, round) => {
-  const ackId = `${witness}:${round.round}`;
-
-  if (pendingAcknowledgments[ackId]) {
-    pendingAcknowledgments[ackId].attempts += 1;
-    pendingAcknowledgments[ackId].timestamp = new Date();
-  } else {
-    pendingAcknowledgments[ackId] = {
-      witness,
-      round,
-      timestamp: new Date(),
-      attempts: 0,
-    };
-  }
-};
-
 const proposeRound = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    addPendingAck(witness, round);
-    witnessSocket.socket.emit('proposeRound', round, timeoutCallback((err, res) => {
+    // eslint-disable-next-line func-names
+    witnessSocket.socket.emitWithTimeout('proposeRound', round, (err, res) => {
       if (err) console.error(witness, err);
       if (res) {
         verifyRoundHandler(witness, res);
@@ -649,7 +651,7 @@ const proposeRound = async (witness, round) => {
           proposeRound(witness, round);
         }, 3000);
       }
-    }));
+    });
     console.log('proposing round', round.round, 'to witness', witnessSocket.witness.account);
   } else {
     // wait for the connection to be established
@@ -663,12 +665,12 @@ const proposeWitnessChange = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
   if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    witnessSocket.socket.emit('proposeWitnessChange', round, timeoutCallback((err, res) => {
+    witnessSocket.socket.emitWithTimeout('proposeWitnessChange', round, (err, res) => {
       if (err) console.error(witness, err);
       if (res) {
         witnessChangeHandler(witness, res);
       }
-    }));
+    });
     console.log('proposing witness change', round.round, 'to witness', witnessSocket.witness.account);
   } else {
     // wait for the connection to be established
