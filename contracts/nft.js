@@ -3,6 +3,8 @@ const CONTRACT_NAME = 'nft';
 // eslint-disable-next-line no-template-curly-in-string
 const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 const MAX_NUM_AUTHORIZED_ISSUERS = 10;
+const MAX_NUM_LOCKED_TOKEN_TYPES = 10;
+const MAX_SYMBOL_LENGTH = 10;
 
 actions.createSSC = async (payload) => {
   let tableExists = await api.db.tableExists('nfts');
@@ -49,14 +51,16 @@ actions.updateParams = async (payload) => {
 };
 
 // check that token transfers succeeded
-const isTokenTransferVerified = (result, from, to, symbol, quantity) => {
+const isTokenTransferVerified = (result, from, to, symbol, quantity, eventStr) => {
   if (result.errors === undefined
-    && result.events && result.events.find(el => el.contract === 'tokens' && el.event === 'transfer'
+    && result.events && result.events.find(el => el.contract === 'tokens' && el.event === eventStr
     && el.data.from === from && el.data.to === to && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
     return true;
   }
   return false;
 };
+
+const countDecimals = value => api.BigNumber(value).dp();
 
 // check if duplicate elements in array
 const containsDuplicates = (arr) => {
@@ -91,6 +95,39 @@ const isValidContractsArray = (arr) => {
     }
   });
   return validContents;
+};
+
+// used to validate bundles of tokens to be locked in an NFT upon issuance
+// (tokens must exist, basket must not consist of too many token types, and issuing account
+// must have enough of each token)
+const isValidTokenBasket = (basket, balanceTableName, accountName, feeSymbol, feeQuantity) => {
+  try {
+    const symbolCount = Object.keys(basket).length;
+    if (symbolCount > MAX_NUM_LOCKED_TOKEN_TYPES) {
+      return false;
+    }
+    for (const [symbol, quantity] of Object.entries(basket)) {
+      let validContents = false;
+      if (typeof symbol === 'string') && api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= MAX_SYMBOL_LENGTH) {
+        const token = await api.db.findOneInTable('tokens', 'tokens', { symbol });
+        if (token) {
+          if (quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN() && api.BigNumber(quantity).gt(0) && countDecimals(quantity) <= token.precision) {
+            const finalQuantity = symbol === feeSymbol ? api.BigNumber(quantity).plus(feeQuantity) : quantity;
+            const basketTokenBalance = await api.db.findOneInTable('tokens', balanceTableName, { account: accountName, symbol: symbol });
+            if (basketTokenBalance && api.BigNumber(basketTokenBalance.balance).gte(finalQuantity)) {
+              validContents = true;
+            }
+          }
+        }
+      }
+      if (!validContents) {
+        return false;
+      }
+    }
+  } catch (e) {
+    return false;
+  }
+  return true;
 };
 
 actions.updateUrl = async (payload) => {
@@ -367,7 +404,7 @@ actions.addProperty = async (payload) => {
             if (api.BigNumber(dataPropertyCreationFee).gt(0)) {
               const res = await api.executeSmartContract('tokens', 'transfer', { to: 'null', symbol: UTILITY_TOKEN_SYMBOL, quantity: dataPropertyCreationFee, isSignedWithActiveKey });
               // check if the tokens were sent
-              if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, dataPropertyCreationFee)) {
+              if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, dataPropertyCreationFee, 'transfer')) {
                 return false;
               }
             }
@@ -473,7 +510,7 @@ actions.create = async (payload) => {
       && (authorizedIssuingAccounts === undefined || (authorizedIssuingAccounts && typeof authorizedIssuingAccounts === 'object' && Array.isArray(authorizedIssuingAccounts)))
       && (authorizedIssuingContracts === undefined || (authorizedIssuingContracts && typeof authorizedIssuingContracts === 'object' && Array.isArray(authorizedIssuingContracts)))
       && (maxSupply === undefined || (maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN())), 'invalid params')) {
-    if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= 10, 'invalid symbol: uppercase letters only, max length of 10')
+    if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= MAX_SYMBOL_LENGTH, `invalid symbol: uppercase letters only, max length of ${MAX_SYMBOL_LENGTH}`)
       && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
       && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
       && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
@@ -486,7 +523,7 @@ actions.create = async (payload) => {
         if (api.BigNumber(nftCreationFee).gt(0)) {
           const res = await api.executeSmartContract('tokens', 'transfer', { to: 'null', symbol: UTILITY_TOKEN_SYMBOL, quantity: nftCreationFee, isSignedWithActiveKey });
           // check if the tokens were sent
-          if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, nftCreationFee)) {
+          if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, nftCreationFee, 'transfer')) {
             return false;
           }
         }
@@ -547,49 +584,104 @@ actions.issue = async (payload) => {
   } = payload;
   const types = ['user', 'contract'];
 
+  const finalToType = toType === undefined ? 'user' : toType;
+  const finalFromType = fromType === undefined ? 'user' : fromType;
+
   // get contract params
   const params = await api.db.findOne('params', {});
   const { nftIssuanceFee } = params;
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(symbol && typeof symbol === 'string'
-    && fromType && typeof fromType === 'string' && types.includes(fromType)
-    && (callingContractInfo || (callingContractInfo === undefined && fromType === 'user'))
+    && finalFromType && typeof finalFromType === 'string' && types.includes(finalFromType)
+    && (callingContractInfo || (callingContractInfo === undefined && finalFromType === 'user'))
     && to && typeof to === 'string'
-    && toType && typeof toType === 'string' && types.includes(toType)
-    && feeSymbol && typeof feeSymbol === 'string'
+    && finalToType && typeof finalToType === 'string' && types.includes(finalToType)
+    && feeSymbol && typeof feeSymbol === 'string' && feeSymbol in nftIssuanceFee
     && (lockTokens === undefined || (lockTokens && typeof lockTokens === 'object')), 'invalid params')) {
-    const finalTo = toType === 'user' ? to.trim().toLowerCase() : to.trim();
-    const toValid = toType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
-    let finalFrom = api.sender;
-    if (fromType === 'contract') {
-      finalFrom = callingContractInfo.name;
-    }
+    const finalTo = finalToType === 'user' ? to.trim().toLowerCase() : to.trim();
+    const toValid = finalToType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
+    const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
+    const balanceTableName = finalFromType === 'user' ? 'balances' : 'contractsBalances';
     if (api.assert(toValid, 'invalid to')) {
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
 
       if (api.assert(nft !== null, 'symbol does not exist')) {
+        const instanceTableName = finalToType === 'user' ? symbol + 'instances' : symbol + "contractInstances";
         // verify caller has authority to issue this NFT & we have not reached max supply
-        if (api.assert((fromType === 'contract' && nft.authorizedIssuingContracts.includes(finalFrom))
-          || (fromType === 'user' && nft.authorizedIssuingAccounts.includes(finalFrom)), 'not allowed to issue tokens')
+        if (api.assert((finalFromType === 'contract' && nft.authorizedIssuingContracts.includes(finalFrom))
+          || (finalFromType === 'user' && nft.authorizedIssuingAccounts.includes(finalFrom)), 'not allowed to issue tokens')
           && api.assert(nft.maxSupply === 0 || (nft.supply < nft.maxSupply), 'max supply limit reached')) {
-          const newTest = {
-            account: api.sender,
-            symbol,
-            data: 'woot',
-            quantity
-          };
+          // calculate the cost of issuing this NFT
+          const propertyCount = Object.keys(nft.properties).length;
+          const issuanceFee = api.BigNumber(nftIssuanceFee[feeSymbol]).multipliedBy(propertyCount);
+          const feeTokenBalance = await api.db.findOneInTable('tokens', balanceTableName, { account: finalFrom, symbol: feeSymbol });
+          const authorizedCreation = issuanceFee.lte(0)
+            ? true
+            : feeTokenBalance && api.BigNumber(feeTokenBalance.balance).gte(issuanceFee);
+          // sanity checks on any tokens the issuer wants to lock up in this NFT
+          if (lockTokens) {
+            if (!api.assert(isValidTokenBasket(lockTokens, balanceTableName, finalFrom, feeSymbol, issuanceFee),
+              `invalid basket of tokens to lock (cannot lock more than ${MAX_NUM_LOCKED_TOKEN_TYPES} token types; issuing account must have enough balance)`)) {
+              return false;
+            }
+          }
+          if (api.assert(authorizedCreation, 'you must have enough tokens to cover the issuance fees')) {
+            // burn the token issuance fees
+            if (api.BigNumber(issuanceFee).gt(0)) {
+              if (finalFromType === 'contract') {
+                // TODO: this won't work because it must transfer from the calling contract, NOT the nft contract iself
+                // will need to modify core code to make this possible
+                const res = await api.transferTokens('null', feeSymbol, issuanceFee, 'user');
+                if (!isTokenTransferVerified(res, finalFrom, 'null', feeSymbol, issuanceFee, 'transferFromContract')) {
+                  return false;
+                }
+              } else {
+                const res = await api.executeSmartContract('tokens', 'transfer', { to: 'null', symbol: feeSymbol, quantity: issuanceFee, isSignedWithActiveKey });
+                if (!isTokenTransferVerified(res, finalFrom, 'null', feeSymbol, issuanceFee, 'transfer')) {
+                  return false;
+                }
+              }
+            }
 
-          let instanceTableName = symbol + 'instances';
-          let tableExists = await api.db.tableExists(instanceTableName);
-          if (api.assert(tableExists, 'instance table must exist')) {
-            await api.db.insert(instanceTableName, newTest);
+            // any locked tokens should be sent to the nft contract for custodianship
+            let finalLockTokens = {}
+            if (lockTokens) {
+              for (const [symbol, quantity] of Object.entries(basket)) {
+                if (finalFromType === 'contract') {
+                  // TODO: this won't work because it must transfer from the calling contract, NOT the nft contract iself
+                  // will need to modify core code to make this possible
+                  const res = await api.transferTokens(CONTRACT_NAME, symbol, quantity, 'contract');
+                  if (isTokenTransferVerified(res, finalFrom, CONTRACT_NAME, symbol, quantity, 'transferFromContract')) {
+                    finalLockTokens[symbol] = quantity;
+                  }
+                } else {
+                  const res = await api.executeSmartContract('tokens', 'transferToContract', { to: CONTRACT_NAME, symbol, quantity, isSignedWithActiveKey });
+                  if (isTokenTransferVerified(res, finalFrom, CONTRACT_NAME, symbol, quantity, 'transferToContract')) {
+                    finalLockTokens[symbol] = quantity;
+                  }
+                }
+              }
+            }
+
+            // finally, we can issue the NFT!
+            const newInstance = {
+              account: finalTo,
+              lockedTokens: finalLockTokens,
+              properties: {},
+            };
+
+            await api.db.insert(instanceTableName, newInstance);
+
+            // TODO: update supply and circulating supply for main NFT record
+            return true;
           }
         }
       }
     }
   }
+  return false;
 };
 
 /*actions.swap = async (payload) => {
