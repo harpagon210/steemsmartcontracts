@@ -358,9 +358,7 @@ describe('nft', function() {
       console.log(tables);
       
       assert.equal('nft_TSTNFTinstances' in tables, true);
-      assert.equal('nft_TSTNFTcontractInstances' in tables, true);
       assert.equal('nft_TESTinstances' in tables, true);
-      assert.equal('nft_TESTcontractInstances' in tables, true);
 
       resolve();
     })
@@ -413,6 +411,7 @@ describe('nft', function() {
 
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[1].logs)      // TODO: remove this line
       console.log(transactionsBlock1[4].logs)
       console.log(transactionsBlock1[6].logs)
       console.log(transactionsBlock1[7].logs)
@@ -432,6 +431,152 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`);
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'cannot add the same account twice');
       assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'symbol already exists');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('issues nft instances', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.403", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["cryptomancer","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"contract1", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"dice", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"level", "type":"number" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"frozen", "type":"boolean", "isReadOnly":true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"contract2", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[9].logs)
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[16].logs)
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'nfts',
+          query: {}
+        }
+      });
+
+      const tokens = res.payload;
+      console.log(tokens);
+
+      // check NFT supply updates OK
+      assert.equal(tokens[0].symbol, 'TSTNFT');
+      assert.equal(tokens[0].issuer, 'cryptomancer');
+      assert.equal(tokens[0].name, 'test NFT');
+      assert.equal(tokens[0].maxSupply, 3);
+      //assert.equal(tokens[0].supply, 2);
+      //assert.equal(tokens[0].circulatingSupply, 2);
+
+      assert.equal(tokens[1].symbol, 'TEST');
+      assert.equal(tokens[1].issuer, 'cryptomancer');
+      assert.equal(tokens[1].name, 'test NFT 2');
+      assert.equal(tokens[1].maxSupply, 0);
+      //assert.equal(tokens[1].supply, 0);
+      //assert.equal(tokens[1].circulatingSupply, 0);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TSTNFTinstances',
+          query: {}
+        }
+      });
+
+      let instances = res.payload;
+      console.log(instances);
+
+      // check NFT instances are OK
+      // TODO: add asserts here
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TESTinstances',
+          query: {}
+        }
+      });
+
+      instances = res.payload;
+      console.log(instances);
+
+      // check NFT instances are OK
+      // TODO: add asserts here
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'balances',
+          query: { account: 'cryptomancer' }
+        }
+      });
+
+      let balances = res.payload;
+      console.log(balances);
+
+      // check issuance fees & locked tokens were subtracted from account balance
+      // TODO: add asserts here
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'tokens',
+          table: 'contractsBalances',
+          query: { account: 'nft' }
+        }
+      });
+
+      balances = res.payload;
+      console.log(balances);
+
+      // check nft contract has the proper amount of locked tokens
+      // TODO: add asserts here
 
       resolve();
     })
