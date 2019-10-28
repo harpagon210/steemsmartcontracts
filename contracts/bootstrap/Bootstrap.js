@@ -81,6 +81,25 @@ class Bootstrap {
 
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
+    /**
+     * Bootstrapping the subscriptions contract
+     */
+    contractCode = await fs.readFileSync('./contracts/bootstrap/subscriptions.js');
+    contractCode = contractCode.toString();
+
+    contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_TWO\}\$'/g, CONSTANTS.FORK_BLOCK_NUMBER_TWO);
+    contractCode = contractCode.replace(/'\$\{FORK_BLOCK_NUMBER_THREE\}\$'/g, CONSTANTS.FORK_BLOCK_NUMBER_THREE);
+
+    base64ContractCode = Base64.encode(contractCode);
+
+    contractPayload = {
+      name: 'subscriptions',
+      params: '',
+      code: base64ContractCode,
+    };
+
+    transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
+
     // dice contract
     /* contractCode = await fs.readFileSync('./contracts/bootstrap/dice.js');
     contractCode = contractCode.toString();

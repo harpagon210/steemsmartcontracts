@@ -459,7 +459,6 @@ class SmartContracts {
       }
     });
   }
-
   static async executeSmartContractFromSmartContract(
     ipc, originalResults, sender, originalParameters,
     contract, action, parameters,
