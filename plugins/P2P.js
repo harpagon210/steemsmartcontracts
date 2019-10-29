@@ -194,20 +194,25 @@ const disconnectHandler = async (id, reason) => {
 };
 
 const checkSignature = (payload, signature, publicKey, isPayloadSHA256 = false) => {
-  const sig = dsteem.Signature.fromString(signature);
-  let payloadHash;
+  try {
+    const sig = dsteem.Signature.fromString(signature);
+    let payloadHash;
 
-  if (isPayloadSHA256 === true) {
-    payloadHash = payload;
-  } else {
-    payloadHash = typeof payload === 'string'
-      ? SHA256(payload).toString(enchex)
-      : SHA256(JSON.stringify(payload)).toString(enchex);
+    if (isPayloadSHA256 === true) {
+      payloadHash = payload;
+    } else {
+      payloadHash = typeof payload === 'string'
+        ? SHA256(payload).toString(enchex)
+        : SHA256(JSON.stringify(payload)).toString(enchex);
+    }
+
+    const buffer = Buffer.from(payloadHash, 'hex');
+
+    return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+  } catch (error) {
+    console.log(error);
+    return false;
   }
-
-  const buffer = Buffer.from(payloadHash, 'hex');
-
-  return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
 };
 
 const signPayload = (payload, isPayloadSHA256 = false) => {
