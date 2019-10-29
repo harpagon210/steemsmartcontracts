@@ -4,6 +4,8 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const { MongoClient } = require('mongodb');
 const dsteem = require('dsteem');
+const SHA256 = require('crypto-js/sha256');
+const enchex = require('crypto-js/enc-hex');
 
 const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
@@ -97,6 +99,21 @@ const unloadPlugin = (plugin) => {
   currentJobId = 0;
 }
 
+const signPayload = (signingKey, payload, isPayloadSHA256 = false) => {
+  let payloadHash;
+  if (isPayloadSHA256 === true) {
+    payloadHash = payload;
+  } else {
+    payloadHash = typeof payload === 'string'
+      ? SHA256(payload).toString(enchex)
+      : SHA256(JSON.stringify(payload)).toString(enchex);
+  }
+
+  const buffer = Buffer.from(payloadHash, 'hex');
+
+  return signingKey.sign(buffer).toString();
+};
+
 let contractCode = fs.readFileSync('./contracts/tokens.js');
 contractCode = contractCode.toString();
 
@@ -181,8 +198,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.254", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.253", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
         refSteemBlockNumber: 32713425,
@@ -207,7 +224,7 @@ describe('witnesses', function () {
       let witnesses = res.payload;
 
       assert.equal(witnesses[0].account, 'dan');
-      assert.equal(witnesses[0].IP, "123.456.789.123");
+      assert.equal(witnesses[0].IP, "123.255.123.254");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '0');
       assert.equal(witnesses[0].RPCPort, 5000);
       assert.equal(witnesses[0].P2PPort, 6000);
@@ -215,7 +232,7 @@ describe('witnesses', function () {
       assert.equal(witnesses[0].enabled, true);
 
       assert.equal(witnesses[1].account, 'vitalik');
-      assert.equal(witnesses[1].IP, "123.456.789.456");
+      assert.equal(witnesses[1].IP, "123.255.123.253");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, '0');
       assert.equal(witnesses[1].RPCPort, 7000);
       assert.equal(witnesses[1].P2PPort, 8000);
@@ -224,8 +241,8 @@ describe('witnesses', function () {
 
       transactions = [];
 
-      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "456.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "456.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(2, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.124", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
         refSteemBlockNumber: 32713425,
@@ -250,7 +267,7 @@ describe('witnesses', function () {
       witnesses = res.payload;
 
       assert.equal(witnesses[0].account, 'dan');
-      assert.equal(witnesses[0].IP, "456.456.789.123");
+      assert.equal(witnesses[0].IP, "123.255.123.123");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '0');
       assert.equal(witnesses[0].RPCPort, 5000);
       assert.equal(witnesses[0].P2PPort, 6000);
@@ -258,7 +275,7 @@ describe('witnesses', function () {
       assert.equal(witnesses[0].enabled, false);
 
       assert.equal(witnesses[1].account, 'vitalik');
-      assert.equal(witnesses[1].IP, "456.456.789.456");
+      assert.equal(witnesses[1].IP, "123.255.123.124");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, '0');
       assert.equal(witnesses[1].RPCPort, 7000);
       assert.equal(witnesses[1].P2PPort, 8000);
@@ -285,8 +302,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -369,7 +386,7 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "200.00000000");
 
       transactions = [];
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.456.789.890", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.234.123.245", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -488,12 +505,12 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.232", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.456.789.890", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.234.123.231", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
@@ -699,8 +716,8 @@ describe('witnesses', function () {
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.456.789.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.456.789.456", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
@@ -1256,7 +1273,7 @@ describe('witnesses', function () {
         txId++;
         const witnessAccount = `witness${index}`;
         const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
-        transactions.push(new Transaction(1, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.456.789.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic(ADR_PREFIX).toString()}", "enabled": false, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(1, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1298,89 +1315,21 @@ describe('witnesses', function () {
 
       let schedule = res.payload;
 
-      assert.equal(schedule[0].witness, "witness26");
+      assert.equal(schedule[0].witness, "witness34");
       assert.equal(schedule[0].blockNumber, 2);
-      assert.equal(schedule[0].blockPropositionDeadline, 13);
+      assert.equal(schedule[0].round, 1);
 
       assert.equal(schedule[1].witness, "witness33");
       assert.equal(schedule[1].blockNumber, 3);
-      assert.equal(schedule[1].blockPropositionDeadline, 0);
+      assert.equal(schedule[1].round, 1);
 
-      assert.equal(schedule[2].witness, "witness18");
+      assert.equal(schedule[2].witness, "witness32");
       assert.equal(schedule[2].blockNumber, 4);
-      assert.equal(schedule[2].blockPropositionDeadline, 0);
+      assert.equal(schedule[2].round, 1);
 
-      assert.equal(schedule[3].witness, "witness20");
+      assert.equal(schedule[3].witness, "witness15");
       assert.equal(schedule[3].blockNumber, 5);
-      assert.equal(schedule[3].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[4].witness, "witness27");
-      assert.equal(schedule[4].blockNumber, 6);
-      assert.equal(schedule[4].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[5].witness, "witness24");
-      assert.equal(schedule[5].blockNumber, 7);
-      assert.equal(schedule[5].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[6].witness, "witness21");
-      assert.equal(schedule[6].blockNumber, 8);
-      assert.equal(schedule[6].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[7].witness, "witness23");
-      assert.equal(schedule[7].blockNumber, 9);
-      assert.equal(schedule[7].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[8].witness, "witness29");
-      assert.equal(schedule[8].blockNumber, 10);
-      assert.equal(schedule[8].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[9].witness, "witness15");
-      assert.equal(schedule[9].blockNumber, 11);
-      assert.equal(schedule[9].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[10].witness, "witness31");
-      assert.equal(schedule[10].blockNumber, 12);
-      assert.equal(schedule[10].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[11].witness, "witness34");
-      assert.equal(schedule[11].blockNumber, 13);
-      assert.equal(schedule[11].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[12].witness, "witness30");
-      assert.equal(schedule[12].blockNumber, 14);
-      assert.equal(schedule[12].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[13].witness, "witness28");
-      assert.equal(schedule[13].blockNumber, 15);
-      assert.equal(schedule[13].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[14].witness, "witness17");
-      assert.equal(schedule[14].blockNumber, 16);
-      assert.equal(schedule[14].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[15].witness, "witness22");
-      assert.equal(schedule[15].blockNumber, 17);
-      assert.equal(schedule[15].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[16].witness, "witness25");
-      assert.equal(schedule[16].blockNumber, 18);
-      assert.equal(schedule[16].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[17].witness, "witness32");
-      assert.equal(schedule[17].blockNumber, 19);
-      assert.equal(schedule[17].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[18].witness, "witness8");
-      assert.equal(schedule[18].blockNumber, 20);
-      assert.equal(schedule[18].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[19].witness, "witness19");
-      assert.equal(schedule[19].blockNumber, 21);
-      assert.equal(schedule[19].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[20].witness, "witness16");
-      assert.equal(schedule[20].blockNumber, 22);
-      assert.equal(schedule[20].blockPropositionDeadline, 0);
+      assert.equal(schedule[3].round, 1);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1398,8 +1347,11 @@ describe('witnesses', function () {
       assert.equal(params.totalApprovalWeight, '3000.00000000');
       assert.equal(params.numberOfApprovedWitnesses, 30);
       assert.equal(params.lastVerifiedBlockNumber, 1);
-      assert.equal(params.currentWitness, 'witness26');
-      
+      assert.equal(params.currentWitness, 'witness15');
+      assert.equal(params.lastWitnessPreviousRound, 'witness15');
+      assert.equal(params.round, 1);
+      assert.equal(params.lastBlockRound, 5);
+
       resolve();
     })
       .then(() => {
@@ -1409,7 +1361,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('verifies a block', (done) => {
+  it('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1425,7 +1377,9 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        const witnessAccount = `witness${index}`;
+        const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
+        transactions.push(new Transaction(1, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1454,332 +1408,23 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {
-        }
-      });
-
-      let blockRes = res.payload;
-
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = blockRes;
-
-      transactions = [];
-      let payload = {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-        isSignedWithActiveKey: true 
-      }
-      transactions.push(new Transaction(1, 'TXID1000', 'witness26', 'witnesses', 'proposeBlock', JSON.stringify(payload)));
-
-      block = {
-        refSteemBlockNumber: 32713425,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'witnesses',
-          table: 'proposedBlocks',
-          query: {
-            
-          }
-        }
-      });
-
-      let proposedBlocks = res.payload;
-
-      assert.equal(proposedBlocks[0].witnesses[0].witness, 'witness26');
-      assert.equal(proposedBlocks[0].witnesses[0].txID, 'TXID1000');
-      assert.equal(proposedBlocks[0].blockNumber, payload.blockNumber);
-      assert.equal(proposedBlocks[0].previousHash, payload.previousHash);
-      assert.equal(proposedBlocks[0].previousDatabaseHash, payload.previousDatabaseHash);
-      assert.equal(proposedBlocks[0].hash, payload.hash);
-      assert.equal(proposedBlocks[0].databaseHash, payload.databaseHash);
-      assert.equal(proposedBlocks[0].merkleRoot, payload.merkleRoot);
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'witnesses',
-          table: 'schedules',
-          query: {
-            witness: 'witness26'
-          }
-        }
-      });
-
-      let schedule = res.payload;
-      assert.equal(schedule.blockNumber, 2);
-      assert.equal(schedule.blockPropositionDeadline, 13);
-      assert.equal(schedule.blockDisputeDeadline, 13);
-
-      for (let index = 0; index < 10; index++) {
+      for (let i = 1; i < 4; i++) {
         transactions = [];
         txId++
         // send whatever transaction;
-        transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
-
+        transactions.push(new Transaction(i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
         block = {
-          refSteemBlockNumber: 12345678903,
-          refSteemBlockId: 'ABCD1',
-          prevRefSteemBlockId: 'ABCD2',
-          timestamp: '2018-06-09T00:00:01',
+          refSteemBlockNumber: 32713426 + i,
+          refSteemBlockId: `ABCD123${i}`,
+          prevRefSteemBlockId: `ABCD123${i - 1}`,
+          timestamp: `2018-06-01T00:00:0${i}`,
           transactions,
         };
 
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      }
+      } 
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2
-      });
-
-      blockRes = res.payload;
-      assert.equal(blockRes.verified, true);
-      assert.equal(blockRes.witnesses[0].witness, 'witness26');
-      assert.equal(blockRes.witnesses[0].txID, 'TXID1000');
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'witnesses',
-          table: 'params',
-          query: {
-            
-          }
-        }
-      });
-
-      params = res.payload;
-
-      assert.equal(params.lastVerifiedBlockNumber, 2);
-      
-      resolve();
-    })
-      .then(() => {
-        unloadPlugin(blockchain);
-        unloadPlugin(database);
-        done();
-      });
-  });
-
-  it.skip('generates a new schedule once the current one is completed', (done) => {
-    new Promise(async (resolve) => {
-      
-      await loadPlugin(database);
-      await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      let txId = 100;
-      let transactions = [];
-      transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(1, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
-
-      // register 100 witnesses
-      for (let index = 0; index < 100; index++) {
-        txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
-      }
-
-      let block = {
-        refSteemBlockNumber: 32713425,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      transactions = [];
-      for (let index = 0; index < 30; index++) {
-        txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
-      }
-
-      block = {
-        refSteemBlockNumber: 32713425,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'witnesses',
-          table: 'schedules',
-          query: {
-          }
-        }
-      });
-
-      let schedule = res.payload;
-
-      for (let index = 0; index < 21; index++) {
-        txId++;
-
-        res = await send(database.PLUGIN_NAME, 'MASTER', {
-          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-          payload: schedule[index].blockNumber
-        });
-  
-        let blockRes = res.payload;
-
-        const {
-          blockNumber,
-          previousHash,
-          previousDatabaseHash,
-          hash,
-          databaseHash,
-          merkleRoot,
-        } = blockRes;
-  
-        let payload = {
-          blockNumber,
-          previousHash,
-          previousDatabaseHash,
-          hash,
-          databaseHash,
-          merkleRoot,
-          isSignedWithActiveKey: true 
-        };
-
-        transactions = [];
-        transactions.push(new Transaction(1, `TXID${txId}`, schedule[index].witness, 'witnesses', 'proposeBlock', JSON.stringify(payload)));
-
-        block = {
-          refSteemBlockNumber: 32713425,
-          refSteemBlockId: 'ABCD13',
-          prevRefSteemBlockId: 'ABCD29',
-          timestamp: '2018-06-01T00:00:00',
-          transactions,
-        };
-
-        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      }
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'witnesses',
-          table: 'schedules',
-          query: {
-            round: 2
-          }
-        }
-      });
-
-      schedule = res.payload;
-
-      assert.equal(schedule[0].witness, "witness16");
-      assert.equal(schedule[0].blockNumber, 23);
-      assert.equal(schedule[0].blockPropositionDeadline, 34);
-
-      assert.equal(schedule[1].witness, "witness23");
-      assert.equal(schedule[1].blockNumber, 24);
-      assert.equal(schedule[1].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[2].witness, "witness34");
-      assert.equal(schedule[2].blockNumber, 25);
-      assert.equal(schedule[2].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[3].witness, "witness18");
-      assert.equal(schedule[3].blockNumber, 26);
-      assert.equal(schedule[3].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[4].witness, "witness26");
-      assert.equal(schedule[4].blockNumber, 27);
-      assert.equal(schedule[4].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[5].witness, "witness30");
-      assert.equal(schedule[5].blockNumber, 28);
-      assert.equal(schedule[5].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[6].witness, "witness24");
-      assert.equal(schedule[6].blockNumber, 29);
-      assert.equal(schedule[6].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[7].witness, "witness25");
-      assert.equal(schedule[7].blockNumber, 30);
-      assert.equal(schedule[7].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[8].witness, "witness15");
-      assert.equal(schedule[8].blockNumber, 31);
-      assert.equal(schedule[8].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[9].witness, "witness28");
-      assert.equal(schedule[9].blockNumber, 32);
-      assert.equal(schedule[9].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[10].witness, "witness21");
-      assert.equal(schedule[10].blockNumber, 33);
-      assert.equal(schedule[10].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[11].witness, "witness31");
-      assert.equal(schedule[11].blockNumber, 34);
-      assert.equal(schedule[11].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[12].witness, "witness17");
-      assert.equal(schedule[12].blockNumber, 35);
-      assert.equal(schedule[12].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[13].witness, "witness27");
-      assert.equal(schedule[13].blockNumber, 36);
-      assert.equal(schedule[13].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[14].witness, "witness33");
-      assert.equal(schedule[14].blockNumber, 37);
-      assert.equal(schedule[14].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[15].witness, "witness20");
-      assert.equal(schedule[15].blockNumber, 38);
-      assert.equal(schedule[15].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[16].witness, "witness19");
-      assert.equal(schedule[16].blockNumber, 39);
-      assert.equal(schedule[16].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[17].witness, "witness29");
-      assert.equal(schedule[17].blockNumber, 40);
-      assert.equal(schedule[17].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[18].witness, "witness32");
-      assert.equal(schedule[18].blockNumber, 41);
-      assert.equal(schedule[18].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[19].witness, "witness22");
-      assert.equal(schedule[19].blockNumber, 42);
-      assert.equal(schedule[19].blockPropositionDeadline, 0);
-
-      assert.equal(schedule[20].witness, "witness11");
-      assert.equal(schedule[20].blockNumber, 43);
-      assert.equal(schedule[20].blockPropositionDeadline, 0);
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
         payload: {
           contract: 'witnesses',
@@ -1791,49 +1436,89 @@ describe('witnesses', function () {
       });
 
       let params = res.payload;
-      assert.equal(params.lastVerifiedBlockNumber, 12);
-      assert.equal(params.currentWitness, 'witness16');
 
-      for (let j = 0; j < 10; j++) {
-        transactions = [];
-        txId++
-        // send whatever transaction;
-        transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
-        block = {
-          refSteemBlockNumber: 32713426,
-          refSteemBlockId: 'ABCD123',
-          prevRefSteemBlockId: 'ABCD24',
-          timestamp: '2018-06-01T00:00:00',
-          transactions,
-        };
+      let blockNum = params.lastVerifiedBlockNumber + 1;
+      const endBlockRound = params.lastBlockRound;
 
-        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      }  
+      let calculatedRoundHash = '';
+      // calculate round hash
+      while (blockNum <= endBlockRound) {
+        // get the block from the current node
+        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
+          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: blockNum
+        });
 
+        const blockFromNode = queryRes.payload;
+        if (blockFromNode !== null) {
+          calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
+        }
+        blockNum += 1;
+      }
+      
       res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        action: database.PLUGIN_ACTIONS.FIND,
         payload: {
           contract: 'witnesses',
-          table: 'params',
+          table: 'schedules',
           query: {
             
           }
         }
       });
 
-      params = res.payload;
-      assert.equal(params.lastVerifiedBlockNumber, 22);
-      assert.equal(params.currentWitness, 'witness16');
+      let schedules = res.payload;
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 22
+      const signatures = [];
+      schedules.forEach(schedule => {
+        const wif = dsteem.PrivateKey.fromLogin(schedule.witness, 'testnet', 'active');
+        const sig = signPayload(wif, calculatedRoundHash, true)
+        signatures.push([schedule.witness, sig])
       });
 
-      blockRes = res.payload;
-      assert.equal(blockRes.verified, true);
-      assert.equal(blockRes.witnesses[0].witness, 'witness16');
-      assert.equal(blockRes.witnesses[0].txID, 'TXID251');
+      const json = {
+        round: 1,
+        roundHash: calculatedRoundHash,
+        signatures,
+        isSignedWithActiveKey: true,
+      };
+
+      transactions = [];
+      txId++;
+      transactions.push(new Transaction(1, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
+
+      block = {
+        refSteemBlockNumber: 32713425,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      blockNum = params.lastVerifiedBlockNumber + 1;
+
+      // check if the blocks are now marked as verified
+      let i = 0;
+      while (blockNum <= endBlockRound) {
+        // get the block from the current node
+        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
+          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: blockNum
+        });
+
+        const blockFromNode = queryRes.payload;
+        const wif = dsteem.PrivateKey.fromLogin(blockFromNode.witness, 'testnet', 'active');
+        assert.equal(blockFromNode.round, 1);
+        assert.equal(blockFromNode.witness, schedules[i].witness);
+        assert.equal(blockFromNode.roundHash, calculatedRoundHash);
+        assert.equal(blockFromNode.signingKey, wif.createPublic().toString());
+        assert.equal(blockFromNode.roundSignature, signatures[i][1]);
+        
+        blockNum += 1;
+        i +=1;
+      }
       
       resolve();
     })
@@ -1844,7 +1529,7 @@ describe('witnesses', function () {
       });
   });
 
-  it.skip('disputes a block', (done) => {
+  it('generates a new schedule once the current one is completed', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1860,7 +1545,9 @@ describe('witnesses', function () {
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'register', `{ "RPCUrl": "my.awesome.node", "enabled": true, "isSignedWithActiveKey": true }`));
+        const witnessAccount = `witness${index}`;
+        const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
+        transactions.push(new Transaction(1, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
@@ -1876,7 +1563,7 @@ describe('witnesses', function () {
       transactions = [];
       for (let index = 0; index < 30; index++) {
         txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index}", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(1, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
       }
 
       block = {
@@ -1888,58 +1575,85 @@ describe('witnesses', function () {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      
+
+      for (let i = 1; i < 4; i++) {
+        transactions = [];
+        txId++
+        // send whatever transaction;
+        transactions.push(new Transaction(i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+        block = {
+          refSteemBlockNumber: 32713426 + i,
+          refSteemBlockId: `ABCD123${i}`,
+          prevRefSteemBlockId: `ABCD123${i - 1}`,
+          timestamp: `2018-06-01T00:00:0${i}`,
+          transactions,
+        };
+
+        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+      } 
 
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
         payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+            
+          }
         }
       });
 
-      let blockRes = res.payload;
-    
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = blockRes;
+      let params = res.payload;
 
-      transactions = [];
-      let payload = {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-        isSignedWithActiveKey: true 
+      let blockNum = params.lastVerifiedBlockNumber + 1;
+      const endBlockRound = params.lastBlockRound;
+
+      let calculatedRoundHash = '';
+      // calculate round hash
+      while (blockNum <= endBlockRound) {
+        // get the block from the current node
+        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
+          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: blockNum
+        });
+
+        const blockFromNode = queryRes.payload;
+        if (blockFromNode !== null) {
+          calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
+        }
+        blockNum += 1;
       }
-      transactions.push(new Transaction(1, 'TXID1000', 'witness21', 'witnesses', 'proposeBlock', JSON.stringify(payload)));
+      
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'witnesses',
+          table: 'schedules',
+          query: {
+            
+          }
+        }
+      });
 
-      block = {
-        refSteemBlockNumber: 32713425,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
+      let schedules = res.payload;
+
+      const signatures = [];
+      schedules.forEach(schedule => {
+        const wif = dsteem.PrivateKey.fromLogin(schedule.witness, 'testnet', 'active');
+        const sig = signPayload(wif, calculatedRoundHash, true)
+        signatures.push([schedule.witness, sig])
+      });
+
+      const json = {
+        round: 1,
+        roundHash: calculatedRoundHash,
+        signatures,
+        isSignedWithActiveKey: true,
       };
 
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
       transactions = [];
-      payload = {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-        isSignedWithActiveKey: true 
-      }
-      transactions.push(new Transaction(1, 'TXID1001', 'witness24', 'witnesses', 'disputeBlock', JSON.stringify(payload)));
+      txId++;
+      transactions.push(new Transaction(1, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
 
       block = {
         refSteemBlockNumber: 32713425,
@@ -1955,103 +1669,30 @@ describe('witnesses', function () {
         action: database.PLUGIN_ACTIONS.FIND,
         payload: {
           contract: 'witnesses',
-          table: 'disputes',
+          table: 'schedules',
           query: {
             
           }
         }
       });
 
-      let disputes = res.payload;
+      let schedule = res.payload;
 
-      // should have a dispute opened
-      assert.equal(disputes[0].blockNumber, 2);
-      /*
-      assert.equal(disputes[0].previousHash, 'd504b54506cf3ac5404c70e1e9be2916d9c15cd1ed34b0faadbadfd740cbfc26');
-      assert.equal(disputes[0].previousDatabaseHash, '9e0f4d1a1e14355b7073dd70f876ae20e20bbc0615594121116d7f82031b24ff');
-      assert.equal(disputes[0].hash, '2e5af452099e4f80030017249de71a7dd1d29c4dd8011f1261da7f404a2c9b1c');
-      assert.equal(disputes[0].databaseHash, '09ae8a1e1e29a77e927e5ac8bf9b4f58c80fbaf49feb6b8e007bf7ec106463e2');
-      assert.equal(disputes[0].merkleRoot, 'd30817946f06a6ed2a9574c64f22d0680ee7765cec4c1f25b1e474178da3a245');*/
-      assert.equal(disputes[0].numberPropositions, 1);
-      assert.equal(disputes[0].witnesses[0].witness, 'witness24');
-      assert.equal(disputes[0].witnesses[0].txID, 'TXID1001');
+      assert.equal(schedule[0].witness, "witness33");
+      assert.equal(schedule[0].blockNumber, 6);
+      assert.equal(schedule[0].round, 2);
 
-      // it should prevent the block from being verfied when the dispute deadline is reached
-      for (let index = 0; index < 10; index++) {
-        transactions = [];
-        txId++
-        // send whatever transaction;
-        transactions.push(new Transaction(1, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+      assert.equal(schedule[1].witness, "witness15");
+      assert.equal(schedule[1].blockNumber, 7);
+      assert.equal(schedule[1].round, 2);
 
-        block = {
-          refSteemBlockNumber: 12345678903,
-          refSteemBlockId: 'ABCD1',
-          prevRefSteemBlockId: 'ABCD2',
-          timestamp: '2018-06-09T00:00:01',
-          transactions,
-        };
+      assert.equal(schedule[2].witness, "witness32");
+      assert.equal(schedule[2].blockNumber, 8);
+      assert.equal(schedule[2].round, 2);
 
-        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-      }
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2
-      });
-
-      blockRes = res.payload;
-      assert.equal(blockRes.verified, false);
-      assert.equal(blockRes.witnesses.length, 0);
-
-      // after reaching consensus it shoud verify the block
-      transactions = [];
-      for (let index = 0; index < 30; index++) {
-        txId++;
-        transactions.push(new Transaction(1, `TXID${txId}`, `witness${index}`, 'witnesses', 'disputeBlock', JSON.stringify(payload)));
-      }
-
-      block = {
-        refSteemBlockNumber: 32713425,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
-        timestamp: '2018-06-01T00:00:00',
-        transactions,
-      };
-
-      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2
-      });
-
-      blockRes = res.payload;
-      assert.equal(blockRes.verified, true);
-
-      const witnesses = [
-        { witness: 'witness24', txID: 'TXID1001' },
-        { witness: 'witness0', txID: 'TXID241' },
-        { witness: 'witness3', txID: 'TXID244' },
-        { witness: 'witness10', txID: 'TXID251' },
-        { witness: 'witness11', txID: 'TXID252' },
-        { witness: 'witness12', txID: 'TXID253' },
-        { witness: 'witness13', txID: 'TXID254' },
-        { witness: 'witness14', txID: 'TXID255' },
-        { witness: 'witness15', txID: 'TXID256' },
-        { witness: 'witness16', txID: 'TXID257' },
-        { witness: 'witness17', txID: 'TXID258' },
-        { witness: 'witness18', txID: 'TXID259' },
-        { witness: 'witness19', txID: 'TXID260' },
-        { witness: 'witness20', txID: 'TXID261' },
-        { witness: 'witness21', txID: 'TXID262' },
-        { witness: 'witness22', txID: 'TXID263' },
-        { witness: 'witness23', txID: 'TXID264' }]
-
-      for (let index = 0; index < witnesses.length; index++) {
-        const witness = witnesses[index];
-        assert.equal(blockRes.witnesses[index].witness, witness.witness);
-        assert.equal(blockRes.witnesses[index].txID, witness.txID);
-      }
+      assert.equal(schedule[3].witness, "witness34");
+      assert.equal(schedule[3].blockNumber, 9);
+      assert.equal(schedule[3].round, 2);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -2066,7 +1707,13 @@ describe('witnesses', function () {
 
       params = res.payload;
 
-      assert.equal(params.lastVerifiedBlockNumber, 2);
+      assert.equal(params.totalApprovalWeight, '3000.00000000');
+      assert.equal(params.numberOfApprovedWitnesses, 30);
+      assert.equal(params.lastVerifiedBlockNumber, 5);
+      assert.equal(params.currentWitness, 'witness34');
+      assert.equal(params.lastWitnessPreviousRound, 'witness34');
+      assert.equal(params.round, 2);
+      assert.equal(params.lastBlockRound, 9);
       
       resolve();
     })

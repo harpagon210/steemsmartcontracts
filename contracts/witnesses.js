@@ -428,7 +428,9 @@ const manageWitnessesSchedule = async () => {
         const lastWitness = schedule[schedule.length - 1].witness;
         schedule[0].witness = lastWitness;
         schedule[schedule.length - 1].witness = firstWitness;
-      } else if (schedule[0].witness === params.lastWitnessPreviousRound) {
+      }
+
+      if (schedule[0].witness === params.lastWitnessPreviousRound) {
         // make sure the last witness of the previous round is not the first witness of this round
         const firstWitness = schedule[0].witness;
         const secondWitness = schedule[1].witness;
@@ -458,7 +460,6 @@ const manageWitnessesSchedule = async () => {
       params.lastBlockRound = schedule[schedule.length - 1].blockNumber;
       params.currentWitness = schedule[schedule.length - 1].witness;
       params.lastWitnessPreviousRound = schedule[schedule.length - 1].witness;
-
 
       await api.db.update('params', params);
     }

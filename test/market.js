@@ -488,15 +488,6 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-
-      let res2 = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {
-        }
-      });
-
-      console.log(res2.payload.transactions)
-
       let res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
         payload: {
@@ -550,27 +541,6 @@ describe('Market', function() {
       assert.equal(sellOrders[0].price, '0.00000001');
       assert.equal(sellOrders[0].quantity, 100.276);
 
-
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            symbol: 'NKT',
-            priceDec: {
-              $lte: Decimal128.fromString('0.00000001')
-            }
-          },
-          indexes: [
-            { index: "priceDec", descending: true }
-          ]
-        }
-      });
-
-      let sellOrders2 = res.payload;
-
-      console.log(sellOrders2)
       resolve();
     })
       .then(() => {
