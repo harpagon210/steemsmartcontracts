@@ -1348,7 +1348,7 @@ describe('witnesses', function () {
       assert.equal(params.numberOfApprovedWitnesses, 30);
       assert.equal(params.lastVerifiedBlockNumber, 1);
       assert.equal(params.currentWitness, 'witness15');
-      assert.equal(params.lastWitnessPreviousRound, 'witness15');
+      assert.equal(params.lastWitnesses.includes('witness15'), true);
       assert.equal(params.round, 1);
       assert.equal(params.lastBlockRound, 5);
 
@@ -1511,10 +1511,10 @@ describe('witnesses', function () {
         const blockFromNode = queryRes.payload;
         const wif = dsteem.PrivateKey.fromLogin(blockFromNode.witness, 'testnet', 'active');
         assert.equal(blockFromNode.round, 1);
-        assert.equal(blockFromNode.witness, schedules[i].witness);
+        assert.equal(blockFromNode.witness, schedules[schedules.length - 1].witness);
         assert.equal(blockFromNode.roundHash, calculatedRoundHash);
         assert.equal(blockFromNode.signingKey, wif.createPublic().toString());
-        assert.equal(blockFromNode.roundSignature, signatures[i][1]);
+        assert.equal(blockFromNode.roundSignature, signatures[signatures.length - 1][1]);
         
         blockNum += 1;
         i +=1;
@@ -1711,7 +1711,7 @@ describe('witnesses', function () {
       assert.equal(params.numberOfApprovedWitnesses, 30);
       assert.equal(params.lastVerifiedBlockNumber, 5);
       assert.equal(params.currentWitness, 'witness34');
-      assert.equal(params.lastWitnessPreviousRound, 'witness34');
+      assert.equal(params.lastWitnesses.includes('witness34'), true);
       assert.equal(params.round, 2);
       assert.equal(params.lastBlockRound, 9);
       

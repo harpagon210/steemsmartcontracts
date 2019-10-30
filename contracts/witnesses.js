@@ -27,6 +27,7 @@ actions.createSSC = async () => {
       round: 0,
       lastBlockRound: 0,
       currentWitness: null,
+      lastWitnesses: [],
     };
 
     await api.db.insert('params', params);
@@ -422,16 +423,30 @@ const manageWitnessesSchedule = async () => {
         schedule[j] = x;
       }
 
-      // make sure the last witness of the previous round is not the last witness of this round
-      if (schedule[schedule.length - 1].witness === params.lastWitnessPreviousRound) {
-        const firstWitness = schedule[0].witness;
-        const lastWitness = schedule[schedule.length - 1].witness;
-        schedule[0].witness = lastWitness;
-        schedule[schedule.length - 1].witness = firstWitness;
+      // eslint-disable-next-line
+      let lastWitnesses = params.lastWitnesses;
+      const previousRoundWitness = lastWitnesses.length > 0 ? lastWitnesses[lastWitnesses.length - 1] : '';
+
+      if (lastWitnesses.length >= NB_WITNESSES) {
+        lastWitnesses = [];
       }
 
-      if (schedule[0].witness === params.lastWitnessPreviousRound) {
-        // make sure the last witness of the previous round is not the first witness of this round
+      // make sure the last witness of this round is not one of the last witnesses scheduled
+      const lastWitness = schedule[schedule.length - 1].witness;
+      if (lastWitnesses.includes(lastWitness) || previousRoundWitness === lastWitness) {
+        for (let i = 0; i < schedule.length; i += 1) {
+          if (!lastWitnesses.includes(schedule[i].witness)
+            && schedule[i].witness !== previousRoundWitness) {
+            const thisWitness = schedule[i].witness;
+            schedule[i].witness = lastWitness;
+            schedule[schedule.length - 1].witness = thisWitness;
+            break;
+          }
+        }
+      }
+
+      // make sure the witness of the previous round is not the first witness of this round
+      if (schedule[0].witness === previousRoundWitness) {
         const firstWitness = schedule[0].witness;
         const secondWitness = schedule[1].witness;
         schedule[0].witness = secondWitness;
@@ -456,11 +471,11 @@ const manageWitnessesSchedule = async () => {
       if (lastVerifiedBlockNumber === 0) {
         params.lastVerifiedBlockNumber = api.blockNumber - 1;
       }
-
-      params.lastBlockRound = schedule[schedule.length - 1].blockNumber;
-      params.currentWitness = schedule[schedule.length - 1].witness;
-      params.lastWitnessPreviousRound = schedule[schedule.length - 1].witness;
-
+      const lastWitnessRoundSchedule = schedule[schedule.length - 1];
+      params.lastBlockRound = lastWitnessRoundSchedule.blockNumber;
+      params.currentWitness = lastWitnessRoundSchedule.witness;
+      lastWitnesses.push(lastWitnessRoundSchedule.witness);
+      params.lastWitnesses = lastWitnesses;
       await api.db.update('params', params);
     }
   }
@@ -508,6 +523,8 @@ actions.proposeRound = async (payload) => {
         // check the signatures
         let signaturesChecked = 0;
         const verifiedBlockInformation = [];
+        const currentWitnessInfo = await api.db.findOne('witnesses', { account: currentWitness });
+        const currentWitnessSignature = signatures.find(s => s[0] === currentWitness);
         for (let index = 0; index < schedules.length; index += 1) {
           const scheduledWitness = schedules[index];
           const witness = await api.db.findOne('witnesses', { account: scheduledWitness.witness });
@@ -518,24 +535,26 @@ actions.proposeRound = async (payload) => {
                 calculatedRoundHash, signature[1], witness.signingKey, true,
               )) {
                 api.debug(`witness ${witness.account} signed round ${round}`);
-                verifiedBlockInformation.push(
-                  {
-                    blockNumber: scheduledWitness.blockNumber,
-                    witness: witness.account,
-                    signingKey: witness.signingKey,
-                    roundSignature: signature[1],
-                    round,
-                    roundHash,
-                  },
-                );
                 signaturesChecked += 1;
               }
             }
+
+            // the current witness will show as the witness that verified the blocks fro the round
+            verifiedBlockInformation.push(
+              {
+                blockNumber: scheduledWitness.blockNumber,
+                witness: currentWitness,
+                signingKey: currentWitnessInfo.signingKey,
+                roundSignature: currentWitnessSignature[1],
+                round,
+                roundHash,
+              },
+            );
           }
         }
 
         if (signaturesChecked >= NB_WITNESSES_SIGNATURES_REQUIRED) {
-          // mark blocks of the verified round as verified
+          // mark blocks of the verified round as verified by the current witness
           for (let index = 0; index < verifiedBlockInformation.length; index += 1) {
             await api.verifyBlock(verifiedBlockInformation[index]);
           }
@@ -578,7 +597,7 @@ actions.changeCurrentWitness = async (payload) => {
     const {
       currentWitness,
       totalApprovalWeight,
-      lastWitnessPreviousRound,
+      lastWitnesses,
       lastBlockRound,
       round,
     } = params;
@@ -662,9 +681,10 @@ actions.changeCurrentWitness = async (payload) => {
             // if the witness is enabled
             // and different from the scheduled one
             // and different from the scheduled one from the previous round
+            const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
             if (witness.enabled === true
               && witness.account !== schedule.witness
-              && witness.account !== lastWitnessPreviousRound
+              && witness.account !== previousRoundWitness
               && api.BigNumber(randomWeight).lte(accWeight)) {
               schedule.witness = witness.account;
               await api.db.update('schedules', schedule);

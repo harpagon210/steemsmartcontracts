@@ -40,8 +40,6 @@ let manageRoundTimeoutHandler = null;
 let manageP2PConnectionsTimeoutHandler = null;
 let sendingToSidechain = false;
 
-const pendingAcknowledgments = {};
-
 const steemClient = {
   account: null,
   signingKey: null,
@@ -129,20 +127,6 @@ async function calculateRoundHash(startBlockRound, endBlockRound) {
   }
   return calculatedRoundHash;
 }
-
-const insert = async (contract, table, record) => {
-  const res = await ipc.send({
-    to: DB_PLUGIN_NAME,
-    action: DB_PLUGIN_ACTIONS.INSERT,
-    payload: {
-      contract,
-      table,
-      record,
-    },
-  });
-
-  return res.payload;
-};
 
 const find = async (contract, table, query, limit = 1000, offset = 0, indexes = []) => {
   const res = await ipc.send({
@@ -618,30 +602,6 @@ const connectToWitness = (witness) => {
   socket.on('handshake', (payload, cb) => handshakeHandler(id, payload, cb));
 };
 
-const connectToWitnesses = async () => {
-  // retrieve the existing witnesses (only the top 30)
-  const witnesses = await find('witnesses', 'witnesses',
-    {
-      approvalWeight: {
-        $gt: {
-          $numberDecimal: '0',
-        },
-      },
-      enabled: true,
-    },
-    30,
-    0,
-    [
-      { index: 'approvalWeight', descending: true },
-    ]);
-
-  for (let index = 0; index < witnesses.length; index += 1) {
-    if (witnesses[index].account !== this.witnessAccount) {
-      connectToWitness(witnesses[index]);
-    }
-  }
-};
-
 const proposeRound = async (witness, round) => {
   const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
   // if a websocket with this witness is already opened and authenticated
@@ -870,49 +830,6 @@ const init = async (conf, callback) => {
     socketServer.on('connection', socket => connectionHandler(socket));
     console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
 
-    // TEST ONLY
-    /* await insert('witnesses', 'witnesses', {
-      account: 'harpagon',
-      approvalWeight: {
-        $numberDecimal: '10',
-      },
-      signingKey: dsteem.PrivateKey.fromLogin('harpagon', 'testnet', 'active')
-        .createPublic()
-        .toString(),
-      IP: '127.0.0.1',
-      RPCPort: 5000,
-      P2PPort: 5001,
-      enabled: true,
-    });
-
-    await insert('witnesses', 'witnesses', {
-      account: 'dan',
-      approvalWeight: {
-        $numberDecimal: '10',
-      },
-      signingKey: dsteem.PrivateKey.fromLogin('dan', 'testnet', 'active').createPublic().toString(),
-      IP: '127.0.0.1',
-      RPCPort: 6000,
-      P2PPort: 6001,
-      enabled: true,
-    });
-
-
-    await insert('witnesses', 'witnesses', {
-      account: 'vitalik',
-      approvalWeight: {
-        $numberDecimal: '10',
-      },
-      signingKey: dsteem.PrivateKey.fromLogin('vitalik', 'testnet', 'active')
-        .createPublic()
-        .toString(),
-      IP: '127.0.0.1',
-      RPCPort: 7000,
-      P2PPort: 7001,
-      enabled: true,
-    }); */
-
-    // connectToWitnesses();
     manageRound();
     manageP2PConnections();
   } else {
