@@ -670,6 +670,135 @@ describe('nft', function() {
       });
   });
 
+  it('does not issue nft instances', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.403", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": false, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      
+      // invalid params
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fromType":"contract" }`));      
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fromType":"dddd" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "toType":"dddd" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "INVALID" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN", "lockTokens":"bad format" }'));
+
+      // invalid to
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"a", "feeSymbol": "TKN" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1247', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"toooooooolllllllllooooooooonnnnnnnggggggggg", "feeSymbol": "TKN" }'));
+
+      // symbol does not exist
+      transactions.push(new Transaction(12345678901, 'TXID1248', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "BADSYMBOL", "to":"aggroed", "feeSymbol": "TKN" }'));
+
+      // not allowed to issue tokens
+      transactions.push(new Transaction(12345678901, 'TXID1249', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      transactions.push(new Transaction(12345678901, 'TXID1250', 'aggroed', 'testContract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"contract4", "toType":"contract", "feeSymbol": "TKN" }'));
+
+      // max supply limit reached
+      transactions.push(new Transaction(12345678901, 'TXID1251', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1252', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"contract1", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1253', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"dice", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1254', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN" }'));
+
+      // not enough balance for issuance fees
+      transactions.push(new Transaction(12345678901, 'TXID1255', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.3", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1256', 'cryptomancer', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "0.1", "to": "testContract", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1257', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.3"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1258', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "contracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1259', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "accounts": ["cryptomancer"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1260', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1261', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.2"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1262', 'aggroed', 'testContract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"contract4", "toType":"contract", "feeSymbol": "TKN" }'));
+
+      // invalid locked token basket
+      transactions.push(new Transaction(12345678901, 'TXID1263', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.001"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1264', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"100"} }'));
+      transactions.push(new Transaction(12345678901, 'TXID1265', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"AAA":"100"} }'));
+      transactions.push(new Transaction(12345678901, 'TXID1266', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"0.1","BBB":"10"} }'));
+      transactions.push(new Transaction(12345678901, 'TXID1267', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": [1,2,3] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1268', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"0.0001"} }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[13].logs)
+      console.log(transactionsBlock1[14].logs)
+      console.log(transactionsBlock1[15].logs)
+      console.log(transactionsBlock1[16].logs)
+      console.log(transactionsBlock1[17].logs)
+      console.log(transactionsBlock1[18].logs)
+      console.log(transactionsBlock1[19].logs)
+      console.log(transactionsBlock1[20].logs)
+      console.log(transactionsBlock1[24].logs)
+      console.log(transactionsBlock1[30].logs)
+      console.log(transactionsBlock1[32].logs)
+      console.log(transactionsBlock1[34].logs)
+      console.log(transactionsBlock1[35].logs)
+      console.log(transactionsBlock1[36].logs)
+      console.log(transactionsBlock1[37].logs)
+      console.log(transactionsBlock1[38].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'invalid to');
+      assert.equal(JSON.parse(transactionsBlock1[18].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[19].logs).errors[0], 'not allowed to issue tokens');
+      assert.equal(JSON.parse(transactionsBlock1[20].logs).errors[0], 'not allowed to issue tokens');
+      assert.equal(JSON.parse(transactionsBlock1[24].logs).errors[0], 'max supply limit reached');
+      assert.equal(JSON.parse(transactionsBlock1[30].logs).errors[0], 'you must have enough tokens to cover the issuance fees');
+      assert.equal(JSON.parse(transactionsBlock1[32].logs).errors[0], 'you must have enough tokens to cover the issuance fees');
+      assert.equal(JSON.parse(transactionsBlock1[34].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+      assert.equal(JSON.parse(transactionsBlock1[35].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+      assert.equal(JSON.parse(transactionsBlock1[36].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+      assert.equal(JSON.parse(transactionsBlock1[37].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+      assert.equal(JSON.parse(transactionsBlock1[38].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
   it('adds data properties', (done) => {
     new Promise(async (resolve) => {
 
