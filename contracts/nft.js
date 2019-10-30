@@ -637,9 +637,7 @@ actions.issue = async (payload) => {
             // burn the token issuance fees
             if (api.BigNumber(issuanceFee).gt(0)) {
               if (finalFromType === 'contract') {
-                // TODO: this won't work because it must transfer from the calling contract, NOT the nft contract iself
-                // will need to modify core code to make this possible
-                const res = await api.transferTokens('null', feeSymbol, issuanceFee, 'user');
+                const res = await api.transferTokensFromCallingContract('null', feeSymbol, issuanceFee, 'user');
                 if (!api.assert(isTokenTransferVerified(res, finalFrom, 'null', feeSymbol, issuanceFee, 'transferFromContract'), 'unable to transfer issuance fee')) {
                   return false;
                 }
@@ -656,9 +654,7 @@ actions.issue = async (payload) => {
             if (lockTokens) {
               for (const [symbol, quantity] of Object.entries(lockTokens)) {
                 if (finalFromType === 'contract') {
-                  // TODO: this won't work because it must transfer from the calling contract, NOT the nft contract iself
-                  // will need to modify core code to make this possible
-                  const res = await api.transferTokens(CONTRACT_NAME, symbol, quantity, 'contract');
+                  const res = await api.transferTokensFromCallingContract(CONTRACT_NAME, symbol, quantity, 'contract');
                   if (isTokenTransferVerified(res, finalFrom, CONTRACT_NAME, symbol, quantity, 'transferFromContract')) {
                     finalLockTokens[symbol] = quantity;
                   }

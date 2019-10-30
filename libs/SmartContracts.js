@@ -383,6 +383,26 @@ class SmartContracts {
         },
       };
 
+      // if action is called from another contract, we can add an additional function
+      // to allow token transfers from the calling contract
+      if ('callingContractInfo' in payloadObj) {
+        vmState.api.transferTokensFromCallingContract = async (
+          to, symbol, quantity, type,
+        ) => SmartContracts.executeSmartContractFromSmartContract(
+          ipc, results, 'null', payloadObj, 'tokens', 'transferFromContract',
+          JSON.stringify({
+            from: payloadObj.callingContractInfo.name,
+            to,
+            quantity,
+            symbol,
+            type,
+          }),
+          blockNumber, timestamp,
+          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          contract, contractVersion,
+        );
+      }
+
       const error = await SmartContracts.runContractCode(vmState, contractCode, jsVMTimeout);
 
       if (error) {

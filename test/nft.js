@@ -500,6 +500,9 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1252', 'cryptomancer', 'testContract', 'doIssuance', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"contract4", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"4","TKN":"0.5"} }`));
 
       // issue from contract to user
+      transactions.push(new Transaction(12345678901, 'TXID1253', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.8", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1254', 'cryptomancer', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "0.8", "to": "testContract", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1255', 'thecryptodrive', 'testContract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"null", "toType":"user", "feeSymbol": "TKN" }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -525,6 +528,7 @@ describe('nft', function() {
       console.log(transactionsBlock1[17].logs)
       console.log(transactionsBlock1[18].logs)
       console.log(transactionsBlock1[22].logs)
+      console.log(transactionsBlock1[25].logs)
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -543,15 +547,15 @@ describe('nft', function() {
       assert.equal(tokens[0].issuer, 'cryptomancer');
       assert.equal(tokens[0].name, 'test NFT');
       assert.equal(tokens[0].maxSupply, 3);
-      //assert.equal(tokens[0].supply, 2);
-      //assert.equal(tokens[0].circulatingSupply, 2);
+      assert.equal(tokens[0].supply, 3);
+      assert.equal(tokens[0].circulatingSupply, 3);
 
       assert.equal(tokens[1].symbol, 'TEST');
       assert.equal(tokens[1].issuer, 'cryptomancer');
       assert.equal(tokens[1].name, 'test NFT 2');
       assert.equal(tokens[1].maxSupply, 0);
-      //assert.equal(tokens[1].supply, 0);
-      //assert.equal(tokens[1].circulatingSupply, 0);
+      assert.equal(tokens[1].supply, 5);
+      assert.equal(tokens[1].circulatingSupply, 4);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -566,7 +570,18 @@ describe('nft', function() {
       console.log(instances);
 
       // check NFT instances are OK
-      // TODO: add asserts here
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'aggroed');
+      assert.equal(instances[0].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[0].lockedTokens), '{}');
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'aggroed');
+      assert.equal(instances[1].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[1].lockedTokens), '{}');
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'contract1');
+      assert.equal(instances[2].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"}`);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -581,7 +596,26 @@ describe('nft', function() {
       console.log(instances);
 
       // check NFT instances are OK
-      // TODO: add asserts here
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'dice');
+      assert.equal(instances[0].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[0].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"}`);
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'contract2');
+      assert.equal(instances[1].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[1].lockedTokens), '{}');
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'contract3');
+      assert.equal(instances[2].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"4","TKN":"0.5"}`);
+      assert.equal(instances[3]._id, 4);
+      assert.equal(instances[3].account, 'contract4');
+      assert.equal(instances[3].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[3].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"4","TKN":"0.5"}`);
+      assert.equal(instances[4]._id, 5);
+      assert.equal(instances[4].account, 'null');
+      assert.equal(instances[4].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[4].lockedTokens), '{}');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -596,7 +630,10 @@ describe('nft', function() {
       console.log(balances);
 
       // check issuance fees & locked tokens were subtracted from account balance
-      // TODO: add asserts here
+      assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
+      assert.equal(balances[0].balance, '167.10000000');
+      assert.equal(balances[1].symbol, 'TKN');
+      assert.equal(balances[1].balance, '0.000');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -611,7 +648,18 @@ describe('nft', function() {
       console.log(balances);
 
       // check nft contract has the proper amount of locked tokens
-      // TODO: add asserts here
+      assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
+      assert.equal(balances[0].balance, '21.50000000');
+      assert.equal(balances[0].account, 'nft');
+      assert.equal(balances[1].symbol, 'TKN');
+      assert.equal(balances[1].balance, '1.003');
+      assert.equal(balances[1].account, 'nft');
+      assert.equal(balances[2].symbol, 'TKN');
+      assert.equal(balances[2].balance, '0.000');
+      assert.equal(balances[2].account, 'testContract');
+      assert.equal(balances[3].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
+      assert.equal(balances[3].balance, '0.00000000');
+      assert.equal(balances[3].account, 'testContract');
 
       resolve();
     })
