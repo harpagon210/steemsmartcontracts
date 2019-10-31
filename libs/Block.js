@@ -78,110 +78,8 @@ class Block {
     return this.calculateMerkleRoot(newTransactions);
   }
 
-  // dispute a block if a proposed block doesn't match the one produced by this node
-  static async handleDispute(action, proposedBlock, ipc, steemClient) {
-    if (process.env.NODE_MODE === 'REPLAY') return;
-    // eslint-disable-next-line no-await-in-loop
-    let res = await ipc.send({
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: proposedBlock.blockNumber,
-    });
-
-    const block = res.payload;
-    if (block !== null) {
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = block;
-
-      // check if this witness already disputed the block
-      res = await ipc.send({
-        to: DB_PLUGIN_NAME,
-        action: DB_PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'witnesses',
-          table: 'disputes',
-          query: {
-            blockNumber,
-            'witnesses.witness': steemClient.account,
-          },
-        },
-      });
-
-      if (res.payload === null) {
-        // get the round of the block
-        res = await ipc.send({
-          to: DB_PLUGIN_NAME,
-          action: DB_PLUGIN_ACTIONS.FIND_ONE,
-          payload: {
-            contract: 'witnesses',
-            table: 'proposedBlocks',
-            query: {
-              blockNumber,
-            },
-          },
-        });
-        const proposedBlockInDB = res.payload;
-        if (proposedBlockInDB !== null && proposedBlockInDB.witness !== steemClient.account) {
-          const { round } = proposedBlock;
-
-          // check if the witness is allowed to dispute the block
-          res = await ipc.send({
-            to: DB_PLUGIN_NAME,
-            action: DB_PLUGIN_ACTIONS.FIND_ONE,
-            payload: {
-              contract: 'witnesses',
-              table: 'schedules',
-              query: {
-                round,
-                witness: steemClient.account,
-              },
-            },
-          });
-
-          if (res.payload !== null) {
-            let disputeBlock = false;
-            const json = {
-              contractName: 'witnesses',
-              contractAction: 'disputeBlock',
-              contractPayload: {
-                blockNumber,
-                previousHash,
-                previousDatabaseHash,
-                hash,
-                databaseHash,
-                merkleRoot,
-              },
-            };
-            if (action === 'proposeBlock') {
-              if (blockNumber !== proposedBlock.blockNumber
-                || previousHash !== proposedBlock.previousHash
-                || previousDatabaseHash !== proposedBlock.previousDatabaseHash
-                || hash !== proposedBlock.hash
-                || databaseHash !== proposedBlock.databaseHash
-                || merkleRoot !== proposedBlock.merkleRoot) {
-                disputeBlock = true;
-              }
-            } else if (action === 'disputeBlock') {
-              disputeBlock = true;
-            }
-
-            if (disputeBlock === true) {
-              steemClient.sendCustomJSON(json);
-            }
-          }
-        }
-      }
-    }
-  }
-
   // produce the block (deploy a smart contract or execute a smart contract)
-  async produceBlock(ipc, jsVMTimeout, steemClient) {
+  async produceBlock(ipc, jsVMTimeout) {
     const nbTransactions = this.transactions.length;
 
     let currentDatabaseHash = this.previousDatabaseHash;
@@ -205,7 +103,7 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
     }
 
-    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'checkBlockVerificationStatus', ''));
+    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {

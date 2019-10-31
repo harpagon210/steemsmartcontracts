@@ -17,8 +17,6 @@ actions.createSSC = async () => {
     await api.db.createTable('accounts', ['account']);
     await api.db.createTable('schedules');
     await api.db.createTable('params');
-    await api.db.createTable('disputes');
-    await api.db.createTable('proposedBlocks');
 
     const params = {
       totalApprovalWeight: '0',
@@ -539,7 +537,7 @@ actions.proposeRound = async (payload) => {
               }
             }
 
-            // the current witness will show as the witness that verified the blocks fro the round
+            // the current witness will show as the witness that verified the blocks from the round
             verifiedBlockInformation.push(
               {
                 blockNumber: scheduledWitness.blockNumber,
@@ -719,7 +717,7 @@ actions.changeCurrentWitness = async (payload) => {
   }
 };
 
-actions.checkBlockVerificationStatus = async () => {
+actions.scheduleWitnesses = async () => {
   if (api.sender !== 'null') return;
 
   await manageWitnessesSchedule();
