@@ -5,6 +5,9 @@ const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 const MAX_NUM_AUTHORIZED_ISSUERS = 10;
 const MAX_NUM_LOCKED_TOKEN_TYPES = 10;
 const MAX_SYMBOL_LENGTH = 10;
+const MAX_NUM_NFTS_ISSUABLE = 10;    // cannot issue more than this number of NFT instances in one action
+const MAX_NUM_NFTS_EDITABLE = 100;   // cannot set properties on more than this number of NFT instances in one action
+const MAX_DATA_PROPERTY_LENGTH = 100;
 
 actions.createSSC = async (payload) => {
   let tableExists = await api.db.tableExists('nfts');
@@ -99,6 +102,65 @@ const isValidContractsArray = (arr) => {
     }
   });
   return validContents;
+};
+
+// used by issue action to validate user input
+const isValidDataProperties = (from, fromType, nft, properties) => {
+  const propertyCount = Object.keys(properties).length;
+  const nftPropertyCount = Object.keys(nft.properties).length;
+  if (!api.assert(propertyCount <= nftPropertyCount, "cannot set more data properties than NFT has")) {
+    return false;
+  }
+
+  for (const [name, data] of Object.entries(properties)) {
+    let validContents = false;
+    if (api.assert(name && typeof name === 'string'
+      && api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid data property name: letters & numbers only, max length of 25')) {
+      if (api.assert(name in nft.properties, 'data property must exist')) {
+        let propertySchema = nft.properties[name];
+        if (api.assert(data !== undefined && data !== null &&
+          (typeof data === propertySchema.type ||
+          (propertySchema.type === 'number' && typeof data === 'string' && !api.BigNumber(data).isNaN())), `data property type mismatch: expected ${propertySchema.type} but got ${typeof data} for property ${name}`)
+          && api.assert(typeof data !== 'string' || data.length <= MAX_DATA_PROPERTY_LENGTH, `string property max length is ${MAX_DATA_PROPERTY_LENGTH} characters`)
+          && api.assert((fromType === 'contract' && propertySchema.authorizedEditingContracts.includes(from))
+          || (fromType === 'user' && propertySchema.authorizedEditingAccounts.includes(from)), 'not allowed to set data properties')) {
+          validContents = true;
+
+          // if we have a number type represented as a string, then need to do type conversion
+          if (propertySchema.type === 'number' && typeof data === 'string') {
+            properties[name] = api.BigNumber(data).toNumber()
+          }
+        }
+      }
+    }
+    if (!validContents) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+// used by setProperties action to validate user input
+const isValidDataPropertiesArray = (from, fromType, nft, arr) => {
+  try {
+    for (var i = 0; i < arr.length; i++) {
+      let validContents = false;
+      const { id, properties } = arr[i];
+      if (api.assert(id && typeof id === 'string' && !api.BigNumber(id).isNaN() && api.BigNumber(id).gt(0)
+        && properties && typeof properties === 'object', 'invalid data properties')) {
+        if (isValidDataProperties(from, fromType, nft, properties)) {
+          validContents = true;
+        }
+      }
+      if (!validContents) {
+        return false;
+      }
+    }
+  } catch (e) {
+    return false;
+  }
+  return true;
 };
 
 // used to validate bundles of tokens to be locked in an NFT upon issuance
@@ -490,6 +552,60 @@ actions.setPropertyPermissions = async (payload) => {
   }
 };
 
+actions.setProperties = async (payload) => {
+  const {
+    symbol, fromType, nfts, callingContractInfo,
+  } = payload;
+  const types = ['user', 'contract'];
+
+  const finalFromType = fromType === undefined ? 'user' : fromType;
+
+  if (api.assert(nfts && typeof nfts === 'object' && Array.isArray(nfts)
+    && finalFromType && typeof finalFromType === 'string' && types.includes(finalFromType)
+    && symbol && typeof symbol === 'string'
+    && (callingContractInfo || (callingContractInfo === undefined && finalFromType === 'user')), 'invalid params')
+    && api.assert(nfts.length <= MAX_NUM_NFTS_EDITABLE, `cannot set properties on more than ${MAX_NUM_NFTS_EDITABLE} NFT instances at once`)) {
+    const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (api.assert(nft !== null, 'symbol does not exist')) {
+      if (!isValidDataPropertiesArray(finalFrom, finalFromType, nft, nfts)) {
+        return false;
+      }
+
+      const instanceTableName = symbol + 'instances';
+      for (var i = 0; i < nfts.length; i++) {
+        const { id, properties } = nfts[i];
+
+        const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
+        if (api.assert(nftInstance !== null, 'nft instance does not exist')) {
+          let shouldUpdate = false;
+          for (const [name, data] of Object.entries(properties)) {
+            let propertySchema = nft.properties[name];
+            if (propertySchema.isReadOnly) {
+              // read-only properties can only be set once
+              if (api.assert(!(name in nftInstance.properties), 'cannot edit read-only properties')) {
+                nftInstance.properties[name] = data;
+                shouldUpdate = true;
+              }
+            } else {
+              nftInstance.properties[name] = data;
+              shouldUpdate = true;
+            }
+          }
+          if (shouldUpdate) {
+            await api.db.update(instanceTableName, nftInstance);
+          }
+        }
+      }
+
+      return true;
+    }
+  }
+  return false;
+};
+
 actions.create = async (payload) => {
   const {
     name, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
@@ -582,7 +698,7 @@ actions.create = async (payload) => {
 
 actions.issue = async (payload) => {
   const {
-    symbol, fromType, to, toType, feeSymbol, lockTokens, isSignedWithActiveKey, callingContractInfo,
+    symbol, fromType, to, toType, feeSymbol, lockTokens, properties, isSignedWithActiveKey, callingContractInfo,
   } = payload;
   const types = ['user', 'contract'];
 
@@ -600,6 +716,7 @@ actions.issue = async (payload) => {
     && to && typeof to === 'string'
     && finalToType && typeof finalToType === 'string' && types.includes(finalToType)
     && feeSymbol && typeof feeSymbol === 'string' && feeSymbol in nftIssuanceFee
+    && (properties === undefined || (properties && typeof properties === 'object'))
     && (lockTokens === undefined || (lockTokens && typeof lockTokens === 'object')), 'invalid params')) {
     const finalTo = finalToType === 'user' ? to.trim().toLowerCase() : to.trim();
     const toValid = finalToType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
@@ -633,6 +750,20 @@ actions.issue = async (payload) => {
               return false;
             }
           }
+
+          // ensure any included data properties are valid
+          let finalProperties = {};
+          if (!(properties === undefined)) {
+            try {
+              if (!isValidDataProperties(finalFrom, finalFromType, nft, properties)) {
+                return false;
+              }
+            } catch (e) {
+              return false;
+            }
+            finalProperties = properties;
+          }
+
           if (api.assert(authorizedCreation, 'you must have enough tokens to cover the issuance fees')) {
             // burn the token issuance fees
             if (api.BigNumber(issuanceFee).gt(0)) {
@@ -674,7 +805,7 @@ actions.issue = async (payload) => {
               account: finalTo,
               ownedBy,
               lockedTokens: finalLockTokens,
-              properties: {},
+              properties: finalProperties,
             };
 
             const result = await api.db.insert(instanceTableName, newInstance);
@@ -687,7 +818,7 @@ actions.issue = async (payload) => {
             await api.db.update('nfts', nft);
 
             api.emit('issue', {
-              from: finalFrom, fromType: finalFromType, to: finalTo, toType: finalToType, symbol, lockedTokens: finalLockTokens, id: result['_id']
+              from: finalFrom, fromType: finalFromType, to: finalTo, toType: finalToType, symbol, lockedTokens: finalLockTokens, properties: finalProperties, id: result['_id']
             });
             return true;
           }
