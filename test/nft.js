@@ -436,7 +436,6 @@ describe('nft', function() {
 
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[1].logs)      // TODO: remove this line
       console.log(transactionsBlock1[4].logs)
       console.log(transactionsBlock1[6].logs)
       console.log(transactionsBlock1[7].logs)
@@ -981,7 +980,7 @@ describe('nft', function() {
       });
   });
 
-  it('does not set data properties', (done) => {
+  it('sets data properties', (done) => {
     new Promise(async (resolve) => {
 
       await loadPlugin(database);
@@ -992,9 +991,101 @@ describe('nft', function() {
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"7.5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["aggroed","cryptomancer"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "properties":{"level":0} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"marc", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "properties":{} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"testContract", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "properties":{"level":1,"color":"yellow"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'setPropertyPermissions', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "contracts":["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"color":"red","level":"2"}},{"id":"3", "properties": {"color":"black"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'jarunik', 'testContract', 'doSetProperties', '{ "fromType":"contract", "symbol":"TSTNFT", "nfts": [ {"id":"2", "properties": {"frozen":true}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'jarunik', 'testContract', 'doSetProperties', '{ "fromType":"contract", "symbol":"TSTNFT", "nfts": [ {"id":"2", "properties": {"frozen":false}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1247', 'jarunik', 'testContract', 'doSetProperties', '{ "fromType":"contract", "symbol":"TSTNFT", "nfts": [ {"id":"2", "properties": {"level":"999"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1248', 'cryptomancer', 'nft', 'setProperties', '{ "fromType":"user", "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {}},{"id":"2", "properties": {}},{"id":"3", "properties": {}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1249', 'cryptomancer', 'nft', 'setProperties', '{ "fromType":"user", "symbol":"TSTNFT", "nfts": [{"id":"1", "properties": {}},{"id":"3", "properties": {"level":3,"level":3,"level":3}}] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1250', 'cryptomancer', 'nft', 'setProperties', '{ "fromType":"user", "symbol":"TSTNFT", "nfts": [] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1251', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [{"id":"3", "properties": {"id":"NFT-XYZ-123"}}] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1252', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [{"id":"3", "properties": {"id":"NFT-ABC-666"}}] }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TSTNFTinstances',
+          query: {}
+        }
+      });
+
+      let instances = res.payload;
+      console.log(instances);
+
+      // check NFT instances are OK
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'aggroed');
+      assert.equal(instances[0].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[0].properties), '{"level":2,"color":"red"}');
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'marc');
+      assert.equal(instances[1].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[1].properties), '{"frozen":true}');
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'testContract');
+      assert.equal(instances[2].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[2].properties), '{"level":3,"color":"black","id":"NFT-XYZ-123"}');
+      assert.equal(instances.length, 3);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'cannot edit read-only properties');
+      assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'not allowed to set data properties');
+      assert.equal(JSON.parse(transactionsBlock1[22].logs).errors[0], 'cannot edit read-only properties');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not set data properties', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5.4", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["aggroed","cryptomancer"] }'));
       transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
       transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true }'));
@@ -1005,6 +1096,14 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"BAD", "nfts": [ {"id":"1", "properties": {"color":"red"}} ] }'));
       transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"2", "properties": {"color":"red"}} ] }'));
       transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"color":"red","frozen":false}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'aggroed', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"marc", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "properties":{"color":"green", "level":2, "frozen": false} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'testContract', 'doSetProperties', '{ "fromType":"contract", "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"color":"red"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1247', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"color":"red","color1":"red","color2":"red","color3":"red"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1248', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"level":3,"&*#()*$":"red"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1249', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"level":3,"vehicle":"car"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1250', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"level":3,"color":3.14159}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1251', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ {"id":"1", "properties": {"color":"yellow","level":"3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679"}} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1252', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ { "badkey": "badvalue" } ] }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -1023,29 +1122,36 @@ describe('nft', function() {
 
       const block1 = res.payload;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[8].logs)
       console.log(transactionsBlock1[9].logs)
       console.log(transactionsBlock1[10].logs)
       console.log(transactionsBlock1[11].logs)
       console.log(transactionsBlock1[12].logs)
       console.log(transactionsBlock1[13].logs)
       console.log(transactionsBlock1[14].logs)
-      //console.log(transactionsBlock1[15].logs)
-      //console.log(transactionsBlock1[16].logs)
-      //console.log(transactionsBlock1[17].logs)
-      //console.log(transactionsBlock1[18].logs)
+      console.log(transactionsBlock1[15].logs)
+      console.log(transactionsBlock1[16].logs)
+      console.log(transactionsBlock1[17].logs)
+      console.log(transactionsBlock1[18].logs)
+      console.log(transactionsBlock1[19].logs)
+      console.log(transactionsBlock1[20].logs)
+      console.log(transactionsBlock1[21].logs)
+      console.log(transactionsBlock1[22].logs)
+      console.log(transactionsBlock1[23].logs)
 
-      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'invalid params');
-      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'cannot set properties on more than 100 NFT instances at once');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
-      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'symbol does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'nft instance does not exist');
-      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'cannot edit read-only properties');
-      //assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], '');
-      //assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], '');
-      //assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], '');
-      //assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], '');
-      //assert.equal(JSON.parse(transactionsBlock1[18].logs).errors[0], '');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'cannot set properties on more than 100 NFT instances at once');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'nft instance does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], 'cannot edit read-only properties');
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'not allowed to set data properties');
+      assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'not allowed to set data properties');
+      assert.equal(JSON.parse(transactionsBlock1[18].logs).errors[0], 'cannot set more data properties than NFT has');
+      assert.equal(JSON.parse(transactionsBlock1[19].logs).errors[0], 'invalid data property name: letters & numbers only, max length of 25');
+      assert.equal(JSON.parse(transactionsBlock1[20].logs).errors[0], 'data property must exist');
+      assert.equal(JSON.parse(transactionsBlock1[21].logs).errors[0], 'data property type mismatch: expected string but got number for property color');
+      assert.equal(JSON.parse(transactionsBlock1[22].logs).errors[0], 'string property max length is 100 characters');
+      assert.equal(JSON.parse(transactionsBlock1[23].logs).errors[0], 'invalid data properties');
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -1063,7 +1169,8 @@ describe('nft', function() {
       assert.equal(instances[0]._id, 1);
       assert.equal(instances[0].account, 'aggroed');
       assert.equal(instances[0].ownedBy, 'u');
-      //assert.equal(JSON.stringify(instances[0].lockedTokens), '{}');
+      assert.equal(JSON.stringify(instances[0].properties), '{"color":"red","level":5,"frozen":true}');
+      assert.equal(instances.length, 1);
 
       resolve();
     })

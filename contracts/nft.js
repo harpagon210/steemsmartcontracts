@@ -577,6 +577,9 @@ actions.setProperties = async (payload) => {
       const instanceTableName = symbol + 'instances';
       for (var i = 0; i < nfts.length; i++) {
         const { id, properties } = nfts[i];
+        if (Object.keys(properties).length === 0) {
+          continue;       // don't bother processing empty properties
+        }
 
         const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
         if (api.assert(nftInstance !== null, 'nft instance does not exist')) {
