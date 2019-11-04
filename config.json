@@ -3,7 +3,7 @@
     "rpcNodePort": 5000,
     "p2pPort": 5001,
     "databaseURL": "mongodb://localhost:27017",
-    "databaseName": "ssc",
+    "databaseName": "ssctestnet1",
     "blocksLogFilePath": "./blocks.log",
     "javascriptVMTimeout": 10000,
     "streamNodes": [
@@ -13,5 +13,6 @@
     "steemAddressPrefix": "STM",
     "steemChainId": "0000000000000000000000000000000000000000000000000000000000000000",
     "startSteemBlock": 37891316,
-    "genesisSteemBlock": 37891316
+    "genesisSteemBlock": 37891316,
+    "witnessEnabled": true
 }
