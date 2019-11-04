@@ -44,6 +44,8 @@ const steemClient = {
   account: null,
   signingKey: null,
   sidechainId: null,
+  steemAddressPrefix: null,
+  steemChainId: null,
   client: null,
   nodes: new Queue(),
   getSteemNode() {
@@ -61,8 +63,8 @@ const steemClient = {
 
     if (this.client === null) {
       this.client = new dsteem.Client(this.getSteemNode(), {
-        addressPrefix: 'TST',
-        chainId: '46d90780152dac449ab5a8b6661c969bf391ac7e277834c9b96278925c243ea8',
+        addressPrefix: this.steemAddressPrefix,
+        chainId: this.steemChainId,
       });
     }
 
@@ -816,12 +818,16 @@ const init = async (conf, callback) => {
     streamNodes,
     chainId,
     witnessEnabled,
+    steemAddressPrefix,
+    steemChainId,
   } = conf;
 
   if (witnessEnabled === false) callback(null);
 
   streamNodes.forEach(node => steemClient.nodes.push(node));
   steemClient.sidechainId = chainId;
+  steemClient.steemAddressPrefix = steemAddressPrefix;
+  steemClient.steemChainId = steemChainId;
 
   this.witnessAccount = process.env.ACCOUNT || null;
   this.signingKey = process.env.ACTIVE_SIGNING_KEY
