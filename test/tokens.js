@@ -13,8 +13,6 @@ const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
 
-//process.env.NODE_ENV = 'test';
-
 const conf = {
   chainId: "test-chain-id",
   genesisSteemBlock: 2000000,
