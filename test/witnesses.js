@@ -28,6 +28,8 @@ const conf = {
   streamNodes: ["https://api.steemit.com"],
 };
 
+const NB_WITNESSES = 5;
+
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
@@ -197,7 +199,7 @@ describe('witnesses', function () {
 
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.254", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.253", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
 
@@ -301,7 +303,7 @@ describe('witnesses', function () {
 
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
@@ -504,7 +506,7 @@ describe('witnesses', function () {
 
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.232", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
@@ -715,7 +717,7 @@ describe('witnesses', function () {
 
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(1, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
@@ -1265,7 +1267,7 @@ describe('witnesses', function () {
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
@@ -1315,21 +1317,43 @@ describe('witnesses', function () {
 
       let schedule = res.payload;
 
-      assert.equal(schedule[0].witness, "witness34");
-      assert.equal(schedule[0].blockNumber, 2);
-      assert.equal(schedule[0].round, 1);
+      if(NB_WITNESSES === 4) {
+        assert.equal(schedule[0].witness, "witness34");
+        assert.equal(schedule[0].blockNumber, 2);
+        assert.equal(schedule[0].round, 1);
 
-      assert.equal(schedule[1].witness, "witness33");
-      assert.equal(schedule[1].blockNumber, 3);
-      assert.equal(schedule[1].round, 1);
+        assert.equal(schedule[1].witness, "witness33");
+        assert.equal(schedule[1].blockNumber, 3);
+        assert.equal(schedule[1].round, 1);
 
-      assert.equal(schedule[2].witness, "witness32");
-      assert.equal(schedule[2].blockNumber, 4);
-      assert.equal(schedule[2].round, 1);
+        assert.equal(schedule[2].witness, "witness32");
+        assert.equal(schedule[2].blockNumber, 4);
+        assert.equal(schedule[2].round, 1);
 
-      assert.equal(schedule[3].witness, "witness15");
-      assert.equal(schedule[3].blockNumber, 5);
-      assert.equal(schedule[3].round, 1);
+        assert.equal(schedule[3].witness, "witness15");
+        assert.equal(schedule[3].blockNumber, 5);
+        assert.equal(schedule[3].round, 1);
+      } else if (NB_WITNESSES === 5) {
+        assert.equal(schedule[0].witness, "witness33");
+        assert.equal(schedule[0].blockNumber, 2);
+        assert.equal(schedule[0].round, 1);
+
+        assert.equal(schedule[1].witness, "witness34");
+        assert.equal(schedule[1].blockNumber, 3);
+        assert.equal(schedule[1].round, 1);
+
+        assert.equal(schedule[2].witness, "witness32");
+        assert.equal(schedule[2].blockNumber, 4);
+        assert.equal(schedule[2].round, 1);
+
+        assert.equal(schedule[3].witness, "witness31");
+        assert.equal(schedule[3].blockNumber, 5);
+        assert.equal(schedule[3].round, 1);
+
+        assert.equal(schedule[4].witness, "witness14");
+        assert.equal(schedule[4].blockNumber, 6);
+        assert.equal(schedule[4].round, 1);
+      }
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1344,13 +1368,23 @@ describe('witnesses', function () {
 
       let params = res.payload;
 
-      assert.equal(params.totalApprovalWeight, '3000.00000000');
-      assert.equal(params.numberOfApprovedWitnesses, 30);
-      assert.equal(params.lastVerifiedBlockNumber, 1);
-      assert.equal(params.currentWitness, 'witness15');
-      assert.equal(params.lastWitnesses.includes('witness15'), true);
-      assert.equal(params.round, 1);
-      assert.equal(params.lastBlockRound, 5);
+      if(NB_WITNESSES === 4) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness15');
+        assert.equal(params.lastWitnesses.includes('witness15'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 5);
+      } else if(NB_WITNESSES === 5) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness14');
+        assert.equal(params.lastWitnesses.includes('witness14'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 6);
+      }
 
       resolve();
     })
@@ -1371,7 +1405,7 @@ describe('witnesses', function () {
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
@@ -1408,7 +1442,7 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      for (let i = 1; i < 4; i++) {
+      for (let i = 1; i < NB_WITNESSES; i++) {
         transactions = [];
         txId++
         // send whatever transaction;
@@ -1539,7 +1573,7 @@ describe('witnesses', function () {
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(1, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(1, 'TXID2', 'null', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(1, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
       transactions.push(new Transaction(1, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
@@ -1576,7 +1610,7 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      for (let i = 1; i < 4; i++) {
+      for (let i = 1; i < NB_WITNESSES; i++) {
         transactions = [];
         txId++
         // send whatever transaction;
@@ -1678,21 +1712,43 @@ describe('witnesses', function () {
 
       let schedule = res.payload;
 
-      assert.equal(schedule[0].witness, "witness33");
-      assert.equal(schedule[0].blockNumber, 6);
-      assert.equal(schedule[0].round, 2);
+      if (NB_WITNESSES === 4) {
+        assert.equal(schedule[0].witness, "witness33");
+        assert.equal(schedule[0].blockNumber, 6);
+        assert.equal(schedule[0].round, 2);
 
-      assert.equal(schedule[1].witness, "witness15");
-      assert.equal(schedule[1].blockNumber, 7);
-      assert.equal(schedule[1].round, 2);
+        assert.equal(schedule[1].witness, "witness15");
+        assert.equal(schedule[1].blockNumber, 7);
+        assert.equal(schedule[1].round, 2);
 
-      assert.equal(schedule[2].witness, "witness32");
-      assert.equal(schedule[2].blockNumber, 8);
-      assert.equal(schedule[2].round, 2);
+        assert.equal(schedule[2].witness, "witness32");
+        assert.equal(schedule[2].blockNumber, 8);
+        assert.equal(schedule[2].round, 2);
 
-      assert.equal(schedule[3].witness, "witness34");
-      assert.equal(schedule[3].blockNumber, 9);
-      assert.equal(schedule[3].round, 2);
+        assert.equal(schedule[3].witness, "witness34");
+        assert.equal(schedule[3].blockNumber, 9);
+        assert.equal(schedule[3].round, 2);
+      } else if (NB_WITNESSES === 5) {
+        assert.equal(schedule[0].witness, "witness34");
+        assert.equal(schedule[0].blockNumber, 7);
+        assert.equal(schedule[0].round, 2);
+
+        assert.equal(schedule[1].witness, "witness14");
+        assert.equal(schedule[1].blockNumber, 8);
+        assert.equal(schedule[1].round, 2);
+
+        assert.equal(schedule[2].witness, "witness32");
+        assert.equal(schedule[2].blockNumber, 9);
+        assert.equal(schedule[2].round, 2);
+
+        assert.equal(schedule[3].witness, "witness31");
+        assert.equal(schedule[3].blockNumber, 10);
+        assert.equal(schedule[3].round, 2);
+
+        assert.equal(schedule[4].witness, "witness33");
+        assert.equal(schedule[4].blockNumber, 11);
+        assert.equal(schedule[4].round, 2);
+      }
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND_ONE,
@@ -1707,13 +1763,23 @@ describe('witnesses', function () {
 
       params = res.payload;
 
-      assert.equal(params.totalApprovalWeight, '3000.00000000');
-      assert.equal(params.numberOfApprovedWitnesses, 30);
-      assert.equal(params.lastVerifiedBlockNumber, 5);
-      assert.equal(params.currentWitness, 'witness34');
-      assert.equal(params.lastWitnesses.includes('witness34'), true);
-      assert.equal(params.round, 2);
-      assert.equal(params.lastBlockRound, 9);
+      if (NB_WITNESSES === 4) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 5);
+        assert.equal(params.currentWitness, 'witness34');
+        assert.equal(params.lastWitnesses.includes('witness34'), true);
+        assert.equal(params.round, 2);
+        assert.equal(params.lastBlockRound, 9);
+      } else if (NB_WITNESSES === 5) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 6);
+        assert.equal(params.currentWitness, 'witness33');
+        assert.equal(params.lastWitnesses.includes('witness14'), true);
+        assert.equal(params.round, 2);
+        assert.equal(params.lastBlockRound, 11);
+      }
       
       resolve();
     })

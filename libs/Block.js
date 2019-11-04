@@ -115,8 +115,15 @@ class Block {
 
       // if there are outputs in the virtual transaction we save the transaction into the block
       // the "unknown error" errors are removed as they are related to a non existing action
-      if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
-        this.virtualTransactions.push(transaction);
+      if (transaction.logs !== '{}'
+        && transaction.logs !== '{"errors":["unknown error"]}') {
+        if (transaction.contract === 'witnesses'
+          && transaction.action === 'scheduleWitnesses'
+          && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
+          // don't save logs
+        } else {
+          this.virtualTransactions.push(transaction);
+        }
       }
     }
 

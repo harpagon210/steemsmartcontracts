@@ -122,6 +122,8 @@ async function calculateRoundHash(startBlockRound, endBlockRound) {
     const blockFromNode = queryRes.payload;
     if (blockFromNode !== null) {
       calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
+    } else {
+      return null;
     }
     blockNum += 1;
   }
@@ -651,119 +653,123 @@ const manageRound = async () => {
   // get the current round info
   const params = await findOne('witnesses', 'params', {});
 
-  if (currentRound < params.round) {
+  if (params) {
+    if (currentRound < params.round) {
+      // eslint-disable-next-line prefer-destructuring
+      currentRound = params.round;
+    }
+
     // eslint-disable-next-line prefer-destructuring
-    currentRound = params.round;
-  }
+    lastBlockRound = params.lastBlockRound;
+    // eslint-disable-next-line prefer-destructuring
+    currentWitness = params.currentWitness;
 
-  // eslint-disable-next-line prefer-destructuring
-  lastBlockRound = params.lastBlockRound;
-  // eslint-disable-next-line prefer-destructuring
-  currentWitness = params.currentWitness;
+    if (currentWitness !== witnessPreviousAttempt) {
+      roundPropositionWaitingPeriod = 0;
+    }
 
-  if (currentWitness !== witnessPreviousAttempt) {
-    roundPropositionWaitingPeriod = 0;
-  }
+    // get the schedule for the lastBlockRound
+    console.log('currentRound', currentRound);
+    console.log('currentWitness', currentWitness);
+    console.log('lastBlockRound', lastBlockRound);
 
-  // get the schedule for the lastBlockRound
-  console.log('currentRound', currentRound);
-  console.log('currentWitness', currentWitness);
-  console.log('lastBlockRound', lastBlockRound);
+    // get the witness participating in this round
+    const schedules = await find('witnesses', 'schedules', { round: currentRound });
 
-  // get the witness participating in this round
-  const schedules = await find('witnesses', 'schedules', { round: currentRound });
+    // check if this witness is part of the round
+    const witnessFound = schedules.find(w => w.witness === this.witnessAccount);
 
-  // check if this witness is part of the round
-  const witnessFound = schedules.find(w => w.witness === this.witnessAccount);
+    if (witnessFound !== undefined) {
+      if (currentWitness !== this.witnessAccount) {
+        if (lastProposedWitnessChange === null) {
+          const res = await ipc.send({
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
+            payload: lastBlockRound,
+          });
 
-  if (witnessFound !== undefined) {
-    if (currentWitness !== this.witnessAccount) {
-      if (lastProposedWitnessChange === null) {
-        const res = await ipc.send({
-          to: DB_PLUGIN_NAME,
-          action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-          payload: lastBlockRound,
-        });
+          const block = res.payload;
+          if (block !== null && block.blockNumber < lastBlockRound) {
+            roundPropositionWaitingPeriod = 0;
+          } else {
+            roundPropositionWaitingPeriod += 1;
+          }
 
-        const block = res.payload;
-        if (block !== null && block.blockNumber < lastBlockRound) {
-          roundPropositionWaitingPeriod = 0;
-        } else {
-          roundPropositionWaitingPeriod += 1;
-        }
+          console.log('roundPropositionWaitingPeriod', roundPropositionWaitingPeriod);
 
-        console.log('roundPropositionWaitingPeriod', roundPropositionWaitingPeriod);
+          if (roundPropositionWaitingPeriod >= NB_ROUND_PROPOSITION_WAITING_PERIOS
+            && lastProposedWitnessChangeRoundNumber < currentRound) {
+            roundPropositionWaitingPeriod = 0;
+            lastProposedWitnessChangeRoundNumber = currentRound;
+            const firstWitnessRound = schedules[0];
+            if (this.witnessAccount === firstWitnessRound.witness) {
+              // propose current witness change
+              const signature = signPayload(`${currentWitness}:${currentRound}`);
 
-        if (roundPropositionWaitingPeriod >= NB_ROUND_PROPOSITION_WAITING_PERIOS
-          && lastProposedWitnessChangeRoundNumber < currentRound) {
-          roundPropositionWaitingPeriod = 0;
-          lastProposedWitnessChangeRoundNumber = currentRound;
-          const firstWitnessRound = schedules[0];
-          if (this.witnessAccount === firstWitnessRound.witness) {
-            // propose current witness change
-            const signature = signPayload(`${currentWitness}:${currentRound}`);
+              lastProposedWitnessChange = {
+                round: currentRound,
+                signatures: [[this.witnessAccount, signature]],
+              };
 
-            lastProposedWitnessChange = {
-              round: currentRound,
-              signatures: [[this.witnessAccount, signature]],
-            };
+              const round = {
+                round: currentRound,
+                signature,
+              };
 
-            const round = {
-              round: currentRound,
-              signature,
-            };
-
-            for (let index = 0; index < schedules.length; index += 1) {
-              const schedule = schedules[index];
-              if (schedule.witness !== this.witnessAccount && schedule.witness !== currentWitness) {
-                proposeWitnessChange(schedule.witness, round);
+              for (let index = 0; index < schedules.length; index += 1) {
+                const schedule = schedules[index];
+                if (schedule.witness !== this.witnessAccount
+                  && schedule.witness !== currentWitness) {
+                  proposeWitnessChange(schedule.witness, round);
+                }
               }
             }
           }
         }
-      }
-    } else if (lastProposedRound === null
-      && currentWitness !== null
-      && currentWitness === this.witnessAccount
-      && currentRound > lastProposedRoundNumber) {
-      // handle round propositions
-      const res = await ipc.send({
-        to: DB_PLUGIN_NAME,
-        action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: lastBlockRound,
-      });
+      } else if (lastProposedRound === null
+        && currentWitness !== null
+        && currentWitness === this.witnessAccount
+        && currentRound > lastProposedRoundNumber) {
+        // handle round propositions
+        const res = await ipc.send({
+          to: DB_PLUGIN_NAME,
+          action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+          payload: lastBlockRound,
+        });
 
-      const block = res.payload;
+        const block = res.payload;
 
-      if (block !== null) {
-        const startblockNum = params.lastVerifiedBlockNumber + 1;
-        const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
-        const signature = signPayload(calculatedRoundHash, true);
+        if (block !== null) {
+          const startblockNum = params.lastVerifiedBlockNumber + 1;
+          const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
+          const signature = signPayload(calculatedRoundHash, true);
 
-        lastProposedRoundNumber = currentRound;
-        lastProposedRound = {
-          round: currentRound,
-          roundHash: calculatedRoundHash,
-          signatures: [[this.witnessAccount, signature]],
-        };
+          lastProposedRoundNumber = currentRound;
+          lastProposedRound = {
+            round: currentRound,
+            roundHash: calculatedRoundHash,
+            signatures: [[this.witnessAccount, signature]],
+          };
 
-        const round = {
-          round: currentRound,
-          roundHash: calculatedRoundHash,
-          signature,
-        };
+          const round = {
+            round: currentRound,
+            roundHash: calculatedRoundHash,
+            signature,
+          };
 
-        for (let index = 0; index < schedules.length; index += 1) {
-          const schedule = schedules[index];
-          if (schedule.witness !== this.witnessAccount) {
-            proposeRound(schedule.witness, round);
+          for (let index = 0; index < schedules.length; index += 1) {
+            const schedule = schedules[index];
+            if (schedule.witness !== this.witnessAccount) {
+              proposeRound(schedule.witness, round);
+            }
           }
         }
       }
     }
+
+    witnessPreviousAttempt = currentWitness;
   }
 
-  witnessPreviousAttempt = currentWitness;
 
   manageRoundTimeoutHandler = setTimeout(() => {
     manageRound();

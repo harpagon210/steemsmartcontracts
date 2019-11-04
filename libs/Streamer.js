@@ -38,6 +38,9 @@ class Streamer {
     try {
       const globProps = await this.client.database.getDynamicGlobalProperties();
       this.headBlockNumber = globProps.head_block_number;
+      const delta = this.headBlockNumber - this.currentBlock;
+      // eslint-disable-next-line
+      console.log(`head_block_number ${this.headBlockNumber}`, `currentBlock ${this.currentBlock}`, `Steem blockchain is ${delta > 0 ? delta : 0} blocks ahead`);
       this.updaterGlobalProps = setTimeout(() => this.updateGlobalProps(), 10000);
     } catch (ex) {
       console.error('An error occured while trying to fetch the Steem blockchain global properties'); // eslint-disable-line no-console
@@ -65,10 +68,6 @@ class Streamer {
 
   async stream(reject) {
     try {
-      //console.log('head_block_number', this.headBlockNumber); // eslint-disable-line no-console
-      //console.log('currentBlock', this.currentBlock); // eslint-disable-line no-console
-      const delta = this.headBlockNumber - this.currentBlock;
-      //console.log(`Steem blockchain is ${delta > 0 ? delta : 0} block(s) ahead`); // eslint-disable-line no-console
       const block = await this.client.database.getBlock(this.currentBlock);
       let addBlockToBuffer = false;
 

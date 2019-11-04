@@ -231,7 +231,7 @@ actions.getBlockInfo = async (blockNumber, callback) => {
 /**
  * Mark a block as verified by a witness
  * @param {Integer} blockNumber block umber to mark verified
- * @param {String} witnesses names of the witness that verified the block as well as the txIDs related
+ * @param {String} witness name of the witness that verified the block
  */
 actions.verifyBlock = async (payload, callback) => {
   try {
@@ -245,23 +245,26 @@ actions.verifyBlock = async (payload, callback) => {
     } = payload;
     const block = await chain.findOne({ _id: blockNumber });
 
-    block.witness = witness;
-    block.round = round;
-    block.roundHash = roundHash;
-    block.signingKey = signingKey;
-    block.roundSignature = roundSignature;
+    if (block) {
+      block.witness = witness;
+      block.round = round;
+      block.roundHash = roundHash;
+      block.signingKey = signingKey;
+      block.roundSignature = roundSignature;
 
-    await chain.updateOne(
-      { _id: block._id }, // eslint-disable-line no-underscore-dangle
-      { $set: block },
-    );
+      await chain.updateOne(
+        { _id: block._id }, // eslint-disable-line no-underscore-dangle
+        { $set: block },
+      );
+    } else {
+      console.error('verifyBlock', blockNumber, 'does not exist');
+    }
 
     if (callback) {
       callback();
     }
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error(error);
   }
 };
 

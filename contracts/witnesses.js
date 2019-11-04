@@ -2,7 +2,7 @@
 /* global actions, api */
 
 const NB_APPROVALS_ALLOWED = 30;
-const NB_TOP_WITNESSES = 3;
+const NB_TOP_WITNESSES = 4;
 const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
@@ -508,7 +508,10 @@ actions.proposeRound = async (payload) => {
         const block = await api.db.getBlockInfo(currentBlock);
 
         if (block !== null) {
-          calculatedRoundHash = api.hash(`${calculatedRoundHash}${block.hash}`);
+          calculatedRoundHash = api.SHA256(`${calculatedRoundHash}${block.hash}`);
+        } else {
+          calculatedRoundHash = '';
+          break;
         }
 
         currentBlock += 1;

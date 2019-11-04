@@ -1,4 +1,4 @@
-const SHA256 = require('crypto-js/sha256');
+const SHA256FN = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
 const { Base64 } = require('js-base64');
@@ -161,12 +161,12 @@ class SmartContracts {
             db,
             BigNumber,
             validator,
-            hash: (payloadToHash) => {
+            SHA256: (payloadToHash) => {
               if (typeof payloadToHash === 'string') {
-                return SHA256(payloadToHash).toString(enchex);
+                return SHA256FN(payloadToHash).toString(enchex);
               }
 
-              return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
+              return SHA256FN(JSON.stringify(payloadToHash)).toString(enchex);
             },
             checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
               if ((typeof payloadToCheck !== 'string'
@@ -178,7 +178,7 @@ class SmartContracts {
                 const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
                 const payloadHash = isPayloadSHA256 === true
                   ? finalPayload
-                  : SHA256(finalPayload).toString(enchex);
+                  : SHA256FN(finalPayload).toString(enchex);
                 const buffer = Buffer.from(payloadHash, 'hex');
                 return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
               } catch (error) {
@@ -223,7 +223,7 @@ class SmartContracts {
           _id: name,
           owner: finalSender,
           code: codeTemplate,
-          codeHash: SHA256(codeTemplate).toString(enchex),
+          codeHash: SHA256FN(codeTemplate).toString(enchex),
           tables,
           version: 1,
         };
@@ -352,11 +352,11 @@ class SmartContracts {
           BigNumber,
           validator,
           random: () => rng(),
-          hash: (payloadToHash) => {
+          SHA256: (payloadToHash) => {
             if (typeof payloadToHash === 'string') {
-              return SHA256(payloadToHash).toString(enchex);
+              return SHA256FN(payloadToHash).toString(enchex);
             }
-            return SHA256(JSON.stringify(payloadToHash)).toString(enchex);
+            return SHA256FN(JSON.stringify(payloadToHash)).toString(enchex);
           },
           checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
             if ((typeof payloadToCheck !== 'string'
@@ -368,7 +368,7 @@ class SmartContracts {
               const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
               const payloadHash = isPayloadSHA256 === true
                 ? finalPayload
-                : SHA256(finalPayload).toString(enchex);
+                : SHA256FN(finalPayload).toString(enchex);
               const buffer = Buffer.from(payloadHash, 'hex');
               return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
             } catch (error) {
