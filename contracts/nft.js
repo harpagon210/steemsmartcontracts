@@ -832,6 +832,21 @@ actions.issue = async (payload) => {
   return false;
 };
 
+actions.issueMultiple = async (payload) => {
+  const {
+    instances, isSignedWithActiveKey, callingContractInfo,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(instances && typeof instances === 'object' && Array.isArray(instances), 'invalid params')
+    && api.assert(instances.length <= MAX_NUM_NFTS_ISSUABLE, `cannot issue more than ${MAX_NUM_NFTS_ISSUABLE} NFT instances at once`)) {
+    for (var i = 0; i < instances.length; i++) {
+        const { symbol, fromType, to, toType, feeSymbol, lockTokens, properties } = instances[i];
+        await actions.issue({ symbol, fromType, to, toType, feeSymbol, lockTokens, properties, isSignedWithActiveKey, callingContractInfo });
+    }
+  }
+};
+
 /*actions.swap = async (payload) => {
   // get the action parameters
   const { amount, isSignedWithActiveKey, } = payload;

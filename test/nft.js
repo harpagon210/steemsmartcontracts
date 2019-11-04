@@ -150,6 +150,10 @@ const testSmartContractCode = `
     await api.executeSmartContract('nft', 'issue', payload);
   }
 
+  actions.doMultipleIssuance = async function (payload) {
+    await api.executeSmartContract('nft', 'issueMultiple', payload);
+  }
+
   actions.doSetProperties = async function (payload) {
     await api.executeSmartContract('nft', 'setProperties', payload);
   }
@@ -792,6 +796,222 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[36].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
       assert.equal(JSON.parse(transactionsBlock1[37].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
       assert.equal(JSON.parse(transactionsBlock1[38].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('issues multiple nft instances', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let instances1 = [
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"harpagon", feeSymbol: "ENG", lockTokens:{ENG:"5.75"} },
+        { symbol: "TSTNFT", to:"cryptomancer", feeSymbol: "ENG", lockTokens:{ENG:"10"}, properties:{"color":"red","frozen":true} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+      ];
+
+      let instances2 = [
+        { fromType: "user", symbol: "TSTNFT", to:"contract1", toType: "contract", feeSymbol: "ENG", properties:{"level":0} },   // won't issue this one because caller not authorized
+        { fromType: "contract", symbol: "TSTNFT", to:"dice", toType: "contract", feeSymbol: "ENG", lockTokens:{ENG:"5.75"} },
+        { fromType: "contract", symbol: "TSTNFT", to:"tokens", toType: "contract", feeSymbol: "ENG", lockTokens:{ENG:"10"}, properties:{"color":"red","frozen":true} },
+        { fromType: "contract", symbol: "TSTNFT", to:"market", toType: "contract", feeSymbol: "ENG", lockTokens:{}, properties:{} },
+      ];
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'tokens', 'transferToContract', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "to": "testContract", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true, "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true, "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'issueMultiple', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances1)} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'aggroed', 'testContract', 'doMultipleIssuance', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances2)} }`));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TSTNFTinstances',
+          query: {}
+        }
+      });
+
+      let instances = res.payload;
+      console.log(instances);
+
+      // check NFT instances are OK
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'aggroed');
+      assert.equal(instances[0].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[0].properties), '{"level":0}');
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'harpagon');
+      assert.equal(instances[1].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[1].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"5.75"}`);
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'cryptomancer');
+      assert.equal(instances[2].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[2].properties), '{"color":"red","frozen":true}');
+      assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"}`);
+      assert.equal(instances[3]._id, 4);
+      assert.equal(instances[3].account, 'marc');
+      assert.equal(instances[3].ownedBy, 'u');
+
+      assert.equal(instances[4]._id, 5);
+      assert.equal(instances[4].account, 'dice');
+      assert.equal(instances[4].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[4].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"5.75"}`);
+      assert.equal(instances[5]._id, 6);
+      assert.equal(instances[5].account, 'tokens');
+      assert.equal(instances[5].ownedBy, 'c');
+      assert.equal(JSON.stringify(instances[5].properties), '{"color":"red","frozen":true}');
+      assert.equal(JSON.stringify(instances[5].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"}`);
+      assert.equal(instances[6]._id, 7);
+      assert.equal(instances[6].account, 'market');
+      assert.equal(instances[6].ownedBy, 'c');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'not allowed to issue tokens');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not issue multiple nft instances', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      // can't issue this many at once
+      let instances1 = [
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+        { symbol: "TSTNFT", to:"marc", feeSymbol: "ENG" },
+        { symbol: "TSTNFT", to:"aggroed", feeSymbol: "ENG", properties:{"level":0} },
+      ];
+
+      let instances2 = [
+        { fromType: "user", symbol: "TSTNFT", to:"contract1", toType: "contract", feeSymbol: "ENG", properties:{"level":0} },   // won't issue this one because caller not authorized
+        { fromType: "contract", symbol: "BAD", to:"dice", toType: "contract", feeSymbol: "ENG", lockTokens:{ENG:"5.75"} },      // bad symbol
+        { fromType: "contract", symbol: "TSTNFT", to:"tokens", toType: "contract", feeSymbol: "ENG", lockTokens:{ENG:"10"}, properties:{"invalid":"red","frozen":true} },   // data property doesn't exist
+        { fromType: "contract", symbol: "TSTNFT", to:"market", toType: "contract", lockTokens:{}, properties:{} },     // missing fee symbol, invalid params
+      ];
+
+      let transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'tokens', 'transferToContract', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "to": "testContract", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true, "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true, "authorizedEditingContracts": ["testContract"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'issueMultiple', `{ "isSignedWithActiveKey": false, "instances": ${JSON.stringify(instances1)} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'issueMultiple', '{ "isSignedWithActiveKey": true, "instances": {"bad":"formatting"} }'));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'issueMultiple', '{ "isSignedWithActiveKey": true, "instances": [1,2,3,4,5] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'issueMultiple', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances1)} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'aggroed', 'testContract', 'doMultipleIssuance', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances2)} }`));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[13].logs)
+      console.log(transactionsBlock1[14].logs)
+      console.log(transactionsBlock1[15].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[1], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[2], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[3], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[4], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'cannot issue more than 10 NFT instances at once');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], 'not allowed to issue tokens');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[1], 'symbol does not exist');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[2], 'data property must exist');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[3], 'invalid params');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TSTNFTinstances',
+          query: {}
+        }
+      });
+
+      let instances = res.payload;
+      console.log(instances);
+      assert.equal(instances.length, 0);
 
       resolve();
     })
