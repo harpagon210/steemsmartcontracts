@@ -656,12 +656,12 @@ actions.burn = async (payload) => {
     const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
     
     for (var i = 0; i < nfts.length; i++) {
-      const { symbol, ids } = arr[i];
+      const { symbol, ids } = nfts[i];
       // check if the NFT exists
       const nft = await api.db.findOne('nfts', { symbol });
       if (nft) {
         const instanceTableName = symbol + 'instances';
-        for (var j = 0; i < ids.length; j++) {
+        for (var j = 0; j < ids.length; j++) {
           const id = ids[j];
           const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
           if (nftInstance) {
@@ -912,7 +912,7 @@ actions.issue = async (payload) => {
 
             // update supply and circulating supply for main NFT record
             nft.supply += 1;
-            if (finalTo !== 'null') {
+            if (finalTo !== 'null' || finalToType === 'contract') {
               nft.circulatingSupply += 1;
             }
             await api.db.update('nfts', nft);
