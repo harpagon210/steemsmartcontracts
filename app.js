@@ -115,17 +115,20 @@ const loadPlugin = (newPlugin) => {
   return send(plugin, { action: 'init', payload: conf });
 };
 
-const unloadPlugin = async (plugin) => {
+const unloadPlugin = async (plugin, signal) => new Promise(async (resolve) => {
   let res = null;
   let plg = getPlugin(plugin);
   if (plg) {
     res = await send(plg, { action: 'stop' });
-    plg.cp.kill('SIGINT');
-    plg = null;
+    plg.cp.on('close', () => {
+      plg = null;
+      resolve(res);
+    });
+    plg.cp.kill(signal);
+  } else {
+    resolve(res);
   }
-
-  return res;
-};
+});
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
 async function start() {
@@ -148,21 +151,22 @@ async function start() {
   }
 }
 
-async function stop(callback) {
-  await unloadPlugin(jsonRPCServer);
-  await unloadPlugin(p2p);
+async function stop(signal) {
+  await unloadPlugin(jsonRPCServer, signal);
+  await unloadPlugin(p2p, signal);
   // get the last Steem block parsed
   let res = null;
   const streamerPlugin = getPlugin(streamer);
   if (streamerPlugin) {
-    res = await unloadPlugin(streamer);
+    res = await unloadPlugin(streamer, signal);
   } else {
-    res = await unloadPlugin(replay);
+    res = await unloadPlugin(replay, signal);
   }
 
-  await unloadPlugin(blockchain);
-  await unloadPlugin(database);
-  callback(res.payload);
+  await unloadPlugin(blockchain, signal);
+  await unloadPlugin(database, signal);
+
+  return res.payload;
 }
 
 function saveConfig(lastBlockParsed) {
@@ -171,13 +175,12 @@ function saveConfig(lastBlockParsed) {
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
 }
 
-function stopApp(signal = 0) {
-  stop((lastBlockParsed) => {
-    logger.info('Saving config');
-    saveConfig(lastBlockParsed);
-    // calling process.exit() won't inform parent process of signal
-    process.kill(process.pid, signal);
-  });
+async function stopApp(signal = 0) {
+  const lastBlockParsed = await stop(signal);
+  logger.info('Saving config');
+  saveConfig(lastBlockParsed);
+  // calling process.exit() won't inform parent process of signal
+  process.kill(process.pid, signal);
 }
 
 // replay the sidechain from a blocks log file

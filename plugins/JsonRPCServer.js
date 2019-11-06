@@ -12,6 +12,7 @@ const PLUGIN_PATH = require.resolve(__filename);
 
 const ipc = new IPC(PLUGIN_NAME);
 let serverRPC = null;
+let server = null;
 
 function blockchainRPC() {
   return {
@@ -157,10 +158,14 @@ function init(conf) {
   serverRPC.post('/blockchain', jayson.server(blockchainRPC()).middleware());
   serverRPC.post('/contracts', jayson.server(contractsRPC()).middleware());
 
-  http.createServer(serverRPC)
+  server = http.createServer(serverRPC)
     .listen(rpcNodePort, () => {
       console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
     });
+}
+
+function stop() {
+  server.close();
 }
 
 ipc.onReceiveMessage((message) => {
@@ -175,8 +180,8 @@ ipc.onReceiveMessage((message) => {
       ipc.reply(message);
       break;
     case 'stop':
+      ipc.reply(message, stop());
       console.log('successfully stopped'); // eslint-disable-line no-console
-      ipc.reply(message);
       break;
     default:
       ipc.reply(message);
