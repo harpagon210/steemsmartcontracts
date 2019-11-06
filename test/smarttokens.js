@@ -343,13 +343,13 @@ describe('smart tokens', function () {
       assert.equal(delegations[0].quantity, '0.00000001');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1241', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000003", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1242', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1243', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "ned", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1244', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "ned", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1241', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000003", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1242', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000002", "to": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1243', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "ned", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1244', 'satoshi', 'tokens', 'delegate', '{ "symbol": "TKN", "quantity": "0.00000001", "to": "ned", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:01',
@@ -596,10 +596,10 @@ describe('smart tokens', function () {
       assert.equal(delegations[1].quantity, '0.00000001');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1242', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000001", "from": "vitalik", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1242', 'satoshi', 'tokens', 'undelegate', '{ "symbol": "TKN", "quantity": "0.00000001", "from": "vitalik", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:01',
@@ -813,7 +813,7 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678902, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
         refSteemBlockNumber: 12345678903,
@@ -1113,11 +1113,11 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID1240', 'satoshi', 'tokens', 'stake', '{ "to":"vitalik", "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1240', 'satoshi', 'tokens', 'stake', '{ "to":"vitalik", "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:01',
@@ -1313,10 +1313,10 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:02:00',
@@ -1492,10 +1492,10 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:02:00',
@@ -1547,10 +1547,10 @@ describe('smart tokens', function () {
       assert.equal(unstake.txID, 'TXID1239');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID123910', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID1239", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678903, 'TXID123910', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID1239", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678903,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:03:00',
@@ -1650,10 +1650,10 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:02:00',
@@ -1705,11 +1705,11 @@ describe('smart tokens', function () {
       assert.equal(unstake.txID, 'TXID1239');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID123910', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID12378", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(12345678901, 'TXID123911', 'harpagon', 'tokens', 'cancelUnstake', '{ "txID": "TXID1239", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678903, 'TXID123910', 'satoshi', 'tokens', 'cancelUnstake', '{ "txID": "TXID12378", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678903, 'TXID123911', 'harpagon', 'tokens', 'cancelUnstake', '{ "txID": "TXID1239", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678903,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:03:00',
@@ -1829,10 +1829,10 @@ describe('smart tokens', function () {
       assert.equal(token.totalStaked, '0.00000001');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:02:00',
@@ -1885,10 +1885,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678903, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678903,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-07T00:02:00',
@@ -2018,10 +2018,10 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-30T00:02:00',
@@ -2074,10 +2074,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678903, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678903,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-07T00:02:00',
@@ -2138,10 +2138,10 @@ describe('smart tokens', function () {
       assert.equal(event.data.symbol, 'TKN');
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID223811', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "1", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678904, 'TXID223811', 'satoshi', 'tokens', 'stake', '{ "to":"satoshi", "symbol": "TKN", "quantity": "1", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678904,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-14T00:02:00',
@@ -2154,10 +2154,10 @@ describe('smart tokens', function () {
       console.log('start generating pending unstakes');
       for (let index = 10000; index < 12000; index++) {
         transactions = [];
-        transactions.push(new Transaction(12345678901, `TXID${index}`, 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+        transactions.push(new Transaction(12345678901 + index, `TXID${index}`, 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
 
         block = {
-          refSteemBlockNumber: 12345678901,
+          refSteemBlockNumber: 12345678901 + index,
           refSteemBlockId: 'ABCD1',
           prevRefSteemBlockId: 'ABCD2',
           timestamp: '2018-07-14T00:02:00',
@@ -2168,11 +2168,11 @@ describe('smart tokens', function () {
       }
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, `TXID2000`, 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678905, `TXID2000`, 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000001", "isSignedWithActiveKey": true }'));
       console.log('done generating pending unstakes');
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678905,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-14T00:02:01',
@@ -2203,10 +2203,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123899', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678906, 'TXID123899', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678906,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-21T00:02:00',
@@ -2291,10 +2291,10 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, "0.00000008");
 
       transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000006", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678902, 'TXID1239', 'satoshi', 'tokens', 'unstake', '{ "symbol": "TKN", "quantity": "0.00000006", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678902,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-01T00:02:00',
@@ -2348,10 +2348,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678903, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678903,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-02T00:02:00',
@@ -2405,10 +2405,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123811', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678904, 'TXID123811', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678904,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-03T00:02:00',
@@ -2462,10 +2462,10 @@ describe('smart tokens', function () {
 
       transactions = [];
       // send whatever transaction
-      transactions.push(new Transaction(12345678901, 'TXID123812', 'satoshi', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(12345678905, 'TXID123812', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 12345678901,
+        refSteemBlockNumber: 12345678905,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-07-04T00:02:00',

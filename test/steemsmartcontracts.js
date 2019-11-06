@@ -1798,10 +1798,10 @@ describe('Smart Contracts', function ()  {
       assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
+      transactions.push(new Transaction(1234567891, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
 
       block = {
-        refSteemBlockNumber: 123456789,
+        refSteemBlockNumber: 1234567891,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1857,7 +1857,7 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456789, 'TXID1234', 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
+        refSteemBlockNumber: 123456789,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1880,7 +1880,7 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456790, 'TXID1235', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
 
       block = {
-        refSteemBlockNumber: 1,
+        refSteemBlockNumber: 123456790,
         refSteemBlockId: 'ABCD3',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:01:00',
