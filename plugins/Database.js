@@ -210,6 +210,25 @@ actions.getLatestBlockInfo = async (payload, callback) => {
   }
 };
 
+actions.getLatestBlockMetadata = async (payload, callback) => {
+  try {
+    const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
+
+    const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
+
+    if (lastestBlock) {
+      lastestBlock.transactions = [];
+      lastestBlock.virtualTransactions = [];
+    }
+
+    callback(lastestBlock);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    callback(null);
+  }
+};
+
 actions.getBlockInfo = async (blockNumber, callback) => {
   try {
     const block = typeof blockNumber === 'number' && Number.isInteger(blockNumber)

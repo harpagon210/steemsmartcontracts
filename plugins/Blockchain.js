@@ -19,7 +19,6 @@ let producing = false;
 let stopRequested = false;
 let lastProposedBlockNumber = 0;
 let lastDisputedBlockNumber = 0;
-let blockPropositionHandler = null;
 const blockProductionQueue = new Queue();
 const steemClient = {
   account: null,
@@ -81,80 +80,35 @@ async function createGenesisBlock(payload, callback) {
   return callback(genesisBlock);
 }
 
-function getLatestBlock() {
-  return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
+function getLatestBlockMetadata() {
+  return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA });
+}
+
+function checkTransactionExists(txid) {
+  return ipc
+    .send(
+      { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.CHECK_TRANSACTION_EXISTS, payload: txid },
+    );
 }
 
 function addBlock(block) {
   return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
 }
 
-async function checkIfNeedToProposeBlock() {
-  if (steemClient.account === null || process.env.NODE_MODE === 'REPLAY') return;
-
-  let res = await ipc.send({
-    to: DB_PLUGIN_NAME,
-    action: DB_PLUGIN_ACTIONS.FIND_ONE,
-    payload: {
-      contract: 'witnesses',
-      table: 'params',
-      query: {
-      },
-    },
-  });
-
-  const params = res.payload;
-
-  // if it's this witness turn and the block has not been proposed yet
-  if (params && params.currentWitness === steemClient.account
-    && params.lastProposedBlockNumber !== lastProposedBlockNumber) {
-    res = await ipc.send({
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: params.lastProposedBlockNumber + 1,
-    });
-
-    const block = res.payload;
-    if (block !== null
-      && block.blockNumber !== lastProposedBlockNumber) {
-      const {
-        blockNumber,
-        previousHash,
-        previousDatabaseHash,
-        hash,
-        databaseHash,
-        merkleRoot,
-      } = block;
-
-      const json = {
-        contractName: 'witnesses',
-        contractAction: 'proposeBlock',
-        contractPayload: {
-          blockNumber,
-          previousHash,
-          previousDatabaseHash,
-          hash,
-          databaseHash,
-          merkleRoot,
-        },
-      };
-
-      await steemClient.sendCustomJSON(json);
-    }
-  }
-
-  blockPropositionHandler = setTimeout(() => {
-    checkIfNeedToProposeBlock();
-  }, 3000);
-}
-
 // produce all the pending transactions, that will result in the creation of a block
 async function producePendingTransactions(
   refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
 ) {
-  const res = await getLatestBlock();
+  const res = await getLatestBlockMetadata();
   if (res) {
     const previousBlock = res.payload;
+
+    // skip block if it has been parsed already
+    if (refSteemBlockNumber <= previousBlock.refSteemBlockNumber) {
+      console.warn(`skipping Steem block ${refSteemBlockNumber} as it has already been parsed`);
+      return;
+    }
+
     const newBlock = new Block(
       timestamp,
       refSteemBlockNumber,
@@ -278,7 +232,6 @@ const produceNewBlockSync = async (block, callback = null) => {
 // when stopping, we wait until the current block is produced
 function stop(callback) {
   stopRequested = true;
-  if (blockPropositionHandler) clearTimeout(blockPropositionHandler);
   if (producing) process.nextTick(() => stop(callback));
 
   stopRequested = false;

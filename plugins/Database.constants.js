@@ -26,6 +26,7 @@ const PLUGIN_ACTIONS = {
   GET_DATABASE_HASH: 'getDatabaseHash',
   TABLE_EXISTS: 'tableExists',
   VERIFY_BLOCK: 'verifyBlock',
+  GET_LATEST_BLOCK_METADATA: 'getLatestBlockMetadata',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;
