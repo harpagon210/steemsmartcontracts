@@ -12,7 +12,7 @@
     ],
     "steemAddressPrefix": "STM",
     "steemChainId": "0000000000000000000000000000000000000000000000000000000000000000",
-    "startSteemBlock": 37894037,
+    "startSteemBlock": 37899020,
     "genesisSteemBlock": 29862600,
     "witnessEnabled": true
 }
