@@ -1,8 +1,5 @@
-const dsteem = require('dsteem');
-
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
-const { Queue } = require('../libs/Queue');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
@@ -17,58 +14,6 @@ const ipc = new IPC(PLUGIN_NAME);
 let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
-let lastProposedBlockNumber = 0;
-let lastDisputedBlockNumber = 0;
-const blockProductionQueue = new Queue();
-const steemClient = {
-  account: null,
-  signingKey: null,
-  sidechainId: null,
-  client: null,
-  nodes: new Queue(),
-  getSteemNode() {
-    const node = this.nodes.pop();
-    this.nodes.push(node);
-    return node;
-  },
-  async sendCustomJSON(json) {
-    const transaction = {
-      required_auths: [this.account],
-      required_posting_auths: [],
-      id: `ssc-${this.sidechainId}`,
-      json: JSON.stringify(json),
-    };
-
-    if (this.client === null) {
-      this.client = new dsteem.Client(this.getSteemNode(), {
-        addressPrefix: 'TST',
-        chainId: '46d90780152dac449ab5a8b6661c969bf391ac7e277834c9b96278925c243ea8',
-      });
-    }
-
-    try {
-      await this.client.broadcast.json(transaction, this.signingKey);
-      if (json.contractAction === 'proposeBlock'
-      && json.contractPayload.blockNumber > lastProposedBlockNumber) {
-        lastProposedBlockNumber = json.contractPayload.blockNumber;
-      } else if (json.contractAction === 'disputeBlock'
-      && json.contractPayload.blockNumber > lastDisputedBlockNumber) {
-        lastDisputedBlockNumber = json.contractPayload.blockNumber;
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-      this.client = null;
-      setTimeout(() => this.sendCustomJSON(json), 1000);
-    }
-  },
-};
-
-if (process.env.ACTIVE_SIGNING_KEY && process.env.ACCOUNT) {
-  steemClient.signingKey = dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY);
-  // eslint-disable-next-line prefer-destructuring
-  steemClient.account = process.env.ACCOUNT;
-}
 
 async function createGenesisBlock(payload, callback) {
   const { chainId, genesisSteemBlock } = payload;
@@ -76,19 +21,12 @@ async function createGenesisBlock(payload, callback) {
   genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
 
   const genesisBlock = new Block('2018-06-01T00:00:00', 0, '', '', genesisTransactions, -1, '0');
-  await genesisBlock.produceBlock(ipc, javascriptVMTimeout, steemClient);
+  await genesisBlock.produceBlock(ipc, javascriptVMTimeout);
   return callback(genesisBlock);
 }
 
 function getLatestBlockMetadata() {
   return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA });
-}
-
-function checkTransactionExists(txid) {
-  return ipc
-    .send(
-      { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.CHECK_TRANSACTION_EXISTS, payload: txid },
-    );
 }
 
 function addBlock(block) {
@@ -120,47 +58,13 @@ async function producePendingTransactions(
       previousBlock.databaseHash,
     );
 
-    await newBlock.produceBlock(ipc, javascriptVMTimeout, steemClient);
+    await newBlock.produceBlock(ipc, javascriptVMTimeout);
 
     if (newBlock.transactions.length > 0 || newBlock.virtualTransactions.length > 0) {
       await addBlock(newBlock);
     }
   }
 }
-
-actions.addBlockToQueue = (block) => {
-  blockProductionQueue.push(block);
-};
-
-actions.produceNewBlock = async (block) => {
-  if (stopRequested) return;
-  producing = true;
-  // the stream parsed transactions from the Steem blockchain
-  const {
-    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
-    transactions, timestamp, virtualTransactions,
-  } = block;
-  const newTransactions = [];
-
-  transactions.forEach((transaction) => {
-    newTransactions.push(new Transaction(
-      transaction.refSteemBlockNumber,
-      transaction.transactionId,
-      transaction.sender,
-      transaction.contract,
-      transaction.action,
-      transaction.payload,
-    ));
-  });
-
-  // if there are transactions pending we produce a block
-  if (newTransactions.length > 0 || (virtualTransactions && virtualTransactions.length > 0)) {
-    await producePendingTransactions(
-      refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, newTransactions, timestamp,
-    );
-  }
-  producing = false;
-};
 
 const produceNewBlockSync = async (block, callback = null) => {
   if (stopRequested) return;
@@ -232,29 +136,16 @@ const produceNewBlockSync = async (block, callback = null) => {
 // when stopping, we wait until the current block is produced
 function stop(callback) {
   stopRequested = true;
-  if (producing) process.nextTick(() => stop(callback));
-
-  stopRequested = false;
-  callback();
-}
-
-async function startBlockProduction() {
-  // get a block from the queue
-  const block = blockProductionQueue.pop();
-
-  if (block) {
-    await produceNewBlockSync(block);
+  if (producing) {
+    setTimeout(() => stop(callback), 500);
+  } else {
+    stopRequested = false;
+    callback();
   }
-
-  setTimeout(() => startBlockProduction(), 10);
 }
 
 function init(conf) {
   javascriptVMTimeout = conf.javascriptVMTimeout; // eslint-disable-line prefer-destructuring
-  conf.streamNodes.forEach(node => steemClient.nodes.push(node));
-  steemClient.sidechainId = conf.chainId;
-
-  // checkIfNeedToProposeBlock();
 }
 
 ipc.onReceiveMessage((message) => {
@@ -277,9 +168,6 @@ ipc.onReceiveMessage((message) => {
     createGenesisBlock(payload, (genBlock) => {
       ipc.reply(message, genBlock);
     });
-  } else if (action === PLUGIN_ACTIONS.START_BLOCK_PRODUCTION) {
-    startBlockProduction();
-    ipc.reply(message);
   } else if (action === PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC) {
     produceNewBlockSync(payload, () => {
       ipc.reply(message);
