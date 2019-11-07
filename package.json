@@ -24,7 +24,6 @@
     "jayson": "^2.1.1",
     "js-base64": "^2.5.1",
     "line-by-line": "^0.1.6",
-    "lokijs": "^1.5.6",
     "mongodb": "^3.2.6",
     "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
@@ -33,9 +32,7 @@
     "socket.io-client": "^2.3.0",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
-    "winston": "^3.1.0",
-    "ws": "^7.1.1",
-    "ws-events": "^1.0.0"
+    "winston": "^3.1.0"
   },
   "devDependencies": {
     "eslint": "^5.12.1",
