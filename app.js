@@ -1,5 +1,4 @@
 require('dotenv').config();
-const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
 const program = require('commander');
 const { fork } = require('child_process');
