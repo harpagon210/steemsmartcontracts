@@ -106,7 +106,7 @@ const loadPlugin = (newPlugin) => {
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
   plugin.cp.on('message', msg => route(msg));
-  plugin.cp.on('error', err => logger.error(`[${newPlugin.PLUGIN_NAME}]`, err));
+  plugin.cp.on('error', err => logger.error(`[${newPlugin.PLUGIN_NAME}] ${err}`));
   plugin.cp.stdout.on('data', (data) => {
     logger.info(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
   });
@@ -127,7 +127,6 @@ const unloadPlugin = async (plugin) => {
     plg.cp.kill('SIGINT');
     plg = null;
   }
-
   return res;
 };
 
@@ -150,9 +149,9 @@ const start = async () => {
   }
 };
 
-const stop = async (signal) => {
+const stop = async () => {
   await unloadPlugin(jsonRPCServer);
-  await unloadPlugin(p2p, signal);
+  await unloadPlugin(p2p);
   // get the last Steem block parsed
   let res = null;
   const streamerPlugin = getPlugin(streamer);
@@ -176,7 +175,7 @@ const saveConfig = (lastBlockParsed) => {
 };
 
 const stopApp = async (signal = 0) => {
-  const lastBlockParsed = await stop(signal);
+  const lastBlockParsed = await stop();
   saveConfig(lastBlockParsed);
   // calling process.exit() won't inform parent process of signal
   process.kill(process.pid, signal);
@@ -211,15 +210,19 @@ if (program.replay !== undefined) {
 }
 
 // graceful app closing
-nodeCleanup((exitCode, signal) => {
-  if (signal) {
-    logger.info(`Closing App...  exitCode: ${exitCode} signal: ${signal}`);
+let shuttingDown = false;
 
-    stopApp(signal);
-
-    nodeCleanup.uninstall(); // don't call cleanup handler again
-    return false;
+const gracefulShutdown = () => {
+  if (shuttingDown === false) {
+    shuttingDown = true;
+    stopApp('SIGINT');
   }
+};
 
-  return true;
+process.on('SIGTERM', () => {
+  gracefulShutdown();
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown();
 });
