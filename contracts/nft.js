@@ -467,6 +467,51 @@ actions.transferOwnership = async (payload) => {
   }
 };
 
+actions.enableDelegation = async (payload) => {
+  const {
+    symbol,
+    undelegationCooldown,
+    isSignedWithActiveKey,
+  } = payload;
+
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { enableDelegationFee } = params;
+
+  // get api.sender's UTILITY_TOKEN_SYMBOL balance
+  const utilityTokenBalance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: UTILITY_TOKEN_SYMBOL });
+
+  const authorized = api.BigNumber(enableDelegationFee).lte(0)
+    ? true
+    : utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(enableDelegationFee);
+
+  if (api.assert(authorized, 'you must have enough tokens to cover fees')
+    && api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string', 'invalid symbol')
+    && api.assert(undelegationCooldown && Number.isInteger(undelegationCooldown) && undelegationCooldown > 0 && undelegationCooldown <= 18250, 'undelegationCooldown must be an integer between 1 and 18250')) {
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (api.assert(nft !== null, 'symbol does not exist')
+      && api.assert(nft.issuer === api.sender, 'must be the issuer')
+      && api.assert(nft.delegationEnabled === undefined || nft.delegationEnabled === false, 'delegation already enabled')) {      
+      // burn the fees
+      if (api.BigNumber(enableDelegationFee).gt(0)) {
+        const res = await api.executeSmartContract('tokens', 'transfer', { to: 'null', symbol: UTILITY_TOKEN_SYMBOL, quantity: enableDelegationFee, isSignedWithActiveKey });
+        // check if the tokens were sent
+        if (!isTokenTransferVerified(res, api.sender, 'null', UTILITY_TOKEN_SYMBOL, enableDelegationFee, 'transfer')) {
+          return false;
+        }
+      }
+
+      nft.delegationEnabled = true;
+      nft.undelegationCooldown = undelegationCooldown;
+      await api.db.update('nfts', nft);
+      return true;
+    }
+  }
+  return false;
+};
+
 actions.addProperty = async (payload) => {
   const { symbol, name, type, isReadOnly, authorizedEditingAccounts, authorizedEditingContracts, isSignedWithActiveKey } = payload;
 
