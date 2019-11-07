@@ -119,12 +119,12 @@ const loadPlugin = (newPlugin) => {
   return send(plugin, { action: 'init', payload: conf });
 };
 
-const unloadPlugin = async (plugin, signal) => {
+const unloadPlugin = async (plugin) => {
   let res = null;
   let plg = getPlugin(plugin);
   if (plg) {
     res = await send(plg, { action: 'stop' });
-    plg.cp.kill(signal);
+    plg.cp.kill('SIGINT');
     plg = null;
   }
 
@@ -151,19 +151,19 @@ const start = async () => {
 };
 
 const stop = async (signal) => {
-  await unloadPlugin(jsonRPCServer, signal);
+  await unloadPlugin(jsonRPCServer);
   await unloadPlugin(p2p, signal);
   // get the last Steem block parsed
   let res = null;
   const streamerPlugin = getPlugin(streamer);
   if (streamerPlugin) {
-    res = await unloadPlugin(streamer, signal);
+    res = await unloadPlugin(streamer);
   } else {
-    res = await unloadPlugin(replay, signal);
+    res = await unloadPlugin(replay);
   }
 
-  await unloadPlugin(blockchain, signal);
-  await unloadPlugin(database, signal);
+  await unloadPlugin(blockchain);
+  await unloadPlugin(database);
 
   return res.payload;
 };
