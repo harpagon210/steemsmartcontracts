@@ -711,9 +711,11 @@ actions.burn = async (payload) => {
           const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
           if (nftInstance) {
             // verify action is being performed by the account that owns this instance
+            // and there is no existing delegation
             if (nftInstance.account === finalFrom
               && ((nftInstance.ownedBy === 'u' && finalFromType === 'user')
-              || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))) {
+              || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))
+              && nftInstance.delegatedTo === undefined) {
               // release any locked tokens back to the owning account
               let finalLockTokens = {}
               let isTransferSuccess = true;
@@ -785,9 +787,11 @@ actions.transfer = async (payload) => {
             const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
             if (nftInstance) {
               // verify action is being performed by the account that owns this instance
+              // and there is no existing delegation
               if (nftInstance.account === finalFrom
                 && ((nftInstance.ownedBy === 'u' && finalFromType === 'user')
-                || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))) {
+                || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))
+                && nftInstance.delegatedTo === undefined) {
                 const origOwnedBy = nftInstance.ownedBy;
                 const newOwnedBy = finalToType === 'user' ? 'u' : 'c';
                 
@@ -799,6 +803,70 @@ actions.transfer = async (payload) => {
                 api.emit('transfer', {
                   from: finalFrom, fromType: origOwnedBy, to: finalTo, toType: newOwnedBy, symbol, id
                 });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+actions.delegate = async (payload) => {
+  const {
+    fromType, to, toType, nfts, isSignedWithActiveKey, callingContractInfo,
+  } = payload;
+  const types = ['user', 'contract'];
+
+  const finalToType = toType === undefined ? 'user' : toType;
+  const finalFromType = fromType === undefined ? 'user' : fromType;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(finalFromType && typeof finalFromType === 'string' && types.includes(finalFromType)
+    && to && typeof to === 'string'
+    && finalToType && typeof finalToType === 'string' && types.includes(finalToType)
+    && (callingContractInfo || (callingContractInfo === undefined && finalFromType === 'user'))
+    && nfts && typeof nfts === 'object' && Array.isArray(nfts), 'invalid params')
+    && isValidNftIdArray(nfts)) {
+    const finalTo = finalToType === 'user' ? to.trim().toLowerCase() : to.trim();
+    const toValid = finalToType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
+    const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
+
+    if (api.assert(toValid, 'invalid to')
+      && api.assert(!(finalToType === finalFromType && finalTo === finalFrom), 'cannot delegate to self')
+      && api.assert(!(finalToType === 'user' && finalTo === 'null'), 'cannot delegate to null')) {
+      for (var i = 0; i < nfts.length; i++) {
+        const { symbol, ids } = nfts[i];
+        // check if the NFT exists
+        const nft = await api.db.findOne('nfts', { symbol });
+        if (nft) {
+          if (api.assert(nft.delegationEnabled === true, `delegation not enabled for ${symbol}`)) {
+            const instanceTableName = symbol + 'instances';
+            for (var j = 0; j < ids.length; j++) {
+              const id = ids[j];
+              const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
+              if (nftInstance) {
+                // verify action is being performed by the account that owns this instance
+                // and there is no existing delegation
+                if (nftInstance.account === finalFrom
+                  && ((nftInstance.ownedBy === 'u' && finalFromType === 'user')
+                  || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))
+                  && nftInstance.delegatedTo === undefined) {
+                  const newOwnedBy = finalToType === 'user' ? 'u' : 'c';
+
+                  const newDelegation = {
+                    account: finalTo,
+                    ownedBy: newOwnedBy
+                  };
+
+                  nftInstance.delegatedTo = newDelegation;
+
+                  await api.db.update(instanceTableName, nftInstance);
+
+                  api.emit('delegate', {
+                    from: finalFrom, fromType: nftInstance.ownedBy, to: finalTo, toType: newOwnedBy, symbol, id
+                  });
+                }
               }
             }
           }
