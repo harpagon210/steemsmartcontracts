@@ -680,12 +680,12 @@ actions.changeCurrentWitness = async (payload) => {
               .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
 
             // if the witness is enabled
-            // and different from the scheduled one
             // and different from the scheduled one from the previous round
+            // and different from an already scheduled witness for this round
             const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
             if (witness.enabled === true
-              && witness.account !== schedule.witness
               && witness.account !== previousRoundWitness
+              && schedules.find(s => s.witness === witness.account) === undefined
               && api.BigNumber(randomWeight).lte(accWeight)) {
               schedule.witness = witness.account;
               await api.db.update('schedules', schedule);

@@ -35,7 +35,6 @@ function sendBlock(block) {
 
 function replayFile(callback) {
   let lr;
-  process.env.NODE_MODE = 'REPLAY';
   // make sure file exists
   fs.stat(filePath, async (err, stats) => {
     if (!err && stats.isFile()) {
@@ -90,12 +89,10 @@ function replayFile(callback) {
       });
 
       lr.on('error', (error) => {
-        process.env.NODE_MODE = null;
         callback(error);
       });
 
       lr.on('end', () => {
-        process.env.NODE_MODE = null;
         console.log('Replay done');
         callback(null);
       });

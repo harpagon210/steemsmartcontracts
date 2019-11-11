@@ -36,7 +36,7 @@ let roundPropositionWaitingPeriod = 0;
 let lastProposedWitnessChange = null;
 let lastProposedWitnessChangeRoundNumber = 0;
 
-let manageRoundTimeoutHandler = null;
+let manageRoundPropositionTimeoutHandler = null;
 let manageP2PConnectionsTimeoutHandler = null;
 let sendingToSidechain = false;
 
@@ -649,9 +649,7 @@ const proposeWitnessChange = async (witness, round) => {
   }
 };
 
-const manageRound = async () => {
-  if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
-
+const manageRoundProposition = async () => {
   // get the current round info
   const params = await findOne('witnesses', 'params', {});
 
@@ -773,14 +771,12 @@ const manageRound = async () => {
   }
 
 
-  manageRoundTimeoutHandler = setTimeout(() => {
-    manageRound();
+  manageRoundPropositionTimeoutHandler = setTimeout(() => {
+    manageRoundProposition();
   }, 3000);
 };
 
 const manageP2PConnections = async () => {
-  if (this.signingKey === null || this.witnessAccount === null || process.env.NODE_MODE === 'REPLAY') return;
-
   if (currentRound > 0) {
     // get the witness participating in this round
     const schedules = await find('witnesses', 'schedules', { round: currentRound });
@@ -822,38 +818,41 @@ const init = async (conf, callback) => {
     steemChainId,
   } = conf;
 
-  if (witnessEnabled === false) callback(null);
-
-  streamNodes.forEach(node => steemClient.nodes.push(node));
-  steemClient.sidechainId = chainId;
-  steemClient.steemAddressPrefix = steemAddressPrefix;
-  steemClient.steemChainId = steemChainId;
-
-  this.witnessAccount = process.env.ACCOUNT || null;
-  this.signingKey = process.env.ACTIVE_SIGNING_KEY
-    ? dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY)
-    : null;
-
-  // enable the web socket server
-  if (this.signingKey && this.witnessAccount) {
-    const server = http.createServer();
-    server.listen(p2pPort, '0.0.0.0');
-    socketServer = io.listen(server);
-    socketServer.on('connection', socket => connectionHandler(socket));
-    console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
-
-    manageRound();
-    manageP2PConnections();
+  if (witnessEnabled === false
+    || process.env.ACTIVE_SIGNING_KEY === null
+    || process.env.ACCOUNT === null) {
+    console.log('P2P not started, missing env variables ACCOUNT and/or ACTIVE_SIGNING_KEY and/or witness not enabled in config.json file');
+    callback(null);
   } else {
-    console.log(`P2P not started, missing env variables ACCOUNT and ACTIVE_SIGNING_KEY`); // eslint-disable-line
-  }
+    streamNodes.forEach(node => steemClient.nodes.push(node));
+    steemClient.sidechainId = chainId;
+    steemClient.steemAddressPrefix = steemAddressPrefix;
+    steemClient.steemChainId = steemChainId;
 
-  callback(null);
+    this.witnessAccount = process.env.ACCOUNT || null;
+    this.signingKey = process.env.ACTIVE_SIGNING_KEY
+      ? dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY)
+      : null;
+
+    // enable the web socket server
+    if (this.signingKey && this.witnessAccount) {
+      const server = http.createServer();
+      server.listen(p2pPort, '0.0.0.0');
+      socketServer = io.listen(server);
+      socketServer.on('connection', socket => connectionHandler(socket));
+      console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
+
+      manageRoundProposition();
+      manageP2PConnections();
+    }
+
+    callback(null);
+  }
 };
 
 // stop the P2P plugin
 const stop = (callback) => {
-  if (manageRoundTimeoutHandler) clearTimeout(manageRoundTimeoutHandler);
+  if (manageRoundPropositionTimeoutHandler) clearTimeout(manageRoundPropositionTimeoutHandler);
   if (manageP2PConnectionsTimeoutHandler) clearTimeout(manageP2PConnectionsTimeoutHandler);
 
   if (socketServer) {
