@@ -123,7 +123,7 @@ class SmartContracts {
           // insert a record in the table of the smart contract
           remove: (table, record) => SmartContracts.remove(ipc, name, table, record),
           // insert a record in the table of the smart contract
-          update: (table, record) => SmartContracts.update(ipc, name, table, record),
+          update: (table, record, unsets = undefined) => SmartContracts.update(ipc, name, table, record, unsets),
           // check if a table exists
           tableExists: table => SmartContracts.tableExists(ipc, name, table),
         };
@@ -294,7 +294,7 @@ class SmartContracts {
         // insert a record in the table of the smart contract
         remove: (table, record) => SmartContracts.remove(ipc, contract, table, record),
         // insert a record in the table of the smart contract
-        update: (table, record) => SmartContracts.update(ipc, contract, table, record),
+        update: (table, record, unsets = undefined) => SmartContracts.update(ipc, contract, table, record, unsets),
         // check if a table exists
         tableExists: table => SmartContracts.tableExists(ipc, contract, table),
       };
@@ -697,7 +697,7 @@ class SmartContracts {
     return res.payload;
   }
 
-  static async update(ipc, contractName, table, record) {
+  static async update(ipc, contractName, table, record, unsets) {
     const res = await ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.UPDATE,
@@ -705,6 +705,7 @@ class SmartContracts {
         contract: contractName,
         table,
         record,
+        unsets,
       },
     });
 

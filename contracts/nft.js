@@ -7,7 +7,7 @@ const MAX_NUM_LOCKED_TOKEN_TYPES = 10;
 const MAX_SYMBOL_LENGTH = 10;
 const MAX_NUM_NFTS_ISSUABLE = 10;    // cannot issue more than this number of NFT instances in one action
 const MAX_NUM_NFTS_EDITABLE = 100;   // cannot set properties on more than this number of NFT instances in one action
-const MAX_NUM_NFTS_OPERABLE = 100;   // cannot burn or transfer more than this number of NFT instances in one action
+const MAX_NUM_NFTS_OPERABLE = 100;   // cannot burn, transfer, delegate, or undelegate more than this number of NFT instances in one action
 const MAX_DATA_PROPERTY_LENGTH = 100;
 
 actions.createSSC = async (payload) => {
@@ -938,6 +938,74 @@ actions.undelegate = async (payload) => {
           }
         }
       }
+    }
+  }
+};
+
+const processUndelegation = async (undelegation) => {
+  const {
+    symbol,
+    ids,
+  } = undelegation;
+
+  const instanceTableName = symbol + 'instances';
+
+  let instances = await api.db.find(
+    instanceTableName,
+    {
+      '_id': {
+        $in: ids,
+      },
+    },
+    MAX_NUM_NFTS_OPERABLE,
+    0,
+    [ { index: '_id', descending: false } ],
+  );
+
+  // remove the delegation information from each NFT instance
+  for (var i = 0; i < instances.length; i++) {
+    delete instances[i].delegatedTo;
+    await api.db.update(instanceTableName, instances[i], {delegatedTo: ''});
+  }
+
+  // remove the pending undelegation itself
+  await api.db.remove('pendingUndelegations', undelegation);
+
+  api.emit('undelegateDone', { symbol, ids });
+};
+
+actions.checkPendingUndelegations = async () => {
+  if (api.assert(api.sender === 'null', 'not authorized')) {
+    const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+    const timestamp = blockDate.getTime();
+
+    // get all the pending undelegations that are ready to be released
+    let pendingUndelegations = await api.db.find(
+      'pendingUndelegations',
+      {
+        completeTimestamp: {
+          $lte: timestamp,
+        },
+      },
+    );
+
+    let nbPendingUndelegations = pendingUndelegations.length;
+    while (nbPendingUndelegations > 0) {
+      for (let index = 0; index < nbPendingUndelegations; index += 1) {
+        const pendingUndelegation = pendingUndelegations[index];
+        await processUndelegation(pendingUndelegation);
+      }
+
+      pendingUndelegations = await api.db.find(
+        'pendingUndelegations',
+        {
+          completeTimestamp: {
+            $lte: timestamp,
+          },
+        },
+      );
+
+      nbPendingUndelegations = pendingUndelegations.length;
     }
   }
 };

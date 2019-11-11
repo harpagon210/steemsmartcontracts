@@ -95,6 +95,7 @@ class Block {
     if (this.refSteemBlockNumber >= 32713424) {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
+      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
     const nbVirtualTransactions = virtualTransactions.length;
