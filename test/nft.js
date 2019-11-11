@@ -154,6 +154,10 @@ const testSmartContractCode = `
     await api.executeSmartContract('nft', 'delegate', payload);
   }
 
+  actions.doUndelegation = async function (payload) {
+    await api.executeSmartContract('nft', 'undelegate', payload);
+  }
+
   actions.doBurn = async function (payload) {
     await api.executeSmartContract('nft', 'burn', payload);
   }
@@ -700,7 +704,7 @@ describe('nft', function() {
       });
   });
 
-  it('delegates tokens', (done) => {
+  it('delegates and undelegates tokens', (done) => {
     new Promise(async (resolve) => {
 
       await loadPlugin(database);
@@ -732,7 +736,7 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1249', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.1"}, "properties": {"color":"blue"} }`));
       transactions.push(new Transaction(12345678901, 'TXID1250', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "properties": {"color":"purple"} }`));
 
-      // the actual delegations
+      // do some delegations
       // user -> user
       transactions.push(new Transaction(12345678901, 'TXID1251', 'aggroed', 'nft', 'delegate', '{ "isSignedWithActiveKey": true, "to":"cryptomancer", "nfts": [ {"symbol":"TSTNFT", "ids":["2"]}, {"symbol":"TEST", "ids":["1"]} ] }'));
       // contract -> contract
@@ -741,6 +745,10 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1253', 'marc', 'testContract', 'doDelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "to":"harpagon", "toType":"user", "nfts": [ {"symbol":"TEST", "ids":["4"]} ] }'));
       // user -> contract
       transactions.push(new Transaction(12345678901, 'TXID1254', 'aggroed', 'nft', 'delegate', '{ "isSignedWithActiveKey": true, "to":"testContract", "toType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["3"]}, {"symbol":"INVALID", "ids":["1","1","1"]} ] }'));
+
+      // now start some undelegations
+      transactions.push(new Transaction(12345678901, 'TXID1255', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["3"]}, {"symbol":"TEST", "ids":["1","1","1"]}, {"symbol":"INVALID", "ids":["1","1","1"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1256', 'marc', 'testContract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["300","301"]}, {"symbol":"TEST", "ids":["2","3","4"]} ] }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -763,6 +771,8 @@ describe('nft', function() {
       console.log(transactionsBlock1[22].logs);
       console.log(transactionsBlock1[23].logs);
       console.log(transactionsBlock1[24].logs);
+      console.log(transactionsBlock1[25].logs);
+      console.log(transactionsBlock1[26].logs);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -788,7 +798,9 @@ describe('nft', function() {
       assert.equal(instances[2]._id, 3);
       assert.equal(instances[2].account, 'aggroed');
       assert.equal(instances[2].ownedBy, 'u');
-      assert.equal(JSON.stringify(instances[2].delegatedTo), '{"account":"testContract","ownedBy":"c"}');
+      assert.equal(instances[2].delegatedTo.account, 'testContract');
+      assert.equal(instances[2].delegatedTo.ownedBy, 'c');
+      assert.equal(instances[2].delegatedTo.undelegateAt > 0, true);
 
       res = await send(database.PLUGIN_NAME, 'MASTER', {
         action: database.PLUGIN_ACTIONS.FIND,
@@ -801,6 +813,196 @@ describe('nft', function() {
 
       instances = res.payload;
       console.log(instances);
+
+      // check NFT instances are OK
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'aggroed');
+      assert.equal(instances[0].ownedBy, 'u');
+      assert.equal(instances[0].delegatedTo.account, 'cryptomancer');
+      assert.equal(instances[0].delegatedTo.ownedBy, 'u');
+      assert.equal(instances[0].delegatedTo.undelegateAt > 0, true);
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'testContract');
+      assert.equal(instances[1].ownedBy, 'c');
+      assert.equal(instances[1].delegatedTo.account, 'contract2');
+      assert.equal(instances[1].delegatedTo.ownedBy, 'c');
+      assert.equal(instances[1].delegatedTo.undelegateAt > 0, true);
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'testContract');
+      assert.equal(instances[2].ownedBy, 'c');
+      assert.equal(instances[2].delegatedTo.account, 'contract2');
+      assert.equal(instances[2].delegatedTo.ownedBy, 'c');
+      assert.equal(instances[2].delegatedTo.undelegateAt > 0, true);
+      assert.equal(instances[3]._id, 4);
+      assert.equal(instances[3].account, 'testContract');
+      assert.equal(instances[3].ownedBy, 'c');
+      assert.equal(instances[3].delegatedTo.account, 'harpagon');
+      assert.equal(instances[3].delegatedTo.ownedBy, 'u');
+      assert.equal(instances[3].delegatedTo.undelegateAt > 0, true);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'pendingUndelegations',
+          query: {}
+        }
+      });
+
+      let undelegations = res.payload;
+      console.log(undelegations);
+
+      assert.equal(undelegations.length, 3);
+      assert.equal(undelegations[0].symbol, 'TSTNFT');
+      assert.equal(JSON.stringify(undelegations[0].ids), '[3]');
+      assert.equal(undelegations[0].completeTimestamp > 0, true);
+      assert.equal(undelegations[1].symbol, 'TEST');
+      assert.equal(JSON.stringify(undelegations[1].ids), '[1]');
+      assert.equal(undelegations[1].completeTimestamp > 0, true);
+      assert.equal(undelegations[2].symbol, 'TEST');
+      assert.equal(JSON.stringify(undelegations[2].ids), '[2,3,4]');
+      assert.equal(undelegations[2].completeTimestamp > 0, true);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
+  it('does not undelegate tokens', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+
+      let transactions = [];
+      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(12345678901, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 3", "symbol": "TESTER" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1243', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
+      transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "undelegationCooldown": 5 }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"5","TKN":"0.25"}, "properties": {"color":"white"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "toType":"user", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10","TKN":"0.5"}, "properties": {"color":"orange"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1247', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "toType":"user", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15","TKN":"0.75"}, "properties": {"color":"black"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1248', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "toType":"user", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.001","TKN":"0.001"}, "properties": {"color":"red"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1249', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.002","TKN":"0.01"}, "properties": {"color":"green"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1250', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.1"}, "properties": {"color":"blue"} }`));
+      transactions.push(new Transaction(12345678901, 'TXID1251', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testContract", "toType":"contract", "feeSymbol": "TKN", "properties": {"color":"purple"} }`));
+
+      // do some delegations
+      // user -> user
+      transactions.push(new Transaction(12345678901, 'TXID1252', 'aggroed', 'nft', 'delegate', '{ "isSignedWithActiveKey": true, "to":"cryptomancer", "nfts": [ {"symbol":"TSTNFT", "ids":["2"]}, {"symbol":"TEST", "ids":["1"]} ] }'));
+      // contract -> contract
+      transactions.push(new Transaction(12345678901, 'TXID1253', 'marc', 'testContract', 'doDelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "to":"contract2", "toType":"contract", "nfts": [ {"symbol":"TEST", "ids":["2","2","2","2","3","3","2","2"]} ] }'));
+      // contract -> user
+      transactions.push(new Transaction(12345678901, 'TXID1254', 'marc', 'testContract', 'doDelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "to":"harpagon", "toType":"user", "nfts": [ {"symbol":"TEST", "ids":["4"]} ] }'));
+      // user -> contract
+      transactions.push(new Transaction(12345678901, 'TXID1255', 'aggroed', 'nft', 'delegate', '{ "isSignedWithActiveKey": true, "to":"testContract", "toType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["3"]}, {"symbol":"INVALID", "ids":["1","1","1"]} ] }'));
+
+      // validation errors
+      transactions.push(new Transaction(12345678901, 'TXID1256', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TESTER", "ids":["1"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1257', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": false, "nfts": [ {"symbol":"TSTNFT", "ids":["2"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1258', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "fromType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["2"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1259', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT"} ] }'));
+      
+      // is not the token owner
+      transactions.push(new Transaction(12345678901, 'TXID1260', 'marc', 'testContract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "nfts": [ {"symbol":"TEST", "ids":["1"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1261', 'aggroed', 'testContract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "nfts": [ {"symbol":"TEST", "ids":["1"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1262', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["2"]} ] }'));
+
+      // symbol does not exist
+      transactions.push(new Transaction(12345678901, 'TXID1263', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"INVALID", "ids":["2"]} ] }'));
+
+      // instances do not exist
+      transactions.push(new Transaction(12345678901, 'TXID1264', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["200","201","202"]} ] }'));
+
+      // instance is not being delegated
+      transactions.push(new Transaction(12345678901, 'TXID1265', 'marc', 'testContract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["1"]} ] }'));
+
+      let block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 1,
+      });
+
+      const block1 = res.payload;
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[26].logs);
+      console.log(transactionsBlock1[27].logs);
+      console.log(transactionsBlock1[28].logs);
+      console.log(transactionsBlock1[29].logs);
+      console.log(transactionsBlock1[30].logs);
+      console.log(transactionsBlock1[31].logs);
+      console.log(transactionsBlock1[32].logs);
+      console.log(transactionsBlock1[33].logs);
+      console.log(transactionsBlock1[34].logs);
+      console.log(transactionsBlock1[35].logs);
+
+      assert.equal(JSON.parse(transactionsBlock1[26].logs).errors[0], 'delegation not enabled for TESTER');
+      assert.equal(JSON.parse(transactionsBlock1[27].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[28].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[29].logs).errors[0], 'invalid nft list');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TSTNFTinstances',
+          query: {}
+        }
+      });
+
+      let instances = res.payload;
+
+      // check NFT instances are OK
+      assert.equal(instances[0]._id, 1);
+      assert.equal(instances[0].account, 'testContract');
+      assert.equal(instances[0].ownedBy, 'c');
+      assert.equal(instances[0].delegatedTo, undefined);
+      assert.equal(instances[1]._id, 2);
+      assert.equal(instances[1].account, 'aggroed');
+      assert.equal(instances[1].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[1].delegatedTo), '{"account":"cryptomancer","ownedBy":"u"}');
+      assert.equal(instances[2]._id, 3);
+      assert.equal(instances[2].account, 'aggroed');
+      assert.equal(instances[2].ownedBy, 'u');
+      assert.equal(JSON.stringify(instances[2].delegatedTo), '{"account":"testContract","ownedBy":"c"}');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'TESTinstances',
+          query: {}
+        }
+      });
+
+      instances = res.payload;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -819,6 +1021,61 @@ describe('nft', function() {
       assert.equal(instances[3].account, 'testContract');
       assert.equal(instances[3].ownedBy, 'c');
       assert.equal(JSON.stringify(instances[3].delegatedTo), '{"account":"harpagon","ownedBy":"u"}');
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'pendingUndelegations',
+          query: {}
+        }
+      });
+
+      let undelegations = res.payload;
+
+      assert.equal(undelegations.length, 0);
+
+      // ensure we cannot undelegate something twice
+      transactions = [];
+      transactions.push(new Transaction(12345678901, 'TXID1266', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["1"]} ] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1267', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["1"]} ] }'));
+
+      block = {
+        refSteemBlockNumber: 12345678901,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
+        payload: 2,
+      });
+
+      const block2 = res.payload;
+      const transactionsBlock2 = block2.transactions;
+      console.log(transactionsBlock2[0].logs);
+      console.log(transactionsBlock2[1].logs);
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND,
+        payload: {
+          contract: 'nft',
+          table: 'pendingUndelegations',
+          query: {}
+        }
+      });
+
+      undelegations = res.payload;
+      console.log(undelegations);
+
+      assert.equal(undelegations[0].symbol, 'TEST');
+      assert.equal(JSON.stringify(undelegations[0].ids), '[1]');
+      assert.equal(undelegations[0].completeTimestamp > 0, true);
+      assert.equal(undelegations.length, 1);
 
       resolve();
     })

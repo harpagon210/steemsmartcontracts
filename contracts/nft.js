@@ -15,8 +15,7 @@ actions.createSSC = async (payload) => {
   if (tableExists === false) {
     await api.db.createTable('nfts', ['symbol']);                           // token definition
     await api.db.createTable('params');                                     // contract parameters
-    await api.db.createTable('delegations', ['from', 'to']);                // NFT instance delegations
-    await api.db.createTable('pendingUndelegations', ['account', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being removed
+    await api.db.createTable('pendingUndelegations', ['symbol', 'completeTimestamp']);    // NFT instance delegations that are in cooldown after being undelegated
 
     const params = {};
     params.nftCreationFee = '100';
@@ -869,6 +868,73 @@ actions.delegate = async (payload) => {
                 }
               }
             }
+          }
+        }
+      }
+    }
+  }
+};
+
+actions.undelegate = async (payload) => {
+  const {
+    fromType, nfts, isSignedWithActiveKey, callingContractInfo,
+  } = payload;
+  const types = ['user', 'contract'];
+
+  const finalFromType = fromType === undefined ? 'user' : fromType;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(finalFromType && typeof finalFromType === 'string' && types.includes(finalFromType)
+    && (callingContractInfo || (callingContractInfo === undefined && finalFromType === 'user'))
+    && nfts && typeof nfts === 'object' && Array.isArray(nfts), 'invalid params')
+    && isValidNftIdArray(nfts)) {
+    const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
+    const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+
+    for (var i = 0; i < nfts.length; i++) {
+      const { symbol, ids } = nfts[i];
+      // check if the NFT exists
+      const nft = await api.db.findOne('nfts', { symbol });
+      if (nft) {
+        if (api.assert(nft.delegationEnabled === true, `delegation not enabled for ${symbol}`)) {
+          // calculate the undelegation completion time
+          const cooldownPeriodMillisec = nft.undelegationCooldown * 24 * 3600 * 1000;
+          const completeTimestamp = blockDate.getTime() + cooldownPeriodMillisec;
+
+          const instanceTableName = symbol + 'instances';
+
+          const undelegation = {
+            symbol,
+            ids: [],
+            completeTimestamp,
+          };
+
+          for (var j = 0; j < ids.length; j++) {
+            const id = ids[j];
+            const nftInstance = await api.db.findOne(instanceTableName, { '_id': api.BigNumber(id).toNumber() });
+            if (nftInstance) {
+              // verify action is being performed by the account that owns this instance
+              // and there is an existing delegation that is not pending undelegation
+              if (nftInstance.account === finalFrom
+                && ((nftInstance.ownedBy === 'u' && finalFromType === 'user')
+                || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))
+                && nftInstance.delegatedTo
+                && nftInstance.delegatedTo.undelegateAt === undefined) {
+
+                nftInstance.delegatedTo.undelegateAt = completeTimestamp;
+                undelegation.ids.push(nftInstance['_id'])
+
+                await api.db.update(instanceTableName, nftInstance);
+
+                api.emit('undelegateStart', {
+                  from: nftInstance.delegatedTo.account, fromType: nftInstance.delegatedTo.ownedBy, symbol, id
+                });
+              }
+            }
+          }
+
+          if (undelegation.ids.length > 0) {
+            await api.db.insert('pendingUndelegations', undelegation);
           }
         }
       }
