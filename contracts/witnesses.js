@@ -6,7 +6,8 @@ const NB_TOP_WITNESSES = 4;
 const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
-const MAX_ROUNDS_MISSED_IN_A_ROW = 3;
+const MAX_ROUNDS_MISSED_IN_A_ROW = 3; // after that the witness is disabled
+const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 10; // 10 blocks
 
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('witnesses');
@@ -26,6 +27,7 @@ actions.createSSC = async () => {
       lastBlockRound: 0,
       currentWitness: null,
       lastWitnesses: [],
+      roundPropositionWaitingPeriod: 0,
     };
 
     await api.db.insert('params', params);
@@ -287,6 +289,112 @@ actions.disapprove = async (payload) => {
   }
 };
 
+const changeCurrentWitness = async () => {
+  const params = await api.db.findOne('params', {});
+  const {
+    currentWitness,
+    totalApprovalWeight,
+    lastWitnesses,
+    lastBlockRound,
+    round,
+  } = params;
+
+  // update the current witness
+  const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
+  scheduledWitness.missedRounds += 1;
+  scheduledWitness.missedRoundsInARow += 1;
+
+  // disable the witness if missed MAX_ROUNDS_MISSED_IN_A_ROW
+  if (scheduledWitness.missedRoundsInARow >= MAX_ROUNDS_MISSED_IN_A_ROW) {
+    scheduledWitness.missedRoundsInARow = 0;
+    scheduledWitness.enabled = false;
+  }
+
+  await api.db.update('witnesses', scheduledWitness);
+
+  let witnessFound = false;
+  // get a deterministic random weight
+  const random = api.random();
+  const randomWeight = api.BigNumber(totalApprovalWeight)
+    .times(random)
+    // eslint-disable-next-line no-template-curly-in-string
+    .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+
+  let offset = 0;
+  let accWeight = 0;
+
+  let witnesses = await api.db.find(
+    'witnesses',
+    {
+      approvalWeight: {
+        $gt: {
+          $numberDecimal: '0',
+        },
+      },
+    },
+    100, // limit
+    offset, // offset
+    [
+      { index: 'approvalWeight', descending: true },
+    ],
+  );
+  // get the witnesses on schedule
+  const schedules = await api.db.find('schedules', { round });
+
+  // get the current schedule
+  const schedule = await api.db
+    .findOne('schedules', { round, witness: currentWitness, blockNumber: lastBlockRound });
+
+  do {
+    for (let index = 0; index < witnesses.length; index += 1) {
+      const witness = witnesses[index];
+
+      accWeight = api.BigNumber(accWeight)
+        .plus(witness.approvalWeight.$numberDecimal)
+        // eslint-disable-next-line no-template-curly-in-string
+        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+
+      // if the witness is enabled
+      // and different from the scheduled one from the previous round
+      // and different from an already scheduled witness for this round
+      const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
+      if (witness.enabled === true
+        && witness.account !== previousRoundWitness
+        && schedules.find(s => s.witness === witness.account) === undefined
+        && api.BigNumber(randomWeight).lte(accWeight)) {
+        api.debug(`changed current witness from ${schedule.witness} to ${witness.account}`)
+        schedule.witness = witness.account;
+        await api.db.update('schedules', schedule);
+        params.currentWitness = witness.account;
+        params.roundPropositionWaitingPeriod = 0;
+        params.lastWitnesses.push(witness.account);
+        await api.db.update('params', params);
+        witnessFound = true;
+        break;
+      }
+    }
+
+    if (witnessFound === false) {
+      offset += 100;
+      witnesses = await api.db.find(
+        'witnesses',
+        {
+          approvalWeight: {
+            $gt: {
+              $numberDecimal: '0',
+            },
+          },
+        },
+        100, // limit
+        offset, // offset
+        [
+          { index: 'approvalWeight', descending: true },
+        ],
+      );
+    }
+  } while (witnesses.length > 0 && witnessFound === false);
+};
+
 const manageWitnessesSchedule = async () => {
   if (api.sender !== 'null') return;
 
@@ -295,6 +403,8 @@ const manageWitnessesSchedule = async () => {
     numberOfApprovedWitnesses,
     totalApprovalWeight,
     lastVerifiedBlockNumber,
+    roundPropositionWaitingPeriod,
+    lastBlockRound,
   } = params;
 
   // check the current schedule
@@ -472,8 +582,19 @@ const manageWitnessesSchedule = async () => {
       const lastWitnessRoundSchedule = schedule[schedule.length - 1];
       params.lastBlockRound = lastWitnessRoundSchedule.blockNumber;
       params.currentWitness = lastWitnessRoundSchedule.witness;
+      params.roundPropositionWaitingPeriod = 0;
       lastWitnesses.push(lastWitnessRoundSchedule.witness);
       params.lastWitnesses = lastWitnesses;
+      await api.db.update('params', params);
+    }
+  } else if (api.blockNumber > lastBlockRound) {
+    // otherwise we change the current witness if it has not proposed the round in time
+    if (roundPropositionWaitingPeriod >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
+      await changeCurrentWitness();
+    } else {
+      params.roundPropositionWaitingPeriod = roundPropositionWaitingPeriod
+        ? roundPropositionWaitingPeriod + 1
+        : 1;
       await api.db.update('params', params);
     }
   }
@@ -579,142 +700,6 @@ actions.proposeRound = async (payload) => {
 
           // TODO: reward the witness that produced this block
         }
-      }
-    }
-  }
-};
-
-actions.changeCurrentWitness = async (payload) => {
-  const {
-    signatures,
-    isSignedWithActiveKey,
-  } = payload;
-
-  if (isSignedWithActiveKey === true
-    && Array.isArray(signatures)
-    && signatures.length <= NB_WITNESSES
-    && signatures.length >= NB_WITNESSES_SIGNATURES_REQUIRED) {
-    const params = await api.db.findOne('params', {});
-    const {
-      currentWitness,
-      totalApprovalWeight,
-      lastWitnesses,
-      lastBlockRound,
-      round,
-    } = params;
-
-    // check if the sender is part of the round
-    let schedule = await api.db.findOne('schedules', { round, witness: api.sender });
-    if (round === params.round && schedule !== null) {
-      // get the witnesses on schedule
-      const schedules = await api.db.find('schedules', { round });
-
-      // check the signatures
-      let signaturesChecked = 0;
-      for (let index = 0; index < schedules.length; index += 1) {
-        const scheduledWitness = schedules[index];
-        const witness = await api.db.findOne('witnesses', { account: scheduledWitness.witness });
-        if (witness !== null) {
-          const signature = signatures.find(s => s[0] === witness.account);
-          if (signature) {
-            if (api.checkSignature(`${currentWitness}:${round}`, signature[1], witness.signingKey)) {
-              api.debug(`witness ${witness.account} signed witness change ${round}`);
-              signaturesChecked += 1;
-            }
-          }
-        }
-      }
-
-      if (signaturesChecked >= NB_WITNESSES_SIGNATURES_REQUIRED) {
-        // update the witness
-        const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
-        scheduledWitness.missedRounds += 1;
-        scheduledWitness.missedRoundsInARow += 1;
-
-        // disable the witness if missed MAX_ROUNDS_MISSED_IN_A_ROW
-        if (scheduledWitness.missedRoundsInARow >= MAX_ROUNDS_MISSED_IN_A_ROW) {
-          scheduledWitness.missedRoundsInARow = 0;
-          scheduledWitness.enabled = false;
-        }
-
-        await api.db.update('witnesses', scheduledWitness);
-
-        let witnessFound = false;
-        // get a deterministic random weight
-        const random = api.random();
-        const randomWeight = api.BigNumber(totalApprovalWeight)
-          .times(random)
-          // eslint-disable-next-line no-template-curly-in-string
-          .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
-
-        let offset = 0;
-        let accWeight = 0;
-
-        let witnesses = await api.db.find(
-          'witnesses',
-          {
-            approvalWeight: {
-              $gt: {
-                $numberDecimal: '0',
-              },
-            },
-          },
-          100, // limit
-          offset, // offset
-          [
-            { index: 'approvalWeight', descending: true },
-          ],
-        );
-
-        // get the current schedule
-        schedule = await api.db
-          .findOne('schedules', { round, witness: currentWitness, blockNumber: lastBlockRound });
-
-        do {
-          for (let index = 0; index < witnesses.length; index += 1) {
-            const witness = witnesses[index];
-
-            accWeight = api.BigNumber(accWeight)
-              .plus(witness.approvalWeight.$numberDecimal)
-              // eslint-disable-next-line no-template-curly-in-string
-              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
-
-            // if the witness is enabled
-            // and different from the scheduled one from the previous round
-            // and different from an already scheduled witness for this round
-            const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
-            if (witness.enabled === true
-              && witness.account !== previousRoundWitness
-              && schedules.find(s => s.witness === witness.account) === undefined
-              && api.BigNumber(randomWeight).lte(accWeight)) {
-              schedule.witness = witness.account;
-              await api.db.update('schedules', schedule);
-              params.currentWitness = witness.account;
-              await api.db.update('params', params);
-              witnessFound = true;
-              break;
-            }
-          }
-
-          if (witnessFound === false) {
-            offset += 100;
-            witnesses = await api.db.find(
-              'witnesses',
-              {
-                approvalWeight: {
-                  $gt: {
-                    $numberDecimal: '0',
-                  },
-                },
-              },
-              100, // limit
-              offset, // offset
-              [
-                { index: 'approvalWeight', descending: true },
-              ],
-            );
-          }
-        } while (witnesses.length > 0 && witnessFound === false);
       }
     }
   }

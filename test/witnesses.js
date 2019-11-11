@@ -1790,4 +1790,138 @@ describe('witnesses', function () {
       });
   });
 
+  it('changges the current witness if it has not validated a round in time', (done) => {
+    new Promise(async (resolve) => {
+      
+      await loadPlugin(database);
+      await loadPlugin(blockchain);
+
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      let txId = 100;
+      let transactions = [];
+      transactions.push(new Transaction(32713450, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(32713450, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(32713450, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+
+      // register 100 witnesses
+      for (let index = 0; index < 100; index++) {
+        txId++;
+        const witnessAccount = `witness${index}`;
+        const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
+        transactions.push(new Transaction(32713451, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
+      }
+
+      let block = {
+        refSteemBlockNumber: 32713451,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      transactions = [];
+      for (let index = 0; index < 30; index++) {
+        txId++;
+        transactions.push(new Transaction(32713452, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+      }
+
+      block = {
+        refSteemBlockNumber: 32713452,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+            
+          }
+        }
+      });
+
+      let params = res.payload;
+
+      if(NB_WITNESSES === 4) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness15');
+        assert.equal(params.lastWitnesses.includes('witness15'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 5);
+      } else if(NB_WITNESSES === 5) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness31');
+        assert.equal(params.lastWitnesses.includes('witness31'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 6);
+      }
+
+      // generate 20 blocks
+      for (let index = 30; index < 51; index++) {
+        transactions = [];
+        transactions.push(new Transaction(12345678901 + index, `TXID${index}`, 'satoshi', 'whatever', 'whatever', ''));
+
+        block = {
+          refSteemBlockNumber: 12345678901 + index,
+          refSteemBlockId: 'ABCD1',
+          prevRefSteemBlockId: 'ABCD2',
+          timestamp: '2018-07-14T00:02:00',
+          transactions,
+        };
+
+        await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+      }
+
+      res = await send(database.PLUGIN_NAME, 'MASTER', {
+        action: database.PLUGIN_ACTIONS.FIND_ONE,
+        payload: {
+          contract: 'witnesses',
+          table: 'params',
+          query: {
+            
+          }
+        }
+      });
+
+      params = res.payload;
+
+      if(NB_WITNESSES === 4) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness15');
+        assert.equal(params.lastWitnesses.includes('witness15'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 5);
+      } else if(NB_WITNESSES === 5) {
+        assert.equal(params.totalApprovalWeight, '3000.00000000');
+        assert.equal(params.numberOfApprovedWitnesses, 30);
+        assert.equal(params.lastVerifiedBlockNumber, 1);
+        assert.equal(params.currentWitness, 'witness6');
+        assert.equal(params.lastWitnesses.includes('witness6'), true);
+        assert.equal(params.round, 1);
+        assert.equal(params.lastBlockRound, 6);
+      }
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        unloadPlugin(database);
+        done();
+      });
+  });
+
 });
