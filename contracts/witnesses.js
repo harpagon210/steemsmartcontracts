@@ -32,6 +32,19 @@ actions.createSSC = async () => {
 
     await api.db.insert('params', params);
   }
+
+  // TODO: cleanup when launching for mainnet / next update
+  const witnesses = await api.db.find('witnesses', { });
+
+  for (let index = 0; index < witnesses.length; index += 1) {
+    const witness = witnesses[index];
+    if (witness.verifiedRounds === undefined || witness.verifiedRounds === null) {
+      witness.verifiedRounds = 0;
+      witness.lastRoundVerified = null;
+      witness.lastBlockVerified = null;
+      await api.db.update('witnesses', witness);
+    }
+  }
 };
 
 const updateWitnessRank = async (witness, approvalWeight) => {
@@ -163,6 +176,9 @@ actions.register = async (payload) => {
             enabled,
             missedRounds: 0,
             missedRoundsInARow: 0,
+            verifiedRounds: 0,
+            lastRoundVerified: null,
+            lastBlockVerified: null,
           };
           await api.db.insert('witnesses', witness);
         }
@@ -592,9 +608,7 @@ const manageWitnessesSchedule = async () => {
     if (roundPropositionWaitingPeriod >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
       await changeCurrentWitness();
     } else {
-      params.roundPropositionWaitingPeriod = roundPropositionWaitingPeriod
-        ? roundPropositionWaitingPeriod + 1
-        : 1;
+      params.roundPropositionWaitingPeriod += 1;
       await api.db.update('params', params);
     }
   }
@@ -690,9 +704,12 @@ actions.proposeRound = async (payload) => {
           params.lastVerifiedBlockNumber = lastBlockRound;
           await api.db.update('params', params);
 
-          // update missedRoundsInARow for the current witness
+          // update information for the current witness
           const witness = await api.db.findOne('witnesses', { account: currentWitness });
           witness.missedRoundsInARow = 0;
+          witness.lastRoundVerified = round;
+          witness.lastBlockVerified = lastBlockRound;
+          witness.verifiedRounds += 1;
           await api.db.update('witnesses', witness);
 
           // calculate new schedule
