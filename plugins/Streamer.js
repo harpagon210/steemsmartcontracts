@@ -4,6 +4,8 @@ const { Transaction } = require('../libs/Transaction');
 const { IPC } = require('../libs/IPC');
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
+const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
+const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
 
 const PLUGIN_PATH = require.resolve(__filename);
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Streamer.constants');
@@ -242,6 +244,10 @@ const sendBlock = block => ipc.send(
   { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block },
 );
 
+const getLatestBlockMetadata = () => ipc.send(
+  { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA, payload: null },
+);
+
 // process Steem block
 const processBlock = async (block) => {
   if (stopStream) return;
@@ -369,7 +375,17 @@ const startStreaming = (conf) => {
 };
 
 // stream the Steem blockchain to find transactions related to the sidechain
-const init = (conf) => {
+const init = async (conf) => {
+  const finalConf = conf;
+  // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
+  const res = await getLatestBlockMetadata();
+  if (res && res.payload) {
+    if (finalConf.startSteemBlock < res.payload.refSteemBlockNumber) {
+      console.log('adjusted startSteemBlock automatically as it was lower that the refSteemBlockNumber available');
+      finalConf.startSteemBlock = res.payload.refSteemBlockNumber + 1;
+    }
+  }
+
   startStreaming(conf);
   updateGlobalProps();
 };
