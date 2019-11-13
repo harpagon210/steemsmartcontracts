@@ -105,6 +105,11 @@ class Block {
 
     virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
 
+    // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
+    if (this.refSteemBlockNumber % 1200 === 0) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+    }
+
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
       const transaction = virtualTransactions[i];
