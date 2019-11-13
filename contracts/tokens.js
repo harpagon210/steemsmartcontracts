@@ -275,8 +275,7 @@ actions.transferOwnership = async (payload) => {
       if (api.assert(token.issuer === api.sender, 'must be the issuer')) {
         const finalTo = to.trim();
 
-        // a valid steem account is between 3 and 16 characters in length
-        if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+        if (api.assert(api.isValidAccountName(finalTo), 'invalid to')) {
           token.issuer = finalTo;
           await api.db.update('tokens', token);
         }
@@ -377,8 +376,7 @@ actions.issue = async (payload) => {
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(api.BigNumber(quantity).gt(0), 'must issue positive quantity')
       && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
-      // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+      if (api.assert(api.isValidAccountName(finalTo), 'invalid to')) {
         // we made all the required verification, let's now issue the tokens
 
         let res = await addBalance(token.issuer, token, quantity, 'balances');
@@ -424,8 +422,7 @@ actions.transfer = async (payload) => {
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalTo = to.trim();
     if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
-      // a valid steem account is between 3 and 16 characters in length
-      if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+      if (api.assert(api.isValidAccountName(finalTo), 'invalid to')) {
         const token = await api.db.findOne('tokens', { symbol });
 
         // the symbol must exist
@@ -472,7 +469,7 @@ actions.transferToContract = async (payload) => {
     && api.assert(to && typeof to === 'string'
       && symbol && typeof symbol === 'string'
       && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
-    const finalTo = to.trim();
+    const finalTo = to.trim().toLowerCase();
     if (api.assert(finalTo !== api.sender, 'cannot transfer to self')) {
       // a valid contract account is between 3 and 50 characters in length
       if (api.assert(finalTo.length >= 3 && finalTo.length <= 50, 'invalid to')) {
@@ -526,7 +523,7 @@ actions.transferFromContract = async (payload) => {
 
       if (api.assert(type === 'user' || (type === 'contract' && finalTo !== from), 'cannot transfer to self')) {
         // validate the "to"
-        const toValid = type === 'user' ? finalTo.length >= 3 && finalTo.length <= 16 : finalTo.length >= 3 && finalTo.length <= 50;
+        const toValid = type === 'user' ? api.isValidAccountName(finalTo) : finalTo.length >= 3 && finalTo.length <= 50;
 
         // the account must exist
         if (api.assert(toValid === true, 'invalid to')) {
@@ -736,7 +733,7 @@ actions.stake = async (payload) => {
 
     // the symbol must exist
     // then we need to check that the quantity is correct
-    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')
+    if (api.assert(api.isValidAccountName(finalTo), 'invalid to')
       && api.assert(token !== null, 'symbol does not exist')
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(token.stakingEnabled === true, 'staking not enabled')
@@ -917,8 +914,7 @@ actions.delegate = async (payload) => {
     && to && typeof to === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalTo = to.trim();
-    // a valid steem account is between 3 and 16 characters in length
-    if (api.assert(finalTo.length >= 3 && finalTo.length <= 16, 'invalid to')) {
+    if (api.assert(api.isValidAccountName(finalTo), 'invalid to')) {
       const token = await api.db.findOne('tokens', { symbol });
 
       // the symbol must exist
@@ -1075,8 +1071,7 @@ actions.undelegate = async (payload) => {
     && from && typeof from === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalFrom = from.trim();
-    // a valid steem account is between 3 and 16 characters in length
-    if (api.assert(finalFrom.length >= 3 && finalFrom.length <= 16, 'invalid from')) {
+    if (api.assert(api.isValidAccountName(finalFrom), 'invalid from')) {
       const token = await api.db.findOne('tokens', { symbol });
 
       // the symbol must exist
