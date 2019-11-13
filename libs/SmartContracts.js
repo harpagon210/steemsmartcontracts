@@ -206,6 +206,7 @@ class SmartContracts {
               }
               return condition;
             },
+            isValidAccountName: account => SmartContracts.isValidAccountName(account),
           },
         };
 
@@ -426,6 +427,7 @@ class SmartContracts {
             }
             return condition;
           },
+          isValidAccountName: account => SmartContracts.isValidAccountName(account),
         },
       };
 
@@ -610,6 +612,60 @@ class SmartContracts {
       action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
       payload: block,
     });
+  }
+
+  static isValidAccountName(value) {
+    if (!value) {
+      // Account name should not be empty.
+      return false;
+    }
+
+    if (typeof value !== 'string') {
+      // Account name should be a string.
+      return false;
+    }
+
+    let len = value.length;
+    if (len < 3) {
+      // Account name should be longer.
+      return false;
+    }
+    if (len > 16) {
+      // Account name should be shorter.
+      return false;
+    }
+
+    const ref = value.split('.');
+    len = ref.length;
+    for (let i = 0; i < len; i += 1) {
+      const label = ref[i];
+      if (label.length < 3) {
+        // Each account segment be longer
+        return false;
+      }
+
+      if (!/^[a-z]/.test(label)) {
+        // Each account segment should start with a letter.
+        return false;
+      }
+
+      if (!/^[a-z0-9-]*$/.test(label)) {
+        // Each account segment have only letters, digits, or dashes.
+        return false;
+      }
+
+      if (/--/.test(label)) {
+        // Each account segment have only one dash in a row.
+        return false;
+      }
+
+      if (!/[a-z0-9]$/.test(label)) {
+        // Each account segment end with a letter or digit.
+        return false;
+      }
+    }
+
+    return true;
   }
 
   static async createTable(ipc, tables, contractName, tableName, indexes = []) {
