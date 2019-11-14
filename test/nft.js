@@ -112,20 +112,6 @@ let tknContractPayload = {
 
 console.log(tknContractPayload)
 
-// prepare steempegged contract for deployment
-contractCode = fs.readFileSync('./contracts/steempegged.js');
-contractCode = contractCode.toString();
-contractCode = contractCode.replace(/'\$\{ACCOUNT_RECEIVING_FEES\}\$'/g, CONSTANTS.ACCOUNT_RECEIVING_FEES);
-base64ContractCode = Base64.encode(contractCode);
-
-let spContractPayload = {
-  name: 'steempegged',
-  params: '',
-  code: base64ContractCode,
-};
-
-console.log(spContractPayload)
-
 // prepare nft contract for deployment
 contractCode = fs.readFileSync('./contracts/nft.js');
 contractCode = contractCode.toString();
