@@ -126,6 +126,10 @@ class Block {
           && transaction.action === 'scheduleWitnesses'
           && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
           // don't save logs
+        } if (transaction.contract === 'inflation'
+          && transaction.action === 'issueNewTokens'
+          && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
+          // don't save logs
         } else {
           this.virtualTransactions.push(transaction);
         }
