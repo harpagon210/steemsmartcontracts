@@ -804,6 +804,48 @@ actions.stake = async (payload) => {
   }
 };
 
+actions.stakeFromContract = async (payload) => {
+  const {
+    symbol,
+    quantity,
+    to,
+    callingContractInfo,
+  } = payload;
+
+  // can only be called from a contract
+  if (callingContractInfo
+    && api.assert(symbol && typeof symbol === 'string'
+    && to && typeof to === 'string'
+    && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
+    const token = await api.db.findOne('tokens', { symbol });
+    const finalTo = to.trim();
+
+    // the symbol must exist
+    // then we need to check that the quantity is correct
+    if (api.assert(api.isValidAccountName(finalTo), 'invalid to')
+      && api.assert(token !== null, 'symbol does not exist')
+      && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
+      && api.assert(token.stakingEnabled === true, 'staking not enabled')
+      && api.assert(api.BigNumber(quantity).gt(0), 'must stake positive quantity')) {
+      if (await subBalance(callingContractInfo.name, token, quantity, 'contractsBalances')) {
+        const res = await addStake(finalTo, token, quantity);
+
+        if (res === false) {
+          await addBalance(callingContractInfo.name, token, quantity, 'balances');
+        } else {
+          api.emit('stakeFromContract', { account: finalTo, symbol, quantity });
+
+          // update witnesses rank
+          // eslint-disable-next-line no-template-curly-in-string
+          if (symbol === "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'") {
+            await api.executeSmartContract('witnesses', 'updateWitnessesApprovals', { account: finalTo });
+          }
+        }
+      }
+    }
+  }
+};
+
 const startUnstake = async (account, token, quantity) => {
   const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
   const cooldownPeriodMillisec = token.unstakingCooldown * 24 * 3600 * 1000;
