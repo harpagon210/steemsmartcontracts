@@ -21,7 +21,11 @@ class Block {
     this.hash = this.calculateHash();
     this.databaseHash = '';
     this.merkleRoot = '';
-    this.signature = '';
+    this.round = null;
+    this.roundHash = '';
+    this.witness = '';
+    this.signingKey = '';
+    this.roundSignature = '';
   }
 
   // calculate the hash of the block
@@ -29,6 +33,8 @@ class Block {
     return SHA256(
       this.previousHash
       + this.previousDatabaseHash
+      + this.databaseHash
+      + this.merkleRoot
       + this.blockNumber.toString()
       + this.refSteemBlockNumber.toString()
       + this.refSteemBlockId
@@ -73,7 +79,7 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  async produceBlock(ipc, jsVMTimeout, activeSigningKey) {
+  async produceBlock(ipc, jsVMTimeout) {
     const nbTransactions = this.transactions.length;
 
     let currentDatabaseHash = this.previousDatabaseHash;
@@ -98,6 +104,13 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
+    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+
+    // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
+    if (this.refSteemBlockNumber % 1200 === 0) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+    }
+
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
       const transaction = virtualTransactions[i];
@@ -108,21 +121,30 @@ class Block {
 
       // if there are outputs in the virtual transaction we save the transaction into the block
       // the "unknown error" errors are removed as they are related to a non existing action
-      if (transaction.logs !== '{}' && transaction.logs !== '{"errors":["unknown error"]}') {
-        this.virtualTransactions.push(transaction);
+      if (transaction.logs !== '{}'
+        && transaction.logs !== '{"errors":["unknown error"]}') {
+        if (transaction.contract === 'witnesses'
+          && transaction.action === 'scheduleWitnesses'
+          && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
+          // don't save logs
+        } if (transaction.contract === 'inflation'
+          && transaction.action === 'issueNewTokens'
+          && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
+          // don't save logs
+        } else {
+          this.virtualTransactions.push(transaction);
+        }
       }
     }
 
     if (this.transactions.length > 0 || this.virtualTransactions.length > 0) {
-      this.hash = this.calculateHash();
       // calculate the merkle root of the transactions' hashes and the transactions' database hashes
       const finalTransactions = this.transactions.concat(this.virtualTransactions);
 
       const merkleRoots = this.calculateMerkleRoot(finalTransactions);
       this.merkleRoot = merkleRoots.hash;
       this.databaseHash = merkleRoots.databaseHash;
-      const buffMR = Buffer.from(this.merkleRoot, 'hex');
-      this.signature = activeSigningKey.sign(buffMR).toString();
+      this.hash = this.calculateHash();
     }
   }
 

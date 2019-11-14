@@ -1,5 +1,6 @@
-const SHA256 = require('crypto-js/sha256');
+const SHA256FN = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
+const dsteem = require('dsteem');
 const { Base64 } = require('js-base64');
 const { VM, VMScript } = require('vm2');
 const BigNumber = require('bignumber.js');
@@ -61,11 +62,11 @@ class SmartContracts {
             RegExp.prototype.constructor = function () { };
             RegExp.prototype.exec = function () {  };
             RegExp.prototype.test = function () {  };
-  
+
             let actions = {};
-  
+
             ###ACTIONS###
-  
+
             const execute = async function () {
               try {
                 if (api.action && typeof api.action === 'string' && typeof actions[api.action] === 'function') {
@@ -81,7 +82,7 @@ class SmartContracts {
                 done(error);
               }
             }
-  
+
             execute();
           }
 
@@ -160,6 +161,30 @@ class SmartContracts {
             db,
             BigNumber,
             validator,
+            SHA256: (payloadToHash) => {
+              if (typeof payloadToHash === 'string') {
+                return SHA256FN(payloadToHash).toString(enchex);
+              }
+
+              return SHA256FN(JSON.stringify(payloadToHash)).toString(enchex);
+            },
+            checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
+              if ((typeof payloadToCheck !== 'string'
+              && typeof payloadToCheck !== 'object')
+              || typeof signature !== 'string'
+              || typeof publicKey !== 'string') return false;
+              try {
+                const sig = dsteem.Signature.fromString(signature);
+                const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
+                const payloadHash = isPayloadSHA256 === true
+                  ? finalPayload
+                  : SHA256FN(finalPayload).toString(enchex);
+                const buffer = Buffer.from(payloadHash, 'hex');
+                return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+              } catch (error) {
+                return false;
+              }
+            },
             random: () => rng(),
             debug: log => console.log(log), // eslint-disable-line no-console
             // execute a smart contract from the current smart contract
@@ -170,7 +195,7 @@ class SmartContracts {
               JSON.stringify(parameters),
               blockNumber, timestamp,
               refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-              name, contractVersion,
+              name, 'createSSC', contractVersion,
             ),
             // emit an event that will be stored in the logs
             emit: (event, data) => typeof event === 'string' && logs.events.push({ contract: name, event, data }),
@@ -181,6 +206,7 @@ class SmartContracts {
               }
               return condition;
             },
+            isValidAccountName: account => SmartContracts.isValidAccountName(account),
           },
         };
 
@@ -198,7 +224,7 @@ class SmartContracts {
           _id: name,
           owner: finalSender,
           code: codeTemplate,
-          codeHash: SHA256(codeTemplate).toString(enchex),
+          codeHash: SHA256FN(codeTemplate).toString(enchex),
           tables,
           version: 1,
         };
@@ -297,6 +323,8 @@ class SmartContracts {
         update: (table, record, unsets = undefined) => SmartContracts.update(ipc, contract, table, record, unsets),
         // check if a table exists
         tableExists: table => SmartContracts.tableExists(ipc, contract, table),
+        // get block information
+        getBlockInfo: blockNum => SmartContracts.getBlockInfo(ipc, blockNum),
       };
 
       // logs used to store events or errors
@@ -333,6 +361,29 @@ class SmartContracts {
           BigNumber,
           validator,
           random: () => rng(),
+          SHA256: (payloadToHash) => {
+            if (typeof payloadToHash === 'string') {
+              return SHA256FN(payloadToHash).toString(enchex);
+            }
+            return SHA256FN(JSON.stringify(payloadToHash)).toString(enchex);
+          },
+          checkSignature: (payloadToCheck, signature, publicKey, isPayloadSHA256 = false) => {
+            if ((typeof payloadToCheck !== 'string'
+            && typeof payloadToCheck !== 'object')
+            || typeof signature !== 'string'
+            || typeof publicKey !== 'string') return false;
+            try {
+              const sig = dsteem.Signature.fromString(signature);
+              const finalPayload = typeof payloadToCheck === 'string' ? payloadToCheck : JSON.stringify(payloadToCheck);
+              const payloadHash = isPayloadSHA256 === true
+                ? finalPayload
+                : SHA256FN(finalPayload).toString(enchex);
+              const buffer = Buffer.from(payloadHash, 'hex');
+              return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
+            } catch (error) {
+              return false;
+            }
+          },
           debug: log => console.log(log), // eslint-disable-line no-console
           // execute a smart contract from the current smart contract
           executeSmartContract: async (
@@ -342,7 +393,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
           // execute a smart contract from the current smart contract
           // with the contractOwner authority level
@@ -353,7 +404,7 @@ class SmartContracts {
             JSON.stringify(parameters),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
           // execute a token transfer from the contract balance
           transferTokens: async (
@@ -369,8 +420,12 @@ class SmartContracts {
             }),
             blockNumber, timestamp,
             refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
-            contract, contractVersion,
+            contract, action, contractVersion,
           ),
+          verifyBlock: async (block) => {
+            if (contract !== 'witnesses') return;
+            SmartContracts.verifyBlock(ipc, block);
+          },
           // emit an event that will be stored in the logs
           emit: (event, data) => typeof event === 'string' && results.logs.events.push({ contract, event, data }),
           // add an error that will be stored in the logs
@@ -380,6 +435,7 @@ class SmartContracts {
             }
             return condition;
           },
+          isValidAccountName: account => SmartContracts.isValidAccountName(account),
         },
       };
 
@@ -507,7 +563,7 @@ class SmartContracts {
     timestamp,
     refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
     jsVMTimeout,
-    callingContractName, callingContractVersion,
+    callingContractName, callingContractAction, callingContractVersion,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
@@ -529,6 +585,7 @@ class SmartContracts {
     // pass the calling contract name and calling contract version to the contract
     sanitizedParams.callingContractInfo = {
       name: callingContractName,
+      action: callingContractAction,
       version: callingContractVersion,
     };
 
@@ -587,6 +644,68 @@ class SmartContracts {
       results.errors.push(error);
     }
     return results;
+  }
+
+  static async verifyBlock(ipc, block) {
+    await ipc.send({ // eslint-disable-line
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.VERIFY_BLOCK,
+      payload: block,
+    });
+  }
+
+  static isValidAccountName(value) {
+    if (!value) {
+      // Account name should not be empty.
+      return false;
+    }
+
+    if (typeof value !== 'string') {
+      // Account name should be a string.
+      return false;
+    }
+
+    let len = value.length;
+    if (len < 3) {
+      // Account name should be longer.
+      return false;
+    }
+    if (len > 16) {
+      // Account name should be shorter.
+      return false;
+    }
+
+    const ref = value.split('.');
+    len = ref.length;
+    for (let i = 0; i < len; i += 1) {
+      const label = ref[i];
+      if (label.length < 3) {
+        // Each account segment be longer
+        return false;
+      }
+
+      if (!/^[a-z]/.test(label)) {
+        // Each account segment should start with a letter.
+        return false;
+      }
+
+      if (!/^[a-z0-9-]*$/.test(label)) {
+        // Each account segment have only letters, digits, or dashes.
+        return false;
+      }
+
+      if (/--/.test(label)) {
+        // Each account segment have only one dash in a row.
+        return false;
+      }
+
+      if (!/[a-z0-9]$/.test(label)) {
+        // Each account segment end with a letter or digit.
+        return false;
+      }
+    }
+
+    return true;
   }
 
   static async createTable(ipc, tables, contractName, tableName, indexes = []) {
@@ -720,6 +839,16 @@ class SmartContracts {
         contract: contractName,
         table,
       },
+    });
+
+    return res.payload;
+  }
+
+  static async getBlockInfo(ipc, blockNumber) {
+    const res = await ipc.send({
+      to: DB_PLUGIN_NAME,
+      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
+      payload: blockNumber,
     });
 
     return res.payload;

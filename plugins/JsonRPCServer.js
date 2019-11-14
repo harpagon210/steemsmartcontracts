@@ -6,12 +6,16 @@ const bodyParser = require('body-parser');
 const { IPC } = require('../libs/IPC');
 const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
 const DB_PLUGIN_ACTION = require('./Database.constants').PLUGIN_ACTIONS;
+const STREAMER_PLUGIN_NAME = require('./Streamer.constants').PLUGIN_NAME;
+const STREAMER_PLUGIN_ACTION = require('./Streamer.constants').PLUGIN_ACTIONS;
+const packagejson = require('../package.json');
 
 const PLUGIN_NAME = 'JsonRPCServer';
 const PLUGIN_PATH = require.resolve(__filename);
 
 const ipc = new IPC(PLUGIN_NAME);
 let serverRPC = null;
+let server = null;
 
 function blockchainRPC() {
   return {
@@ -53,6 +57,35 @@ function blockchainRPC() {
           code: 400,
           message: 'missing or wrong parameters: txid is required',
         }, null);
+      }
+    },
+    getStatus: async (args, callback) => {
+      try {
+        const result = {};
+        // retrieve the last block of the sidechain
+        let res = await ipc.send(
+          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_LATEST_BLOCK_METADATA },
+        );
+        if (res && res.payload) {
+          result.lastBlockNumber = res.payload.blockNumber;
+          result.lastBlockRefSteemBlockNumber = res.payload.refSteemBlockNumber;
+        }
+
+        // get the Steem block number that the streamer is currently parsing
+        res = await ipc.send(
+          { to: STREAMER_PLUGIN_NAME, action: STREAMER_PLUGIN_ACTION.GET_CURRENT_BLOCK },
+        );
+
+        if (res && res.payload) {
+          result.lastParsedSteemBlockNumber = res.payload;
+        }
+
+        // get the version of the SSC node
+        result.SSCnodeVersion = packagejson.version;
+
+        callback(null, result);
+      } catch (error) {
+        callback(error, null);
       }
     },
   };
@@ -157,10 +190,14 @@ function init(conf) {
   serverRPC.post('/blockchain', jayson.server(blockchainRPC()).middleware());
   serverRPC.post('/contracts', jayson.server(contractsRPC()).middleware());
 
-  http.createServer(serverRPC)
+  server = http.createServer(serverRPC)
     .listen(rpcNodePort, () => {
       console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
     });
+}
+
+function stop() {
+  server.close();
 }
 
 ipc.onReceiveMessage((message) => {
@@ -175,8 +212,8 @@ ipc.onReceiveMessage((message) => {
       ipc.reply(message);
       break;
     case 'stop':
+      ipc.reply(message, stop());
       console.log('successfully stopped'); // eslint-disable-line no-console
-      ipc.reply(message);
       break;
     default:
       ipc.reply(message);

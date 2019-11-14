@@ -197,21 +197,94 @@ actions.addBlock = async (block, callback) => {
 };
 
 actions.getLatestBlockInfo = async (payload, callback) => {
-  const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
+  try {
+    const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
 
-  const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
+    const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
 
-  callback(lastestBlock);
+    callback(lastestBlock);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    callback(null);
+  }
+};
+
+actions.getLatestBlockMetadata = async (payload, callback) => {
+  try {
+    const _idNewBlock = await getLastSequence('chain'); // eslint-disable-line no-underscore-dangle
+
+    const lastestBlock = await chain.findOne({ _id: _idNewBlock - 1 });
+
+    if (lastestBlock) {
+      lastestBlock.transactions = [];
+      lastestBlock.virtualTransactions = [];
+    }
+
+    callback(lastestBlock);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    callback(null);
+  }
 };
 
 actions.getBlockInfo = async (blockNumber, callback) => {
-  const block = await chain.findOne({ _id: blockNumber });
+  try {
+    const block = typeof blockNumber === 'number' && Number.isInteger(blockNumber)
+      ? await chain.findOne({ _id: blockNumber })
+      : null;
 
-  if (callback) {
-    callback(block);
+    if (callback) {
+      callback(block);
+    }
+
+    return block;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    return null;
   }
+};
 
-  return block;
+/**
+ * Mark a block as verified by a witness
+ * @param {Integer} blockNumber block umber to mark verified
+ * @param {String} witness name of the witness that verified the block
+ */
+actions.verifyBlock = async (payload, callback) => {
+  try {
+    const {
+      blockNumber,
+      witness,
+      roundSignature,
+      signingKey,
+      round,
+      roundHash,
+    } = payload;
+    const block = await chain.findOne({ _id: blockNumber });
+
+    if (block) {
+      block.witness = witness;
+      block.round = round;
+      block.roundHash = roundHash;
+      block.signingKey = signingKey;
+      block.roundSignature = roundSignature;
+
+      await chain.updateOne(
+        { _id: block._id }, // eslint-disable-line no-underscore-dangle
+        { $set: block },
+      );
+    } else {
+      console.error('verifyBlock', blockNumber, 'does not exist');
+    }
+
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+  }
 };
 
 /**
@@ -220,24 +293,30 @@ actions.getBlockInfo = async (blockNumber, callback) => {
  * @returns {Object} returns the contract info if it exists, null otherwise
  */
 actions.findContract = async (payload, callback) => {
-  const { name } = payload;
-  if (name && typeof name === 'string') {
-    const contracts = database.collection('contracts');
+  try {
+    const { name } = payload;
+    if (name && typeof name === 'string') {
+      const contracts = database.collection('contracts');
 
-    const contractInDb = await contracts.findOne({ _id: name });
+      const contractInDb = await contracts.findOne({ _id: name });
 
-    if (contractInDb) {
-      if (callback) {
-        callback(contractInDb);
+      if (contractInDb) {
+        if (callback) {
+          callback(contractInDb);
+        }
+        return contractInDb;
       }
-      return contractInDb;
     }
-  }
 
-  if (callback) {
-    callback(null);
+    if (callback) {
+      callback(null);
+    }
+    return null;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    return null;
   }
-  return null;
 };
 
 /**

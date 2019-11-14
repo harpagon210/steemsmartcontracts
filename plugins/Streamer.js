@@ -1,40 +1,45 @@
-const { Streamer } = require('../libs/Streamer');
+const dsteem = require('dsteem');
+const { Queue } = require('../libs/Queue');
 const { Transaction } = require('../libs/Transaction');
 const { IPC } = require('../libs/IPC');
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
+const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
+const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
 
 const PLUGIN_PATH = require.resolve(__filename);
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Streamer.constants');
 
 const ipc = new IPC(PLUGIN_NAME);
-
-class BlockNumberException {
+let client = null;
+class ForkException {
   constructor(message) {
-    this.error = 'BlockNumberException';
+    this.error = 'ForkException';
     this.message = message;
   }
 }
 
-let currentBlock = 0;
-let chainIdentifier = '';
+let currentSteemBlock = 0;
+let steemHeadBlockNumber = 0;
 let stopStream = false;
-let streamer = null;
-let blockPoller = null;
+const antiForkBufferMaxSize = 2;
+const buffer = new Queue(antiForkBufferMaxSize);
+let chainIdentifier = '';
+let blockStreamerHandler = null;
+let updaterGlobalPropsHandler = null;
+let lastBlockSentToBlockchain = 0;
 
-function getCurrentBlock() {
-  return currentBlock;
-}
+const getCurrentBlock = () => currentSteemBlock;
 
-function stop() {
+const stop = () => {
   stopStream = true;
-  if (blockPoller) clearTimeout(blockPoller);
-  if (streamer) streamer.stop();
-  return getCurrentBlock();
-}
+  if (blockStreamerHandler) clearTimeout(blockStreamerHandler);
+  if (updaterGlobalPropsHandler) clearTimeout(updaterGlobalPropsHandler);
+  return lastBlockSentToBlockchain;
+};
 
 // parse the transactions found in a Steem block
-function parseTransactions(refBlockNumber, block) {
+const parseTransactions = (refBlockNumber, block) => {
   const newTransactions = [];
   const transactionsLength = block.transactions.length;
 
@@ -233,73 +238,157 @@ function parseTransactions(refBlockNumber, block) {
   }
 
   return newTransactions;
-}
+};
 
-function sendBlock(block) {
-  return ipc.send(
-    { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.ADD_BLOCK_TO_QUEUE, payload: block },
+const sendBlock = block => ipc.send(
+  { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block },
+);
+
+const getLatestBlockMetadata = () => ipc.send(
+  { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA, payload: null },
+);
+
+// process Steem block
+const processBlock = async (block) => {
+  if (stopStream) return;
+
+  await sendBlock(
+    {
+      // we timestamp the block with the Steem block timestamp
+      timestamp: block.timestamp,
+      refSteemBlockNumber: block.blockNumber,
+      refSteemBlockId: block.block_id,
+      prevRefSteemBlockId: block.previous,
+      transactions: parseTransactions(
+        block.blockNumber,
+        block,
+      ),
+    },
   );
-}
 
-// get a block from the Steem blockchain
-async function getBlock(reject) {
+  lastBlockSentToBlockchain = block.blockNumber;
+};
+
+const updateGlobalProps = async () => {
   try {
-    if (stopStream) return;
-
-    const block = streamer.getNextBlock();
-    if (block && !stopStream) {
-      console.log(`Last Steem block parsed: ${block.blockNumber}`); // eslint-disable-line
-      if (currentBlock !== block.blockNumber) {
-        throw new BlockNumberException(`there is a discrepancy between the current block number (${currentBlock}) and the last streamed block number (${block.blockNumber})`);
-      } else {
-        await sendBlock(
-          {
-            // we timestamp the block with the Steem block timestamp
-            timestamp: block.timestamp,
-            refSteemBlockNumber: block.blockNumber,
-            refSteemBlockId: block.block_id,
-            prevRefSteemBlockId: block.previous,
-            transactions: parseTransactions(
-              currentBlock,
-              block,
-            ),
-          },
-        );
-        currentBlock = block.blockNumber + 1;
-      }
+    if (client !== null) {
+      const globProps = await client.database.getDynamicGlobalProperties();
+      steemHeadBlockNumber = globProps.head_block_number;
+      const delta = steemHeadBlockNumber - currentSteemBlock;
+      // eslint-disable-next-line
+      console.log(`head_block_number ${steemHeadBlockNumber}`, `currentBlock ${currentSteemBlock}`, `Steem blockchain is ${delta > 0 ? delta : 0} blocks ahead`);
     }
-    blockPoller = setTimeout(() => getBlock(reject), 100);
+    updaterGlobalPropsHandler = setTimeout(() => updateGlobalProps(), 10000);
+  } catch (ex) {
+    console.error('An error occured while trying to fetch the Steem blockchain global properties'); // eslint-disable-line no-console
+  }
+};
+
+const addBlockToBuffer = async (block) => {
+  const finalBlock = block;
+  finalBlock.blockNumber = currentSteemBlock;
+
+  // if the buffer is full
+  if (buffer.size() + 1 > antiForkBufferMaxSize) {
+    const lastBlock = buffer.last();
+
+    // we can send the oldest block of the buffer to the blockchain plugin
+    if (lastBlock) {
+      await processBlock(lastBlock);
+    }
+  }
+  buffer.push(finalBlock);
+};
+
+const streamBlocks = async (reject) => {
+  if (stopStream) return;
+  try {
+    const block = await client.database.getBlock(currentSteemBlock);
+    let addBlockToBuf = false;
+
+    if (block) {
+      // check if there are data in the buffer
+      if (buffer.size() > 0) {
+        const lastBlock = buffer.first();
+        if (lastBlock.block_id === block.previous) {
+          addBlockToBuf = true;
+        } else {
+          buffer.clear();
+          throw new ForkException(`a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`);
+        }
+      } else {
+        // get the previous block
+        const prevBlock = await client.database.getBlock(currentSteemBlock - 1);
+
+        if (prevBlock && prevBlock.block_id === block.previous) {
+          addBlockToBuf = true;
+        } else {
+          throw new ForkException(`a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`);
+        }
+      }
+
+      // add the block to the buffer
+      if (addBlockToBuf === true) {
+        await addBlockToBuffer(block);
+      }
+      currentSteemBlock += 1;
+      streamBlocks(reject);
+    } else {
+      blockStreamerHandler = setTimeout(() => {
+        streamBlocks(reject);
+      }, 500);
+    }
   } catch (err) {
     reject(err);
   }
-}
+};
 
-// stream the Steem blockchain to find transactions related to the sidechain
-function init(conf) {
+const initSteemClient = (node, steemAddressPrefix, steemChainId) => {
+  client = new dsteem.Client(node, {
+    addressPrefix: steemAddressPrefix,
+    chainId: steemChainId,
+  });
+};
+
+const startStreaming = (conf) => {
   const {
     streamNodes,
     chainId,
     startSteemBlock,
+    steemAddressPrefix,
+    steemChainId,
   } = conf;
-  currentBlock = startSteemBlock;
+  currentSteemBlock = startSteemBlock;
   chainIdentifier = chainId;
   const node = streamNodes[0];
-  streamer = new Streamer(node, startSteemBlock);
-  streamer.init();
+  initSteemClient(node, steemAddressPrefix, steemChainId);
 
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
     console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
-    streamer.stream(reject);
 
-    getBlock(reject);
+    streamBlocks(reject);
   }).catch((err) => {
-    if (blockPoller) clearTimeout(blockPoller);
-    streamer.stop();
     console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
     streamNodes.push(streamNodes.shift());
-    init(Object.assign({}, conf, { startSteemBlock: getCurrentBlock() }));
+    startStreaming(Object.assign({}, conf, { startSteemBlock: getCurrentBlock() }));
   });
-}
+};
+
+// stream the Steem blockchain to find transactions related to the sidechain
+const init = async (conf) => {
+  const finalConf = conf;
+  // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
+  const res = await getLatestBlockMetadata();
+  if (res && res.payload) {
+    if (finalConf.startSteemBlock < res.payload.refSteemBlockNumber) {
+      console.log('adjusted startSteemBlock automatically as it was lower that the refSteemBlockNumber available');
+      finalConf.startSteemBlock = res.payload.refSteemBlockNumber + 1;
+    }
+  }
+
+  startStreaming(conf);
+  updateGlobalProps();
+};
 
 ipc.onReceiveMessage((message) => {
   const {

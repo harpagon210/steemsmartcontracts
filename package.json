@@ -1,6 +1,6 @@
 {
   "name": "steemsmartcontracts",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "",
   "main": "app.js",
   "scripts": {
@@ -17,7 +17,6 @@
     "commander": "^2.19.0",
     "cors": "^2.8.5",
     "crypto-js": "^3.1.9-1",
-    "currency.js": "^1.2.1",
     "dotenv": "^6.2.0",
     "dsteem": "^0.10.1",
     "express": "^4.16.4",
@@ -25,11 +24,11 @@
     "jayson": "^2.1.1",
     "js-base64": "^2.5.1",
     "line-by-line": "^0.1.6",
-    "lokijs": "^1.5.6",
     "mongodb": "^3.2.6",
-    "node-cleanup": "^2.1.2",
     "read-last-lines": "^1.6.0",
     "seedrandom": "^3.0.1",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0",
     "validator": "^10.11.0",
     "vm2": "^3.6.6",
     "winston": "^3.1.0"

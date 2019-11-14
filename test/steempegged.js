@@ -10,8 +10,6 @@ const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
 
-//process.env.NODE_ENV = 'test';
-
 const conf = {
   chainId: "test-chain-id",
   genesisSteemBlock: 2000000,
@@ -21,6 +19,7 @@ const conf = {
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
+  streamNodes: ["https://api.steemit.com"],
 };
 
 let plugins = {};
