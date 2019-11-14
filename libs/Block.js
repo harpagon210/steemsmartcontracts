@@ -101,14 +101,18 @@ class Block {
     if (this.refSteemBlockNumber >= 32713424) {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
-      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
-    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    if (this.refSteemBlockNumber >= 37899120) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    }
 
-    // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
-    if (this.refSteemBlockNumber % 1200 === 0) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+    if (this.refSteemBlockNumber >= 38145385) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
+      // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
+      if (this.refSteemBlockNumber % 1200 === 0) {
+        virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+      }
     }
 
     const nbVirtualTransactions = virtualTransactions.length;
@@ -118,7 +122,6 @@ class Block {
       transaction.transactionId = `${this.refSteemBlockNumber}-${i}`;
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
       currentDatabaseHash = transaction.databaseHash;
-
       // if there are outputs in the virtual transaction we save the transaction into the block
       // the "unknown error" errors are removed as they are related to a non existing action
       if (transaction.logs !== '{}'
