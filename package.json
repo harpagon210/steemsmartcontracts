@@ -5,6 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node --max-old-space-size=8192 app.js",
+    "lint": "eslint --ignore-path .gitignore .",
     "test": "./node_modules/mocha/bin/mocha  --recursive"
   },
   "keywords": [],
