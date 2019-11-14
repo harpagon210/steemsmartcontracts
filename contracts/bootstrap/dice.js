@@ -1,3 +1,5 @@
+
+/* eslint-disable */
 const STEEM_PEGGED_SYMBOL = 'STEEMP';
 const CONTRACT_NAME = 'dice';
 

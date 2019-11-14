@@ -431,7 +431,6 @@ actions.issueToContract = async (payload) => {
       && api.assert(countDecimals(quantity) <= token.precision, 'symbol precision mismatch')
       && api.assert(api.BigNumber(quantity).gt(0), 'must issue positive quantity')
       && api.assert(api.BigNumber(token.maxSupply).minus(token.supply).gte(quantity), 'quantity exceeds available supply')) {
-
       // a valid contract name is between 3 and 50 characters in length
       if (api.assert(finalTo.length >= 3 && finalTo.length <= 50, 'invalid to')) {
         // we made all the required verification, let's now issue the tokens

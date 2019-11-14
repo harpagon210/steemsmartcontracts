@@ -1,5 +1,4 @@
 require('dotenv').config();
-const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
 const { fork } = require('child_process');
 const database = require('../plugins/Database');
@@ -135,15 +134,19 @@ function stopApp(signal = 0) {
 start();
 
 // graceful app closing
-nodeCleanup((exitCode, signal) => {
-  if (signal) {
-    console.log('Closing App... ', exitCode, signal); // eslint-disable-line
+let shuttingDown = false;
 
-    stopApp();
-
-    nodeCleanup.uninstall(); // don't call cleanup handler again
-    return false;
+const gracefulShutdown = () => {
+  if (shuttingDown === false) {
+    shuttingDown = true;
+    stopApp('SIGINT');
   }
+};
 
-  return true;
+process.on('SIGTERM', () => {
+  gracefulShutdown();
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown();
 });

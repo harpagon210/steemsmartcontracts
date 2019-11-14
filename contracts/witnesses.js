@@ -378,7 +378,7 @@ const changeCurrentWitness = async () => {
         && witness.account !== previousRoundWitness
         && schedules.find(s => s.witness === witness.account) === undefined
         && api.BigNumber(randomWeight).lte(accWeight)) {
-        api.debug(`changed current witness from ${schedule.witness} to ${witness.account}`)
+        api.debug(`changed current witness from ${schedule.witness} to ${witness.account}`);
         schedule.witness = witness.account;
         await api.db.update('schedules', schedule);
         params.currentWitness = witness.account;
@@ -429,7 +429,7 @@ const manageWitnessesSchedule = async () => {
 
   // if the current block has not been scheduled already we have to create a new schedule
   if (schedule === null) {
-    api.debug('calculating new schedule')
+    api.debug('calculating new schedule');
     schedule = [];
 
     // there has to be enough top witnesses to start a schedule
