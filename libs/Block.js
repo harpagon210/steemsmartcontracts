@@ -103,11 +103,15 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
     }
 
-    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    if (this.refSteemBlockNumber >= 37899120) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    }
 
-    // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
-    if (this.refSteemBlockNumber % 1200 === 0) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+    if (this.refSteemBlockNumber >= 38145385) {
+      // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
+      if (this.refSteemBlockNumber % 1200 === 0) {
+        virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+      }
     }
 
     const nbVirtualTransactions = virtualTransactions.length;
@@ -126,7 +130,7 @@ class Block {
           && transaction.action === 'scheduleWitnesses'
           && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
           // don't save logs
-        } if (transaction.contract === 'inflation'
+        } else if (transaction.contract === 'inflation'
           && transaction.action === 'issueNewTokens'
           && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
           // don't save logs
