@@ -198,13 +198,13 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
-      transactions.push(new Transaction(32713425, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.254", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.253", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.254", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899120, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.253", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
 
       let block = {
-        refSteemBlockNumber: 32713425,
+        refSteemBlockNumber: 37899120,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -243,11 +243,11 @@ describe('witnesses', function () {
 
       transactions = [];
 
-      transactions.push(new Transaction(32713426, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713426, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.124", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID5', 'dan', 'witnesses', 'register', `{ "IP": "123.255.123.123", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID6', 'vitalik', 'witnesses', 'register', `{ "IP": "123.255.123.124", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": true, "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713426,
+        refSteemBlockNumber: 37899121,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -395,7 +395,7 @@ describe('witnesses', function () {
       transactions.push(new Transaction(32713426, 'TXID12', 'ned', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713426,
+        refSteemBlockNumber: 37899120,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -505,21 +505,21 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
-      transactions.push(new Transaction(32713425, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.232", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.234.123.231", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID12', 'ned', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899121, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899121, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.232", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID8', 'satoshi', 'witnesses', 'register', `{ "IP": "123.234.123.231", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pJ", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID10', 'harpagon', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID11', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899121, 'TXID12', 'ned', 'witnesses', 'approve', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
 
       let block = {
-        refSteemBlockNumber: 32713425,
+        refSteemBlockNumber: 37899121,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -529,10 +529,10 @@ describe('witnesses', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       transactions = [];
-      transactions.push(new Transaction(32713426, 'TXID13', 'ned', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899122, 'TXID13', 'ned', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713426,
+        refSteemBlockNumber: 37899122,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -615,10 +615,10 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "300.00000001");
 
       transactions = [];
-      transactions.push(new Transaction(32713427, 'TXID14', 'harpagon', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID14', 'harpagon', 'witnesses', 'disapprove', `{ "witness": "satoshi", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713427,
+        refSteemBlockNumber: 37899123,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -716,17 +716,17 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
 
       let transactions = [];
-      transactions.push(new Transaction(32713425, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713425, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713425, 'TXID8', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899123, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899123, 'TXID3', 'dan', 'witnesses', 'register', `{ "IP": "123.234.123.233", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "STM7sw22HqsXbz7D2CmJfmMwt9rimtk518dRzsR1f8Cgw52dQR1pR", "enabled": true, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID4', 'vitalik', 'witnesses', 'register', `{ "IP": "123.234.123.234", "RPCPort": 7000, "P2PPort": 8000, "signingKey": "STM8T4zKJuXgjLiKbp6fcsTTUtDY7afwc4XT9Xpf6uakYxwxfBabq", "enabled": false, "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID5', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID6', 'harpagon', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID7', 'harpagon', 'witnesses', 'approve', `{ "witness": "vitalik", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899123, 'TXID8', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "0.00000001", "isSignedWithActiveKey": true }`));
 
       let block = {
-        refSteemBlockNumber: 32713425,
+        refSteemBlockNumber: 37899123,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -802,12 +802,12 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "200.00000002");
 
       transactions = [];
-      transactions.push(new Transaction(32713426, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "1", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713426, 'TXID10', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(32713426, 'TXID11', 'harpagon', 'tokens', 'delegate', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "2", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899124, 'TXID9', 'harpagon', 'tokens', 'stake', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "1", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899124, 'TXID10', 'ned', 'witnesses', 'approve', `{ "witness": "dan", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899124, 'TXID11', 'harpagon', 'tokens', 'delegate', `{ "to": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "2", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713426,
+        refSteemBlockNumber: 37899124,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -891,10 +891,10 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "199.00000002");
 
       transactions = [];
-      transactions.push(new Transaction(32713427, 'TXID12', 'harpagon', 'tokens', 'undelegate', `{ "from": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "2", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899125, 'TXID12', 'harpagon', 'tokens', 'undelegate', `{ "from": "ned", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "2", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713427,
+        refSteemBlockNumber: 37899125,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -988,10 +988,10 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "197.00000002");
 
       transactions = [];
-      transactions.push(new Transaction(32713428, 'TXID13', 'harpagon', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(37899126, 'TXID13', 'harpagon', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 32713428,
+        refSteemBlockNumber: 37899126,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-08-01T00:00:00',
@@ -1075,10 +1075,10 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "201.00000002");
 
       transactions = [];
-      transactions.push(new Transaction(32713429, 'TXID14', 'ned', 'tokens', 'unstake', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "1", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899127, 'TXID14', 'ned', 'tokens', 'unstake', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "1", "isSignedWithActiveKey": true }`));
 
       block = {
-        refSteemBlockNumber: 32713429,
+        refSteemBlockNumber: 37899127,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-08-02T00:00:00',
@@ -1162,10 +1162,10 @@ describe('witnesses', function () {
       assert.equal(params[0].totalApprovalWeight, "201.00000002");
 
       transactions = [];
-      transactions.push(new Transaction(32713450, 'TXID15', 'harpagon', 'whatever', 'whatever', ''));
+      transactions.push(new Transaction(37899128, 'TXID15', 'harpagon', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 32713450,
+        refSteemBlockNumber: 37899128,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-10-01T00:00:00',
@@ -1266,20 +1266,20 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       let txId = 100;
       let transactions = [];
-      transactions.push(new Transaction(32713450, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899128, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899128, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899128, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
         const witnessAccount = `witness${index}`;
         const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
-        transactions.push(new Transaction(32713451, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899128, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
-        refSteemBlockNumber: 32713451,
+        refSteemBlockNumber: 37899128,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1291,11 +1291,11 @@ describe('witnesses', function () {
       transactions = [];
       for (let index = 0; index < 30; index++) {
         txId++;
-        transactions.push(new Transaction(32713452, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899129, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
       }
 
       block = {
-        refSteemBlockNumber: 32713452,
+        refSteemBlockNumber: 37899129,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1334,19 +1334,19 @@ describe('witnesses', function () {
         assert.equal(schedule[3].blockNumber, 5);
         assert.equal(schedule[3].round, 1);
       } else if (NB_WITNESSES === 5) {
-        assert.equal(schedule[0].witness, "witness34");
+        assert.equal(schedule[0].witness, "witness32");
         assert.equal(schedule[0].blockNumber, 2);
         assert.equal(schedule[0].round, 1);
 
-        assert.equal(schedule[1].witness, "witness32");
+        assert.equal(schedule[1].witness, "witness16");
         assert.equal(schedule[1].blockNumber, 3);
         assert.equal(schedule[1].round, 1);
 
-        assert.equal(schedule[2].witness, "witness18");
+        assert.equal(schedule[2].witness, "witness33");
         assert.equal(schedule[2].blockNumber, 4);
         assert.equal(schedule[2].round, 1);
 
-        assert.equal(schedule[3].witness, "witness33");
+        assert.equal(schedule[3].witness, "witness34");
         assert.equal(schedule[3].blockNumber, 5);
         assert.equal(schedule[3].round, 1);
 
@@ -1404,20 +1404,20 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       let txId = 100;
       let transactions = [];
-      transactions.push(new Transaction(32713450, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
         const witnessAccount = `witness${index}`;
         const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
-        transactions.push(new Transaction(32713451, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899120, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
-        refSteemBlockNumber: 32713451,
+        refSteemBlockNumber: 37899120,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1429,11 +1429,11 @@ describe('witnesses', function () {
       transactions = [];
       for (let index = 0; index < 30; index++) {
         txId++;
-        transactions.push(new Transaction(32713452, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899121, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
       }
 
       block = {
-        refSteemBlockNumber: 32713452,
+        refSteemBlockNumber: 37899121,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1446,9 +1446,9 @@ describe('witnesses', function () {
         transactions = [];
         txId++
         // send whatever transaction;
-        transactions.push(new Transaction(32713460 + i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+        transactions.push(new Transaction(37899122 + i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
         block = {
-          refSteemBlockNumber: 32713460 + i,
+          refSteemBlockNumber: 37899122 + i,
           refSteemBlockId: `ABCD123${i}`,
           prevRefSteemBlockId: `ABCD123${i - 1}`,
           timestamp: `2018-06-01T00:00:0${i}`,
@@ -1519,10 +1519,10 @@ describe('witnesses', function () {
 
       transactions = [];
       txId++;
-      transactions.push(new Transaction(32723460, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
+      transactions.push(new Transaction(38899122, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
 
       block = {
-        refSteemBlockNumber: 32723460,
+        refSteemBlockNumber: 38899122,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1572,20 +1572,20 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       let txId = 100;
       let transactions = [];
-      transactions.push(new Transaction(32723460, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32723460, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32723460, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
         const witnessAccount = `witness${index}`;
         const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
-        transactions.push(new Transaction(32723461, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899120, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic().toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
-        refSteemBlockNumber: 32723461,
+        refSteemBlockNumber: 37899120,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1597,11 +1597,11 @@ describe('witnesses', function () {
       transactions = [];
       for (let index = 0; index < 30; index++) {
         txId++;
-        transactions.push(new Transaction(32723462, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899121, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
       }
 
       block = {
-        refSteemBlockNumber: 32723462,
+        refSteemBlockNumber: 37899121,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1614,9 +1614,9 @@ describe('witnesses', function () {
         transactions = [];
         txId++
         // send whatever transaction;
-        transactions.push(new Transaction(32823460 +i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
+        transactions.push(new Transaction(37899122 +i, `TXID${txId}`, 'satoshi', 'whatever', 'whatever', ''));
         block = {
-          refSteemBlockNumber: 32823460 + i,
+          refSteemBlockNumber: 37899122 + i,
           refSteemBlockId: `ABCD123${i}`,
           prevRefSteemBlockId: `ABCD123${i - 1}`,
           timestamp: `2018-06-01T00:00:0${i}`,
@@ -1687,10 +1687,10 @@ describe('witnesses', function () {
 
       transactions = [];
       txId++;
-      transactions.push(new Transaction(34823460, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
+      transactions.push(new Transaction(38899122, `TXID${txId}`, params.currentWitness, 'witnesses', 'proposeRound', JSON.stringify(json)));
 
       block = {
-        refSteemBlockNumber: 34823460,
+        refSteemBlockNumber: 38899122,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1729,7 +1729,7 @@ describe('witnesses', function () {
         assert.equal(schedule[3].blockNumber, 9);
         assert.equal(schedule[3].round, 2);
       } else if (NB_WITNESSES === 5) {
-        assert.equal(schedule[0].witness, "witness32");
+        assert.equal(schedule[0].witness, "witness33");
         assert.equal(schedule[0].blockNumber, 7);
         assert.equal(schedule[0].round, 2);
 
@@ -1737,15 +1737,15 @@ describe('witnesses', function () {
         assert.equal(schedule[1].blockNumber, 8);
         assert.equal(schedule[1].round, 2);
 
-        assert.equal(schedule[2].witness, "witness5");
+        assert.equal(schedule[2].witness, "witness17");
         assert.equal(schedule[2].blockNumber, 9);
         assert.equal(schedule[2].round, 2);
 
-        assert.equal(schedule[3].witness, "witness33");
+        assert.equal(schedule[3].witness, "witness31");
         assert.equal(schedule[3].blockNumber, 10);
         assert.equal(schedule[3].round, 2);
 
-        assert.equal(schedule[4].witness, "witness31");
+        assert.equal(schedule[4].witness, "witness32");
         assert.equal(schedule[4].blockNumber, 11);
         assert.equal(schedule[4].round, 2);
       }
@@ -1775,8 +1775,8 @@ describe('witnesses', function () {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
         assert.equal(params.numberOfApprovedWitnesses, 30);
         assert.equal(params.lastVerifiedBlockNumber, 6);
-        assert.equal(params.currentWitness, 'witness31');
-        assert.equal(params.lastWitnesses.includes('witness31'), true);
+        assert.equal(params.currentWitness, 'witness32');
+        assert.equal(params.lastWitnesses.includes('witness32'), true);
         assert.equal(params.round, 2);
         assert.equal(params.lastBlockRound, 11);
       }
@@ -1790,7 +1790,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('changges the current witness if it has not validated a round in time', (done) => {
+  it('changes the current witness if it has not validated a round in time', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(database);
@@ -1799,20 +1799,20 @@ describe('witnesses', function () {
       await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
       let txId = 100;
       let transactions = [];
-      transactions.push(new Transaction(32713450, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
-      transactions.push(new Transaction(32713450, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID2', 'steemsc', 'contract', 'deploy', JSON.stringify(witnessesContractPayload)));
+      transactions.push(new Transaction(37899120, 'TXID3', 'harpagon', 'tokens', 'stake', `{ "to": "harpagon", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "isSignedWithActiveKey": true }`));
 
       // register 100 witnesses
       for (let index = 0; index < 100; index++) {
         txId++;
         const witnessAccount = `witness${index}`;
         const wif = dsteem.PrivateKey.fromLogin(witnessAccount, 'testnet', 'active');
-        transactions.push(new Transaction(32713451, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899120, `TXID${txId}`, witnessAccount, 'witnesses', 'register', `{ "IP": "123.123.123.${txId}", "RPCPort": 5000, "P2PPort": 6000, "signingKey": "${wif.createPublic('TST').toString()}", "enabled": true, "isSignedWithActiveKey": true }`));
       }
 
       let block = {
-        refSteemBlockNumber: 32713451,
+        refSteemBlockNumber: 37899120,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1824,11 +1824,11 @@ describe('witnesses', function () {
       transactions = [];
       for (let index = 0; index < 30; index++) {
         txId++;
-        transactions.push(new Transaction(32713452, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
+        transactions.push(new Transaction(37899121, `TXID${txId}`, 'harpagon', 'witnesses', 'approve', `{ "witness": "witness${index + 5}", "isSignedWithActiveKey": true }`));
       }
 
       block = {
-        refSteemBlockNumber: 32713452,
+        refSteemBlockNumber: 37899121,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1862,8 +1862,8 @@ describe('witnesses', function () {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
         assert.equal(params.numberOfApprovedWitnesses, 30);
         assert.equal(params.lastVerifiedBlockNumber, 1);
-        assert.equal(params.currentWitness, 'witness31');
-        assert.equal(params.lastWitnesses.includes('witness31'), true);
+        assert.equal(params.currentWitness, 'witness34');
+        assert.equal(params.lastWitnesses.includes('witness34'), true);
         assert.equal(params.round, 1);
         assert.equal(params.lastBlockRound, 6);
       }
@@ -1871,10 +1871,10 @@ describe('witnesses', function () {
       // generate 20 blocks
       for (let index = 30; index < 51; index++) {
         transactions = [];
-        transactions.push(new Transaction(12345678901 + index, `TXID${index}`, 'satoshi', 'whatever', 'whatever', ''));
+        transactions.push(new Transaction(38899121 + index, `TXID${index}`, 'satoshi', 'whatever', 'whatever', ''));
 
         block = {
-          refSteemBlockNumber: 12345678901 + index,
+          refSteemBlockNumber: 38899121 + index,
           refSteemBlockId: 'ABCD1',
           prevRefSteemBlockId: 'ABCD2',
           timestamp: '2018-07-14T00:02:00',
@@ -1909,8 +1909,8 @@ describe('witnesses', function () {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
         assert.equal(params.numberOfApprovedWitnesses, 30);
         assert.equal(params.lastVerifiedBlockNumber, 1);
-        assert.equal(params.currentWitness, 'witness6');
-        assert.equal(params.lastWitnesses.includes('witness6'), true);
+        assert.equal(params.currentWitness, 'witness29');
+        assert.equal(params.lastWitnesses.includes('witness29'), true);
         assert.equal(params.round, 1);
         assert.equal(params.lastBlockRound, 6);
       }
