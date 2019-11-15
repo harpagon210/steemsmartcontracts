@@ -8,6 +8,14 @@ const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 const MAX_ROUNDS_MISSED_IN_A_ROW = 3; // after that the witness is disabled
 const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 10; // 10 blocks
+const NB_TOKENS_TO_REWARD = '0.01902587';
+const NB_TOKENS_NEEDED_BEFORE_REWARDING = '0.09512935';
+// eslint-disable-next-line no-template-curly-in-string
+const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
+// eslint-disable-next-line no-template-curly-in-string
+const UTILITY_TOKEN_PRECISION = '${CONSTANTS.UTILITY_TOKEN_PRECISION}$';
+// eslint-disable-next-line no-template-curly-in-string
+const UTILITY_TOKEN_MIN_VALUE = '${CONSTANTS.UTILITY_TOKEN_MIN_VALUE}$';
 
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('witnesses');
@@ -58,8 +66,7 @@ const updateWitnessRank = async (witness, approvalWeight) => {
       witnessRec.approvalWeight.$numberDecimal,
     )
       .plus(approvalWeight)
-      // eslint-disable-next-line no-template-curly-in-string
-      .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+      .toFixed(UTILITY_TOKEN_PRECISION);
 
     await api.db.update('witnesses', witnessRec);
 
@@ -68,8 +75,7 @@ const updateWitnessRank = async (witness, approvalWeight) => {
     // update totalApprovalWeight
     params.totalApprovalWeight = api.BigNumber(params.totalApprovalWeight)
       .plus(approvalWeight)
-      // eslint-disable-next-line no-template-curly-in-string
-      .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+      .toFixed(UTILITY_TOKEN_PRECISION);
 
     // update numberOfApprovedWitnesses
     if (api.BigNumber(oldApprovalWeight).eq(0)
@@ -93,8 +99,7 @@ actions.updateWitnessesApprovals = async (payload) => {
   const acct = await api.db.findOne('accounts', { account });
   if (acct !== null) {
     // calculate approval weight of the account
-    // eslint-disable-next-line no-template-curly-in-string
-    const balance = await api.db.findOneInTable('tokens', 'balances', { account, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+    const balance = await api.db.findOneInTable('tokens', 'balances', { account, symbol: UTILITY_TOKEN_SYMBOL });
     let approvalWeight = 0;
     if (balance && balance.stake) {
       approvalWeight = balance.stake;
@@ -103,23 +108,20 @@ actions.updateWitnessesApprovals = async (payload) => {
     if (balance && balance.pendingUnstake) {
       approvalWeight = api.BigNumber(approvalWeight)
         .plus(balance.pendingUnstake)
-        // eslint-disable-next-line no-template-curly-in-string
-        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+        .toFixed(UTILITY_TOKEN_PRECISION);
     }
 
     if (balance && balance.delegationsIn) {
       approvalWeight = api.BigNumber(approvalWeight)
         .plus(balance.delegationsIn)
-        // eslint-disable-next-line no-template-curly-in-string
-        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+        .toFixed(UTILITY_TOKEN_PRECISION);
     }
 
     const oldApprovalWeight = acct.approvalWeight;
 
     const deltaApprovalWeight = api.BigNumber(approvalWeight)
       .minus(oldApprovalWeight)
-      // eslint-disable-next-line no-template-curly-in-string
-      .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+      .toFixed(UTILITY_TOKEN_PRECISION);
 
     acct.approvalWeight = approvalWeight;
 
@@ -219,8 +221,7 @@ actions.approve = async (payload) => {
           await api.db.insert('approvals', approval);
 
           // update the rank of the witness that received the approval
-          // eslint-disable-next-line no-template-curly-in-string
-          const balance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+          const balance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: UTILITY_TOKEN_SYMBOL });
           let approvalWeight = 0;
           if (balance && balance.stake) {
             approvalWeight = balance.stake;
@@ -229,15 +230,13 @@ actions.approve = async (payload) => {
           if (balance && balance.pendingUnstake) {
             approvalWeight = api.BigNumber(approvalWeight)
               .plus(balance.pendingUnstake)
-              // eslint-disable-next-line no-template-curly-in-string
-              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+              .toFixed(UTILITY_TOKEN_PRECISION);
           }
 
           if (balance && balance.delegationsIn) {
             approvalWeight = api.BigNumber(approvalWeight)
               .plus(balance.delegationsIn)
-              // eslint-disable-next-line no-template-curly-in-string
-              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+              .toFixed(UTILITY_TOKEN_PRECISION);
           }
 
           acct.approvals += 1;
@@ -280,16 +279,16 @@ actions.disapprove = async (payload) => {
         if (api.assert(approval !== null, 'you have not approved this witness')) {
           await api.db.remove('approvals', approval);
 
-          // eslint-disable-next-line no-template-curly-in-string
-          const balance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'" });
+          const balance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: UTILITY_TOKEN_SYMBOL });
           let approvalWeight = 0;
           if (balance && balance.stake) {
             approvalWeight = balance.stake;
           }
 
           if (balance && balance.delegationsIn) {
-            // eslint-disable-next-line no-template-curly-in-string
-            approvalWeight = api.BigNumber(approvalWeight).plus(balance.delegationsIn).toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+            approvalWeight = api.BigNumber(approvalWeight)
+              .plus(balance.delegationsIn)
+              .toFixed(UTILITY_TOKEN_PRECISION);
           }
 
           acct.approvals -= 1;
@@ -333,8 +332,7 @@ const changeCurrentWitness = async () => {
   const random = api.random();
   const randomWeight = api.BigNumber(totalApprovalWeight)
     .times(random)
-    // eslint-disable-next-line no-template-curly-in-string
-    .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+    .toFixed(UTILITY_TOKEN_PRECISION);
 
   let offset = 0;
   let accWeight = 0;
@@ -367,8 +365,7 @@ const changeCurrentWitness = async () => {
 
       accWeight = api.BigNumber(accWeight)
         .plus(witness.approvalWeight.$numberDecimal)
-        // eslint-disable-next-line no-template-curly-in-string
-        .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+        .toFixed(UTILITY_TOKEN_PRECISION);
 
       // if the witness is enabled
       // and different from the scheduled one from the previous round
@@ -481,21 +478,18 @@ const manageWitnessesSchedule = async () => {
           if (schedule.length >= NB_TOP_WITNESSES
             && randomWeight === null) {
             const min = api.BigNumber(accWeight)
-              // eslint-disable-next-line no-template-curly-in-string
-              .plus('${CONSTANTS.UTILITY_TOKEN_MIN_VALUE}$');
+              .plus(UTILITY_TOKEN_MIN_VALUE);
 
             randomWeight = api.BigNumber(totalApprovalWeight)
               .minus(min)
               .times(random)
               .plus(min)
-              // eslint-disable-next-line no-template-curly-in-string
-              .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+              .toFixed(UTILITY_TOKEN_PRECISION);
           }
 
           accWeight = api.BigNumber(accWeight)
             .plus(witness.approvalWeight.$numberDecimal)
-            // eslint-disable-next-line no-template-curly-in-string
-            .toFixed('${CONSTANTS.UTILITY_TOKEN_PRECISION}$');
+            .toFixed(UTILITY_TOKEN_PRECISION);
 
           // if the witness is enabled
           if (witness.enabled === true) {
@@ -695,9 +689,23 @@ actions.proposeRound = async (payload) => {
             await api.verifyBlock(verifiedBlockInformation[index]);
           }
 
+          // get contract balance
+          const contractBalance = await api.db.findOneInTable('tokens', 'contractsBalances', { account: 'witnesses', symbol: UTILITY_TOKEN_SYMBOL });
+          let rewardWitnesses = false;
+
+          if (contractBalance
+            && api.BigNumber(contractBalance.balance).gte(NB_TOKENS_NEEDED_BEFORE_REWARDING)) {
+            rewardWitnesses = true;
+          }
+
           // remove the schedules
           for (let index = 0; index < schedules.length; index += 1) {
-            await api.db.remove('schedules', schedules[index]);
+            const schedule = schedules[index];
+            // reward the witness that help verifying this round
+            if (rewardWitnesses === true) {
+              await api.executeSmartContract('tokens', 'stakeFromContract', { to: schedule.witness, symbol: UTILITY_TOKEN_SYMBOL, quantity: NB_TOKENS_TO_REWARD });
+            }
+            await api.db.remove('schedules', schedule);
           }
 
           params.currentWitness = null;
@@ -714,8 +722,6 @@ actions.proposeRound = async (payload) => {
 
           // calculate new schedule
           await manageWitnessesSchedule();
-
-          // TODO: reward the witness that produced this block
         }
       }
     }
