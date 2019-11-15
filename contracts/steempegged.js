@@ -1,6 +1,18 @@
 /* eslint-disable no-await-in-loop */
 /* global actions, api */
 
+const initiateWithdrawal = async (id, recipient, quantity, memo) => {
+  const withdrawal = {};
+
+  withdrawal.id = id;
+  withdrawal.type = 'STEEM';
+  withdrawal.recipient = recipient;
+  withdrawal.memo = memo;
+  withdrawal.quantity = quantity;
+
+  await api.db.insert('withdrawals', withdrawal);
+};
+
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('withdrawals');
 
@@ -38,6 +50,7 @@ actions.buy = async (payload) => {
 
       if (api.BigNumber(fee).gt(0)) {
         const memo = `fee tx ${api.transactionId}`;
+        // eslint-disable-next-line no-template-curly-in-string
         await initiateWithdrawal(`${api.transactionId}-fee`, "'${CONSTANTS.ACCOUNT_RECEIVING_FEES}$'", fee, memo);
       }
     } else {
@@ -75,6 +88,7 @@ actions.withdraw = async (payload) => {
 
         if (api.BigNumber(fee).gt(0)) {
           memo = `fee tx ${api.transactionId}`;
+          // eslint-disable-next-line no-template-curly-in-string
           await initiateWithdrawal(`${api.transactionId}-fee`, "'${CONSTANTS.ACCOUNT_RECEIVING_FEES}$'", fee, memo);
         }
       }
@@ -99,16 +113,4 @@ actions.removeWithdrawal = async (payload) => {
       await api.db.remove('withdrawals', withdrawal);
     }
   }
-};
-
-const initiateWithdrawal = async (id, recipient, quantity, memo) => {
-  const withdrawal = {};
-
-  withdrawal.id = id;
-  withdrawal.type = 'STEEM';
-  withdrawal.recipient = recipient;
-  withdrawal.memo = memo;
-  withdrawal.quantity = quantity;
-
-  await api.db.insert('withdrawals', withdrawal);
 };
