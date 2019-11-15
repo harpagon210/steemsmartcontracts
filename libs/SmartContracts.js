@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+
 const SHA256FN = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
