@@ -108,6 +108,8 @@ class Block {
     }
 
     if (this.refSteemBlockNumber >= 38145385) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
+
       // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
       if (this.refSteemBlockNumber % 1200 === 0) {
         virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
@@ -121,7 +123,6 @@ class Block {
       transaction.transactionId = `${this.refSteemBlockNumber}-${i}`;
       await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
       currentDatabaseHash = transaction.databaseHash;
-
       // if there are outputs in the virtual transaction we save the transaction into the block
       // the "unknown error" errors are removed as they are related to a non existing action
       if (transaction.logs !== '{}'
@@ -132,6 +133,10 @@ class Block {
           // don't save logs
         } else if (transaction.contract === 'inflation'
           && transaction.action === 'issueNewTokens'
+          && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
+          // don't save logs
+        } else if (transaction.contract === 'nft'
+          && transaction.action === 'checkPendingUndelegations'
           && transaction.logs === '{"errors":["contract doesn\'t exist"]}') {
           // don't save logs
         } else {

@@ -575,9 +575,12 @@ actions.remove = async (payload, callback) => { // eslint-disable-line no-unused
  * @param {String} contract contract name
  * @param {String} table table name
  * @param {String} record record to update in the table
+ * @param {String} unsets record fields to be removed (optional)
  */
 actions.update = async (payload, callback) => {
-  const { contract, table, record } = payload;
+  const {
+    contract, table, record, unsets,
+  } = payload;
   const finalTableName = `${contract}_${table}`;
 
   const contractInDb = await actions.findContract({ name: contract });
@@ -586,7 +589,11 @@ actions.update = async (payload, callback) => {
     if (tableInDb) {
       await updateTableHash(contract, finalTableName);
 
-      await tableInDb.updateOne({ _id: record._id }, { $set: EJSON.deserialize(record) }); // eslint-disable-line
+      if (unsets) {
+        await tableInDb.updateOne({ _id: record._id }, { $set: EJSON.deserialize(record), $unset: EJSON.deserialize(unsets) }); // eslint-disable-line
+      } else {
+        await tableInDb.updateOne({ _id: record._id }, { $set: EJSON.deserialize(record) }); // eslint-disable-line
+      }
     }
   }
 

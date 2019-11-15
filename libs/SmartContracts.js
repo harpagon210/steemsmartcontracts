@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+
 const SHA256FN = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
@@ -99,7 +101,7 @@ class SmartContracts {
 
         // prepare the db object that will be available in the VM
         const db = {
-          // createTable is only available during the smart contract deployment
+          // create a new table for the smart contract
           createTable: (tableName, indexes = []) => SmartContracts.createTable(
             ipc, tables, name, tableName, indexes,
           ),
@@ -124,7 +126,7 @@ class SmartContracts {
           // insert a record in the table of the smart contract
           remove: (table, record) => SmartContracts.remove(ipc, name, table, record),
           // insert a record in the table of the smart contract
-          update: (table, record) => SmartContracts.update(ipc, name, table, record),
+          update: (table, record, unsets = undefined) => SmartContracts.update(ipc, name, table, record, unsets),
           // check if a table exists
           tableExists: table => SmartContracts.tableExists(ipc, name, table),
         };
@@ -291,8 +293,14 @@ class SmartContracts {
       const contractOwner = contractInDb.owner;
       const contractVersion = contractInDb.version;
 
+      const tables = {};
+
       // prepare the db object that will be available in the VM
       const db = {
+        // create a new table for the smart contract
+        createTable: (tableName, indexes = []) => SmartContracts.createTable(
+          ipc, tables, contract, tableName, indexes,
+        ),
         // perform a query find on a table of the smart contract
         find: (table, query, limit = 1000, offset = 0, indexes = []) => SmartContracts.find(
           ipc, contract, table, query, limit, offset, indexes,
@@ -314,7 +322,9 @@ class SmartContracts {
         // insert a record in the table of the smart contract
         remove: (table, record) => SmartContracts.remove(ipc, contract, table, record),
         // insert a record in the table of the smart contract
-        update: (table, record) => SmartContracts.update(ipc, contract, table, record),
+        update: (table, record, unsets = undefined) => SmartContracts.update(ipc, contract, table, record, unsets),
+        // check if a table exists
+        tableExists: table => SmartContracts.tableExists(ipc, contract, table),
         // get block information
         getBlockInfo: blockNum => SmartContracts.getBlockInfo(ipc, blockNum),
       };
@@ -431,6 +441,26 @@ class SmartContracts {
         },
       };
 
+      // if action is called from another contract, we can add an additional function
+      // to allow token transfers from the calling contract
+      if ('callingContractInfo' in payloadObj) {
+        vmState.api.transferTokensFromCallingContract = async (
+          to, symbol, quantity, type,
+        ) => SmartContracts.executeSmartContractFromSmartContract(
+          ipc, results, 'null', payloadObj, 'tokens', 'transferFromContract',
+          JSON.stringify({
+            from: payloadObj.callingContractInfo.name,
+            to,
+            quantity,
+            symbol,
+            type,
+          }),
+          blockNumber, timestamp,
+          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          contract, contractVersion,
+        );
+      }
+
       const error = await SmartContracts.runContractCode(vmState, contractCode, jsVMTimeout);
 
       if (error) {
@@ -441,6 +471,18 @@ class SmartContracts {
         }
 
         return { logs: { errors: ['unknown error'] } };
+      }
+
+      // if new tables were created, we need to do a contract update
+      if (Object.keys(tables).length > 0) {
+        Object.assign(contractInDb.tables, tables);
+        await ipc.send(
+          {
+            to: DB_PLUGIN_NAME,
+            action: DB_PLUGIN_ACTIONS.UPDATE_CONTRACT,
+            payload: contractInDb,
+          },
+        );
       }
 
       return results;
@@ -776,7 +818,7 @@ class SmartContracts {
     return res.payload;
   }
 
-  static async update(ipc, contractName, table, record) {
+  static async update(ipc, contractName, table, record, unsets) {
     const res = await ipc.send({
       to: DB_PLUGIN_NAME,
       action: DB_PLUGIN_ACTIONS.UPDATE,
@@ -784,6 +826,7 @@ class SmartContracts {
         contract: contractName,
         table,
         record,
+        unsets,
       },
     });
 
