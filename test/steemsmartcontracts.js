@@ -8,6 +8,8 @@ const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
+const { CONSTANTS } = require('../libs/Constants');
+const configFile = require('../config.json');
 
 const conf = {
   chainId: "test-chain-id",
@@ -145,10 +147,21 @@ describe('Database', function () {
 
       await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: configFile });
       const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO, payload: 0 });
+      const genesisBlock = res.payload;
+      assert.equal(genesisBlock.blockNumber, 0);
 
-      assert.equal(res.payload.blockNumber, 0);
+      if (configFile.chainId === 'testnet1'
+        && configFile.genesisSteemBlock === 29862600
+        && CONSTANTS.UTILITY_TOKEN_SYMBOL === 'SSC') {
+          assert.equal(genesisBlock.hash, '48dab740d11ceacdae78d4625730311b22224f2b7b74208221606029ca6a7c8c');
+          assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
+          assert.equal(genesisBlock.merkleRoot, '5264617bda99adc846ec4100f0f3ecaf843e3d9122d628a5d096a1230b970e9f');
+      } else {
+        assert.equal(true, false);
+      }
+
       resolve();
     })
       .then(() => {
