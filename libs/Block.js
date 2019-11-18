@@ -108,12 +108,12 @@ class Block {
     }
 
     if (this.refSteemBlockNumber >= 38145385) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
-
       // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
       if (this.refSteemBlockNumber % 1200 === 0) {
         virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
       }
+
+      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
     const nbVirtualTransactions = virtualTransactions.length;
