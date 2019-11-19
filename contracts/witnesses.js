@@ -342,6 +342,8 @@ const changeCurrentWitness = async () => {
   // get the witnesses on schedule
   const schedules = await api.db.find('schedules', { round });
 
+  const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
+
   // get the current schedule
   const schedule = await api.db
     .findOne('schedules', { round, witness: currentWitness, blockNumber: lastBlockRound });
@@ -357,7 +359,6 @@ const changeCurrentWitness = async () => {
       // if the witness is enabled
       // and different from the scheduled one from the previous round
       // and different from an already scheduled witness for this round
-      const previousRoundWitness = lastWitnesses.length > 1 ? lastWitnesses[lastWitnesses.length - 2] : '';
       if (witness.enabled === true
         && witness.account !== previousRoundWitness
         && schedules.find(s => s.witness === witness.account) === undefined
@@ -408,7 +409,36 @@ const changeCurrentWitness = async () => {
   } while (witnesses.length > 0 && witnessFound === false);
 
   if (witnessFound === false) {
-    api.debug('no backup witness found to replace the current one');
+    api.debug('no backup witness was found, interchanging witnesses within the current schedule');
+    for (let index = 0; index < schedules.length - 1; index += 1) {
+      const sched = schedules[index];
+      const newWitness = sched.witness;
+      if (newWitness !== previousRoundWitness) {
+        api.debug(`changed current witness from ${currentWitness} to ${newWitness}`);
+        schedule.witness = newWitness;
+        await api.db.update('schedules', schedule);
+        sched.witness = currentWitness;
+        await api.db.update('schedules', sched);
+        params.currentWitness = newWitness;
+        params.roundPropositionWaitingPeriod = 0;
+        params.lastWitnesses.push(newWitness);
+        await api.db.update('params', params);
+
+        // update the current witness
+        const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
+        scheduledWitness.missedRounds += 1;
+        scheduledWitness.missedRoundsInARow += 1;
+
+        // disable the witness if missed MAX_ROUNDS_MISSED_IN_A_ROW
+        if (scheduledWitness.missedRoundsInARow >= MAX_ROUNDS_MISSED_IN_A_ROW) {
+          scheduledWitness.missedRoundsInARow = 0;
+          scheduledWitness.enabled = false;
+        }
+
+        await api.db.update('witnesses', scheduledWitness);
+        break;
+      }
+    }
   }
 };
 
