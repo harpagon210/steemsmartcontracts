@@ -314,19 +314,6 @@ const changeCurrentWitness = async () => {
     round,
   } = params;
 
-  // update the current witness
-  const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
-  scheduledWitness.missedRounds += 1;
-  scheduledWitness.missedRoundsInARow += 1;
-
-  // disable the witness if missed MAX_ROUNDS_MISSED_IN_A_ROW
-  if (scheduledWitness.missedRoundsInARow >= MAX_ROUNDS_MISSED_IN_A_ROW) {
-    scheduledWitness.missedRoundsInARow = 0;
-    scheduledWitness.enabled = false;
-  }
-
-  await api.db.update('witnesses', scheduledWitness);
-
   let witnessFound = false;
   // get a deterministic random weight
   const random = api.random();
@@ -382,6 +369,19 @@ const changeCurrentWitness = async () => {
         params.roundPropositionWaitingPeriod = 0;
         params.lastWitnesses.push(witness.account);
         await api.db.update('params', params);
+
+        // update the current witness
+        const scheduledWitness = await api.db.findOne('witnesses', { account: currentWitness });
+        scheduledWitness.missedRounds += 1;
+        scheduledWitness.missedRoundsInARow += 1;
+
+        // disable the witness if missed MAX_ROUNDS_MISSED_IN_A_ROW
+        if (scheduledWitness.missedRoundsInARow >= MAX_ROUNDS_MISSED_IN_A_ROW) {
+          scheduledWitness.missedRoundsInARow = 0;
+          scheduledWitness.enabled = false;
+        }
+
+        await api.db.update('witnesses', scheduledWitness);
         witnessFound = true;
         break;
       }
@@ -406,6 +406,10 @@ const changeCurrentWitness = async () => {
       );
     }
   } while (witnesses.length > 0 && witnessFound === false);
+
+  if (witnessFound === false) {
+    api.debug('no backup witness found to replace the current one');
+  }
 };
 
 const manageWitnessesSchedule = async () => {
