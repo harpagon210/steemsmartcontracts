@@ -5,9 +5,8 @@ const fs = require('fs-extra');
 const { MongoClient } = require('mongodb');
 const { Base64 } = require('js-base64');
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
-const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
@@ -27,6 +26,7 @@ const conf = {
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -160,11 +160,9 @@ describe('smart tokens', function () {
   it('should enable delegation', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -182,18 +180,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
         }
-      });
+      );
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
@@ -206,7 +202,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -214,11 +210,9 @@ describe('smart tokens', function () {
   it('should not enable delegation', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -244,12 +238,9 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      let res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[4].logs).errors[0], 'staking not enabled');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'you must have enough tokens to cover  fees');
@@ -262,7 +253,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -270,11 +261,9 @@ describe('smart tokens', function () {
   it('should delegate tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -295,9 +284,7 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -306,10 +293,9 @@ describe('smart tokens', function () {
             },
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
 
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'satoshi');
@@ -323,19 +309,16 @@ describe('smart tokens', function () {
       assert.equal(balances[1].stake, "0");
       assert.equal(balances[1].delegationsIn, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'delegations',
           query: {
             from: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let delegations = res.payload;
+      let delegations = res;
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
@@ -358,9 +341,7 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -369,10 +350,9 @@ describe('smart tokens', function () {
             },
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].symbol, 'TKN');
@@ -393,19 +373,16 @@ describe('smart tokens', function () {
       assert.equal(balances[2].stake, "0");
       assert.equal(balances[2].delegationsIn, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'delegations',
           query: {
             from: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      delegations = res.payload;
+      delegations = res;
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
@@ -421,7 +398,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -429,11 +406,9 @@ describe('smart tokens', function () {
   it('should not delegate tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -460,19 +435,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -481,12 +453,9 @@ describe('smart tokens', function () {
       assert.equal(balance.delegationsOut, 0);
       assert.equal(balance.delegationsIn, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[5].logs).errors[0], 'invalid to');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'symbol does not exist');
@@ -501,7 +470,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -509,11 +478,9 @@ describe('smart tokens', function () {
   it('should undelegate tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -535,9 +502,7 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -546,10 +511,9 @@ describe('smart tokens', function () {
             },
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].symbol, 'TKN');
@@ -571,19 +535,16 @@ describe('smart tokens', function () {
       assert.equal(balances[2].stake, "0");
       assert.equal(balances[2].delegationsIn, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'delegations',
           query: {
             from: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let delegations = res.payload;
+      let delegations = res;
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
@@ -608,9 +569,7 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -619,10 +578,9 @@ describe('smart tokens', function () {
             },
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].symbol, 'TKN');
@@ -644,19 +602,16 @@ describe('smart tokens', function () {
       assert.equal(balances[1].stake, "0");
       assert.equal(balances[1].delegationsIn, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'delegations',
           query: {
             from: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      delegations = res.payload;
+      delegations = res;
 
       assert.equal(delegations[0].symbol, 'TKN');
       assert.equal(delegations[0].from, 'satoshi');
@@ -668,19 +623,16 @@ describe('smart tokens', function () {
       assert.equal(delegations[1].to, 'ned');
       assert.equal(delegations[1].quantity, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'pendingUndelegations',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let pendingUndelegations = res.payload;
+      let pendingUndelegations = res;
 
       assert.equal(pendingUndelegations[0].symbol, 'TKN');
       assert.equal(pendingUndelegations[0].account, 'satoshi');
@@ -694,7 +646,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -702,11 +654,9 @@ describe('smart tokens', function () {
   it('should not undelegate tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -741,12 +691,9 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      let res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[5].logs).errors[0], 'invalid from');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'symbol does not exist');
@@ -764,7 +711,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -772,11 +719,9 @@ describe('smart tokens', function () {
   it('should process the pending undelegations', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -825,19 +770,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -847,28 +789,22 @@ describe('smart tokens', function () {
       assert.equal(balance.delegationsOut, '0.00000002');
       assert.equal(balance.pendingUndelegations, '0.00000000');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUndelegations',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let undelegation = res.payload;
+      let undelegation = res;
 
       assert.equal(undelegation, null);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let vtxs = res.payload.virtualTransactions;
+      let vtxs = res.virtualTransactions;
       const logs = JSON.parse(vtxs[0].logs);
       const event = logs.events[0];
 
@@ -882,7 +818,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -890,11 +826,9 @@ describe('smart tokens', function () {
   it('should enable staking', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -911,18 +845,15 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
@@ -933,7 +864,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -941,11 +872,9 @@ describe('smart tokens', function () {
   it('should not enable staking', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -967,30 +896,24 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
       assert.equal(token.stakingEnabled, false);
       assert.equal(token.unstakingCooldown, 1);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[4].logs).errors[0], 'you must have enough tokens to cover  fees');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'must be the issuer');
@@ -1001,7 +924,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1009,11 +932,9 @@ describe('smart tokens', function () {
   it('should not enable staking again', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1031,30 +952,22 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.symbol, 'TKN');
       assert.equal(token.issuer, 'harpagon');
       assert.equal(token.stakingEnabled, true);
       assert.equal(token.unstakingCooldown, 7);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_TRANSACTION_INFO,
-        payload: 'TXID1238'
-      });
-
-      let tx = res.payload;
+      let tx = await database1.getTransactionInfo('TXID1238');
 
       assert.equal(JSON.parse(tx.logs).errors[0], 'staking already enabled');
 
@@ -1062,7 +975,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1070,11 +983,9 @@ describe('smart tokens', function () {
   it('should stake tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1093,19 +1004,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1127,9 +1035,7 @@ describe('smart tokens', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -1138,10 +1044,9 @@ describe('smart tokens', function () {
             },
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
 
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'satoshi');
@@ -1153,12 +1058,9 @@ describe('smart tokens', function () {
       assert.equal(balances[1].balance, 0);
       assert.equal(balances[1].stake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
       
       assert.equal(JSON.parse(txs[0].logs).events[0].contract, 'tokens');
       assert.equal(JSON.parse(txs[0].logs).events[0].event, 'stake');
@@ -1172,18 +1074,15 @@ describe('smart tokens', function () {
       assert.equal(JSON.parse(txs[1].logs).events[0].data.quantity, '0.00000001');
       assert.equal(JSON.parse(txs[1].logs).events[0].data.symbol, 'TKN');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
 
       assert.equal(token.totalStaked, '0.00000003');
 
@@ -1191,7 +1090,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1199,11 +1098,9 @@ describe('smart tokens', function () {
   it('should not stake tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1226,31 +1123,25 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.balance, "100");
       assert.equal(balance.stake, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[4].logs).errors[0], 'invalid to');
       assert.equal(JSON.parse(txs[5].logs).errors[0], 'staking not enabled');
@@ -1262,7 +1153,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1270,11 +1161,9 @@ describe('smart tokens', function () {
   it('should start the unstake process', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1293,19 +1182,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1325,19 +1211,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1345,19 +1228,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -1372,7 +1252,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1380,11 +1260,9 @@ describe('smart tokens', function () {
   it('should not start the unstake process', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1406,31 +1284,25 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.balance, "100");
       assert.equal(balance.stake, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let txs = res.payload.transactions;
+      let txs = res.transactions;
 
       assert.equal(JSON.parse(txs[4].logs).errors[0], 'staking not enabled');
       assert.equal(JSON.parse(txs[6].logs).errors[0], 'must unstake positive quantity');
@@ -1441,7 +1313,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1449,11 +1321,9 @@ describe('smart tokens', function () {
   it('should cancel an unstake', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1472,19 +1342,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1505,19 +1372,16 @@ describe('smart tokens', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1525,19 +1389,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -1559,19 +1420,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1579,19 +1437,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000001');
       assert.equal(balance.pendingUnstake, '0.00000000');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake, null);
 
@@ -1599,7 +1454,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1607,11 +1462,9 @@ describe('smart tokens', function () {
   it('should not cancel an unstake', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1630,19 +1483,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1663,19 +1513,16 @@ describe('smart tokens', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1683,19 +1530,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -1718,19 +1562,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1738,19 +1579,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000000');
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -1763,7 +1601,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1771,11 +1609,9 @@ describe('smart tokens', function () {
   it('should process the pending unstakes', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1794,37 +1630,31 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.balance, "99.99999999");
       assert.equal(balance.stake, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.totalStaked, '0.00000001');
 
@@ -1842,19 +1672,16 @@ describe('smart tokens', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1862,19 +1689,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -1897,19 +1721,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -1917,28 +1738,22 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake, null);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let vtxs = res.payload.virtualTransactions;
+      let vtxs = res.virtualTransactions;
       const logs = JSON.parse(vtxs[0].logs);
       const event = logs.events[0];
 
@@ -1948,18 +1763,15 @@ describe('smart tokens', function () {
       assert.equal(event.data.quantity, '0.00000001');
       assert.equal(event.data.symbol, 'TKN');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'tokens',
           query: {
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      token = res.payload;
+      token = res;
 
       assert.equal(token.totalStaked, 0);
 
@@ -1967,7 +1779,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1975,11 +1787,9 @@ describe('smart tokens', function () {
   it.skip('should process thousands of pending unstakes', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -1998,19 +1808,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2031,19 +1838,16 @@ describe('smart tokens', function () {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2051,19 +1855,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -2086,19 +1887,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2106,28 +1904,22 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, 0);
       assert.equal(balance.pendingUnstake, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake, null);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO,
-        payload: {}
-      });
+      res = await database1.getLatestBlockInfo();
 
-      let vtxs = res.payload.virtualTransactions;
+      let vtxs = res.virtualTransactions;
       const logs = JSON.parse(vtxs[0].logs);
       const event = logs.events[0];
 
@@ -2181,19 +1973,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2216,19 +2005,16 @@ describe('smart tokens', function () {
       console.log('start processing pending unstakes');
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       console.log('done processing pending unstakes')
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2240,7 +2026,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2248,11 +2034,9 @@ describe('smart tokens', function () {
   it('should process the pending unstakes (with multi transactions)', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "harpagon", "quantity": "1000", "isSignedWithActiveKey": true }`));
@@ -2271,19 +2055,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2303,19 +2084,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2323,19 +2101,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000002');
       assert.equal(balance.pendingUnstake, '0.00000006');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      let unstake = res.payload;
+      let unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -2360,19 +2135,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2380,19 +2152,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000002');
       assert.equal(balance.pendingUnstake, '0.00000004');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -2417,19 +2186,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2437,19 +2203,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000002');
       assert.equal(balance.pendingUnstake, '0.00000002');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake.symbol, 'TKN');
       assert.equal(unstake.account, 'satoshi');
@@ -2474,19 +2237,16 @@ describe('smart tokens', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      balance = res.payload;
+      balance = res;
 
       assert.equal(balance.symbol, 'TKN');
       assert.equal(balance.account, 'satoshi');
@@ -2494,19 +2254,16 @@ describe('smart tokens', function () {
       assert.equal(balance.stake, '0.00000002');
       assert.equal(balance.pendingUnstake, '0.00000000');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'pendingUnstakes',
           query: {
             account: 'satoshi',
             symbol: 'TKN'
           }
-        }
-      });
+        });
 
-      unstake = res.payload;
+      unstake = res;
 
       assert.equal(unstake, null);
 
@@ -2516,7 +2273,7 @@ describe('smart tokens', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

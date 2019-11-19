@@ -7,7 +7,7 @@ const dsteem = require('dsteem');
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Transaction } = require('../libs/Transaction');
 
@@ -33,6 +33,7 @@ const NB_WITNESSES = 5;
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -192,10 +193,9 @@ describe('witnesses', function () {
   it('registers witnesses', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -213,17 +213,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      let witnesses = res.payload;
+      let witnesses = res;
 
       assert.equal(witnesses[0].account, 'dan');
       assert.equal(witnesses[0].IP, "123.255.123.254");
@@ -256,17 +253,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, 'dan');
       assert.equal(witnesses[0].IP, "123.255.123.123");
@@ -288,7 +282,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -296,10 +290,9 @@ describe('witnesses', function () {
   it('approves witnesses', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(32713425, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -320,17 +313,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      let witnesses = res.payload;
+      let witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000000');
@@ -338,33 +328,27 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'witnesses',
           table: 'accounts',
           query: {
             account: 'harpagon'
           }
-        }
-      });
+        });
 
-      let account = res.payload;
+      let account = res;
 
       assert.equal(account.approvals, 2);
       assert.equal(account.approvalWeight, "100.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      let approvals = res.payload;
+      let approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -372,17 +356,14 @@ describe('witnesses', function () {
       assert.equal(approvals[1].from, "harpagon");
       assert.equal(approvals[1].to, "vitalik");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "200.00000000");
@@ -404,17 +385,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
@@ -425,17 +403,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[2].account, "satoshi");
       assert.equal(witnesses[2].approvalWeight.$numberDecimal, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      let accounts = res.payload;
+      let accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 3);
@@ -445,17 +420,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 2);
       assert.equal(accounts[1].approvalWeight, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -472,17 +444,14 @@ describe('witnesses', function () {
       assert.equal(approvals[4].from, "ned");
       assert.equal(approvals[4].to, "satoshi");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 3);
       assert.equal(params[0].totalApprovalWeight, "300.00000002");
@@ -491,7 +460,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -499,10 +468,9 @@ describe('witnesses', function () {
   it('disapproves witnesses', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(37899121, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -541,17 +509,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
@@ -562,17 +527,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[2].account, "satoshi");
       assert.equal(witnesses[2].approvalWeight.$numberDecimal, "100.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      let accounts = res.payload;
+      let accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 3);
@@ -582,34 +544,28 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
             to: "satoshi"
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "satoshi");
       assert.equal(approvals.length, 1);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 3);
       assert.equal(params[0].totalApprovalWeight, "300.00000001");
@@ -627,17 +583,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
@@ -648,17 +601,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[2].account, "satoshi");
       assert.equal(witnesses[2].approvalWeight.$numberDecimal, "0E-8");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      accounts = res.payload;
+      accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -668,32 +618,26 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "0.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
             to: "satoshi"
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals.length, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "200.00000001");
@@ -702,7 +646,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -710,10 +654,9 @@ describe('witnesses', function () {
   it('updates witnesses approvals when staking, unstaking, delegating and undelegating the utility token', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(37899123, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -735,50 +678,41 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      let witnesses = res.payload;
+      let witnesses = res;
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
 
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'witnesses',
           table: 'accounts',
           query: {
             account: 'harpagon'
           }
-        }
-      });
+        });
 
-      let account = res.payload;
+      let account = res;
 
       assert.equal(account.approvals, 2);
       assert.equal(account.approvalWeight, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      let approvals = res.payload;
+      let approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -786,17 +720,14 @@ describe('witnesses', function () {
       assert.equal(approvals[1].from, "harpagon");
       assert.equal(approvals[1].to, "vitalik");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "200.00000002");
@@ -816,17 +747,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '101.00000001');
@@ -834,17 +762,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "98.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      let accounts = res.payload;
+      let accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -854,17 +779,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "3.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -875,17 +797,14 @@ describe('witnesses', function () {
       assert.equal(approvals[2].from, "ned");
       assert.equal(approvals[2].to, "dan");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "199.00000002");
@@ -903,27 +822,21 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'pendingUndelegations',
           query: {
           }
-        }
-      });
+        });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '99.00000001');
@@ -931,17 +844,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "98.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      accounts = res.payload;
+      accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -951,17 +861,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "1.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -972,17 +879,14 @@ describe('witnesses', function () {
       assert.equal(approvals[2].from, "ned");
       assert.equal(approvals[2].to, "dan");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "197.00000002");
@@ -1000,17 +904,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '101.00000001');
@@ -1018,17 +919,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      accounts = res.payload;
+      accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -1038,17 +936,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "1.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -1059,17 +954,14 @@ describe('witnesses', function () {
       assert.equal(approvals[2].from, "ned");
       assert.equal(approvals[2].to, "dan");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "201.00000002");
@@ -1087,17 +979,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '101.00000001');
@@ -1105,17 +994,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      accounts = res.payload;
+      accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -1125,17 +1011,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "1.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -1146,17 +1029,14 @@ describe('witnesses', function () {
       assert.equal(approvals[2].from, "ned");
       assert.equal(approvals[2].to, "dan");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "201.00000002");
@@ -1174,17 +1054,14 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'witnesses',
           query: {
           }
-        }
-      });
+        });
 
-      witnesses = res.payload;
+      witnesses = res;
 
       assert.equal(witnesses[0].account, "dan");
       assert.equal(witnesses[0].approvalWeight.$numberDecimal, '100.00000001');
@@ -1192,17 +1069,14 @@ describe('witnesses', function () {
       assert.equal(witnesses[1].account, "vitalik");
       assert.equal(witnesses[1].approvalWeight.$numberDecimal, "100.00000001");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'accounts',
           query: {
           }
-        }
-      });
+        });
 
-      accounts = res.payload;
+      accounts = res;
 
       assert.equal(accounts[0].account, "harpagon");
       assert.equal(accounts[0].approvals, 2);
@@ -1212,17 +1086,14 @@ describe('witnesses', function () {
       assert.equal(accounts[1].approvals, 1);
       assert.equal(accounts[1].approvalWeight, "0.00000000");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'approvals',
           query: {
           }
-        }
-      });
+        });
 
-      approvals = res.payload;
+      approvals = res;
 
       assert.equal(approvals[0].from, "harpagon");
       assert.equal(approvals[0].to, "dan");
@@ -1233,17 +1104,14 @@ describe('witnesses', function () {
       assert.equal(approvals[2].from, "ned");
       assert.equal(approvals[2].to, "dan");
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       assert.equal(params[0].numberOfApprovedWitnesses, 2);
       assert.equal(params[0].totalApprovalWeight, "200.00000002");
@@ -1252,7 +1120,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1260,10 +1128,9 @@ describe('witnesses', function () {
   it('schedules witnesses', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(37899128, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -1304,18 +1171,15 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'witnesses',
           table: 'schedules',
           query: {
             
           }
-        }
-      });
+        });
 
-      let schedule = res.payload;
+      let schedule = res;
 
       if(NB_WITNESSES === 4) {
         assert.equal(schedule[0].witness, "witness34");
@@ -1355,18 +1219,15 @@ describe('witnesses', function () {
         assert.equal(schedule[4].round, 1);
       }
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       if(NB_WITNESSES === 4) {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
@@ -1390,7 +1251,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1398,10 +1259,9 @@ describe('witnesses', function () {
   it('verifies a block', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -1458,18 +1318,15 @@ describe('witnesses', function () {
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       } 
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       let blockNum = params.lastVerifiedBlockNumber + 1;
       const endBlockRound = params.lastBlockRound;
@@ -1478,30 +1335,24 @@ describe('witnesses', function () {
       // calculate round hash
       while (blockNum <= endBlockRound) {
         // get the block from the current node
-        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
-          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-          payload: blockNum
-        });
+        const queryRes = await database1.getBlockInfo(blockNum);
 
-        const blockFromNode = queryRes.payload;
+        const blockFromNode = queryRes;
         if (blockFromNode !== null) {
           calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
         }
         blockNum += 1;
       }
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'schedules',
           query: {
             
           }
-        }
-      });
+        });
 
-      let schedules = res.payload;
+      let schedules = res;
 
       const signatures = [];
       schedules.forEach(schedule => {
@@ -1537,12 +1388,9 @@ describe('witnesses', function () {
       let i = 0;
       while (blockNum <= endBlockRound) {
         // get the block from the current node
-        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
-          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-          payload: blockNum
-        });
+        const queryRes = await database1.getBlockInfo(blockNum);
 
-        const blockFromNode = queryRes.payload;
+        const blockFromNode = queryRes;
         const wif = dsteem.PrivateKey.fromLogin(blockFromNode.witness, 'testnet', 'active');
         assert.equal(blockFromNode.round, 1);
         assert.equal(blockFromNode.witness, schedules[schedules.length - 1].witness);
@@ -1558,7 +1406,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1566,10 +1414,9 @@ describe('witnesses', function () {
   it('generates a new schedule once the current one is completed', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -1626,18 +1473,15 @@ describe('witnesses', function () {
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       } 
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       let blockNum = params.lastVerifiedBlockNumber + 1;
       const endBlockRound = params.lastBlockRound;
@@ -1646,30 +1490,24 @@ describe('witnesses', function () {
       // calculate round hash
       while (blockNum <= endBlockRound) {
         // get the block from the current node
-        const queryRes = await send(database.PLUGIN_NAME, 'MASTER', {
-          action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-          payload: blockNum
-        });
+        const queryRes = await database1.getBlockInfo(blockNum);
 
-        const blockFromNode = queryRes.payload;
+        const blockFromNode = queryRes;
         if (blockFromNode !== null) {
           calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
         }
         blockNum += 1;
       }
       
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'schedules',
           query: {
             
           }
-        }
-      });
+        });
 
-      let schedules = res.payload;
+      let schedules = res;
 
       const signatures = [];
       schedules.forEach(schedule => {
@@ -1699,18 +1537,15 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'witnesses',
           table: 'schedules',
           query: {
             
           }
-        }
-      });
+        });
 
-      let schedule = res.payload;
+      let schedule = res;
 
       if (NB_WITNESSES === 4) {
         assert.equal(schedule[0].witness, "witness33");
@@ -1750,18 +1585,15 @@ describe('witnesses', function () {
         assert.equal(schedule[4].round, 2);
       }
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       if (NB_WITNESSES === 4) {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
@@ -1785,7 +1617,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1793,10 +1625,9 @@ describe('witnesses', function () {
   it('changes the current witness if it has not validated a round in time', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
       let txId = 100;
       let transactions = [];
       transactions.push(new Transaction(37899120, 'TXID1', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -1837,18 +1668,15 @@ describe('witnesses', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       if(NB_WITNESSES === 4) {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
@@ -1884,18 +1712,15 @@ describe('witnesses', function () {
         await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
       }
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'witnesses',
           table: 'params',
           query: {
             
           }
-        }
-      });
+        });
 
-      params = res.payload;
+      params = res;
 
       if(NB_WITNESSES === 4) {
         assert.equal(params.totalApprovalWeight, '3000.00000000');
@@ -1919,7 +1744,7 @@ describe('witnesses', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

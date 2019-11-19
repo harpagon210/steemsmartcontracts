@@ -7,10 +7,7 @@ const ioclient = require('socket.io-client');
 const http = require('http');
 const { IPC } = require('../libs/IPC');
 const { Queue } = require('../libs/Queue');
-
-
-const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
+const { Database } = require('../libs/Database');
 
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
 
@@ -23,6 +20,7 @@ const ipc = new IPC(PLUGIN_NAME);
 
 let socketServer = null;
 const sockets = {};
+let database = null;
 
 let currentRound = 0;
 let currentWitness = null;
@@ -108,13 +106,7 @@ async function calculateRoundHash(startBlockRound, endBlockRound) {
   // calculate round hash
   while (blockNum <= endBlockRound) {
     // get the block from the current node
-    const queryRes = await ipc.send({
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-      payload: blockNum,
-    });
-
-    const blockFromNode = queryRes.payload;
+    const blockFromNode = await database.getBlock(blockNum);
     if (blockFromNode !== null) {
       calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
     } else {
@@ -126,34 +118,26 @@ async function calculateRoundHash(startBlockRound, endBlockRound) {
 }
 
 const find = async (contract, table, query, limit = 1000, offset = 0, indexes = []) => {
-  const res = await ipc.send({
-    to: DB_PLUGIN_NAME,
-    action: DB_PLUGIN_ACTIONS.FIND,
-    payload: {
-      contract,
-      table,
-      query,
-      limit,
-      offset,
-      indexes,
-    },
+  const result = await database.find({
+    contract,
+    table,
+    query,
+    limit,
+    offset,
+    indexes,
   });
 
-  return res.payload;
+  return result;
 };
 
 const findOne = async (contract, table, query) => {
-  const res = await ipc.send({
-    to: DB_PLUGIN_NAME,
-    action: DB_PLUGIN_ACTIONS.FIND_ONE,
-    payload: {
-      contract,
-      table,
-      query,
-    },
+  const result = await database.findOne({
+    contract,
+    table,
+    query,
   });
 
-  return res.payload;
+  return result;
 };
 
 const errorHandler = async (id, error) => {
@@ -556,13 +540,7 @@ const manageRoundProposition = async () => {
       && currentWitness === this.witnessAccount
       && currentRound > lastProposedRoundNumber) {
       // handle round propositions
-      const res = await ipc.send({
-        to: DB_PLUGIN_NAME,
-        action: DB_PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: lastBlockRound,
-      });
-
-      const block = res.payload;
+      const block = await database.getBlock(lastBlockRound);
 
       if (block !== null) {
         const startblockNum = params.lastVerifiedBlockNumber + 1;
@@ -637,6 +615,8 @@ const init = async (conf, callback) => {
     witnessEnabled,
     steemAddressPrefix,
     steemChainId,
+    databaseURL,
+    databaseName,
   } = conf;
 
   if (witnessEnabled === false
@@ -645,6 +625,9 @@ const init = async (conf, callback) => {
     console.log('P2P not started, missing env variables ACCOUNT and/or ACTIVE_SIGNING_KEY and/or witness not enabled in config.json file');
     callback(null);
   } else {
+    database = new Database();
+    await database.init(databaseURL, databaseName);
+
     streamNodes.forEach(node => steemClient.nodes.push(node));
     steemClient.sidechainId = chainId;
     steemClient.steemAddressPrefix = steemAddressPrefix;
@@ -679,6 +662,8 @@ const stop = (callback) => {
   if (socketServer) {
     socketServer.close();
   }
+
+  if (database) database.close();
   callback();
 };
 
@@ -690,7 +675,7 @@ ipc.onReceiveMessage((message) => {
 
   if (action === 'init') {
     init(payload, (res) => {
-      console.log('successfully initialized on port'); // eslint-disable-line no-console
+      console.log('successfully initialized'); // eslint-disable-line no-console
       ipc.reply(message, res);
     });
   } else if (action === 'stop') {

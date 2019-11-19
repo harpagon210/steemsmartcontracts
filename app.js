@@ -4,7 +4,6 @@ const program = require('commander');
 const { fork } = require('child_process');
 const { createLogger, format, transports } = require('winston');
 const packagejson = require('./package.json');
-const database = require('./plugins/Database');
 const blockchain = require('./plugins/Blockchain');
 const jsonRPCServer = require('./plugins/JsonRPCServer');
 const streamer = require('./plugins/Streamer');
@@ -131,18 +130,13 @@ const unloadPlugin = async (plugin) => {
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
 const start = async () => {
-  let res = await loadPlugin(database);
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+    res = await loadPlugin(streamer);
     if (res && res.payload === null) {
-      res = await loadPlugin(streamer);
+      res = await loadPlugin(p2p);
       if (res && res.payload === null) {
-        res = await loadPlugin(p2p);
-        if (res && res.payload === null) {
-          res = await loadPlugin(jsonRPCServer);
-        }
+        res = await loadPlugin(jsonRPCServer);
       }
     }
   }
@@ -161,7 +155,6 @@ const stop = async () => {
   }
 
   await unloadPlugin(blockchain);
-  await unloadPlugin(database);
 
   return res.payload;
 };
@@ -182,17 +175,12 @@ const stopApp = async (signal = 0) => {
 
 // replay the sidechain from a blocks log file
 const replayBlocksLog = async () => {
-  let res = await loadPlugin(database);
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-    if (res && res.payload === null) {
-      await loadPlugin(replay);
-      res = await send(getPlugin(replay),
-        { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
-      stopApp();
-    }
+    await loadPlugin(replay);
+    res = await send(getPlugin(replay),
+      { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
+    stopApp();
   }
 };
 

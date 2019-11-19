@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const { MongoClient, Decimal128 } = require('mongodb');
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Transaction } = require('../libs/Transaction');
 
@@ -25,6 +25,7 @@ const conf = {
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -178,11 +179,11 @@ describe('Market', function() {
   it('creates a buy order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -201,52 +202,37 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'STEEMP',
-            account: 'satoshi'
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'STEEMP',
+          account: 'satoshi'
         }
       });
-
-      let balances = res.payload;
       assert.equal(balances[0].balance, '123.45599123');
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'STEEMP');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, '0.00000877');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -258,7 +244,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -266,11 +252,11 @@ describe('Market', function() {
   it('creates buy orders with expirations', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -291,19 +277,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -333,7 +314,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -341,11 +322,11 @@ describe('Market', function() {
   it('generates error when trying to create a buy order with wrong parameters', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER_TWO, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER_TWO, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -364,12 +345,7 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
-
-      const block1 = res.payload;
+      const block1 = await database1.getBlockInfo(1);
       const transactionsBlock1 = block1.transactions;
       assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'order cannot be placed as it cannot be filled');
 
@@ -377,7 +353,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -385,11 +361,11 @@ describe('Market', function() {
   it('creates sell orders with expirations', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -410,19 +386,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -452,7 +423,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -460,11 +431,11 @@ describe('Market', function() {
   it('creates a sell order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -488,52 +459,37 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'TKN',
-            account: 'satoshi',
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'TKN',
+          account: 'satoshi',
         }
       });
-
-      let balances = res.payload;
 
       assert.equal(balances[0].balance, 23.18);
       assert.equal(balances[0].account, 'satoshi');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'TKN'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'TKN'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 100.276);
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -545,7 +501,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -553,11 +509,11 @@ describe('Market', function() {
   it('generates error when trying to create a sell order with wrong parameters', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER_TWO, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER_TWO, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -576,12 +532,7 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
-
-      const block1 = res.payload;
+      const block1 = await database1.getBlockInfo(1);
       const transactionsBlock1 = block1.transactions;
 
       assert.equal(JSON.parse(transactionsBlock1[5].logs).errors[0], 'order cannot be placed as it cannot be filled');
@@ -590,7 +541,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -598,11 +549,11 @@ describe('Market', function() {
   it('cancels a buy order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -621,52 +572,37 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'STEEMP',
-            account: 'satoshi'
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'STEEMP',
+          account: 'satoshi'
         }
       });
-
-      let balances = res.payload;
 
       assert.equal(balances[0].balance, 122.456);
       assert.equal(balances[0].account, 'satoshi');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 1);
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -687,45 +623,37 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'STEEMP',
-            account: {
-              $in: ['satoshi']
-            }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'STEEMP',
+          account: {
+            $in: ['satoshi']
           }
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 123.456);
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'STEEMP');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      res = await database1.findOne({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
 
-      assert.equal(res.payload, null);
+      assert.equal(res, null);
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -733,11 +661,11 @@ describe('Market', function() {
   it('cancels a sell order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -756,55 +684,40 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'TKN',
-            account: {
-              $in: ['satoshi']
-            }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'TKN',
+          account: {
+            $in: ['satoshi']
           }
         }
       });
-
-      let balances = res.payload;
 
       assert.equal(balances[0].balance, 23.456);
       assert.equal(balances[0].account, 'satoshi');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'TKN',
-            account: 'market'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'TKN',
+          account: 'market'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 100);
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1235');
       assert.equal(sellOrders[0].account, 'satoshi');
@@ -825,45 +738,37 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: 'TKN',
-            account: {
-              $in: ['satoshi']
-            }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: 'TKN',
+          account: {
+            $in: ['satoshi']
           }
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 123.456);
       assert.equal(balances[0].account, 'satoshi');
       assert.equal(balances[0].symbol, 'TKN');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      res = await database1.findOne({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
 
-      assert.equal(res.payload, null);
+      assert.equal(res, null);
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -871,11 +776,11 @@ describe('Market', function() {
   it('buys from the market from one seller', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -896,19 +801,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      let balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -927,36 +827,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, 2.34);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'TKN'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'TKN'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 90);
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1237');
       assert.equal(sellOrders[0].account, 'vitalik');
@@ -968,7 +858,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -976,11 +866,11 @@ describe('Market', function() {
   it('buys from the market from several sellers', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1005,19 +895,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
-          }
+      const balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
         }
       });
-
-      const balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
@@ -1056,7 +941,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1064,11 +949,11 @@ describe('Market', function() {
   it('buys from the market partially', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1093,19 +978,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['null', 'satoshi', 'vitalik', 'dan', 'harpagon'] }
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['null', 'satoshi', 'vitalik', 'dan', 'harpagon'] }
         }
       });
-
-      let balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
@@ -1140,36 +1020,26 @@ describe('Market', function() {
       assert.equal(balances[7].symbol, 'STEEMP');
       assert.equal(balances[7].balance, 15);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 22);
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'harpagon',
-            symbol: 'TKN'
-          }
+      const sellOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'harpagon',
+          symbol: 'TKN'
         }
       });
-
-      const sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1243');
       assert.equal(sellOrders[0].account, 'harpagon');
@@ -1182,7 +1052,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1190,11 +1060,11 @@ describe('Market', function() {
   it('sells on the market to one buyer', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1218,19 +1088,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      let balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -1249,36 +1114,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, 2.34);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 21.06);
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      const buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      const buyOrders = res.payload;
 
       assert.equal(buyOrders[0].txId, 'TXID1238');
       assert.equal(buyOrders[0].account, 'satoshi');
@@ -1290,7 +1145,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1298,11 +1153,11 @@ describe('Market', function() {
   it('sells on the market to several buyers', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1331,19 +1186,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
-          }
+      const balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
         }
       });
-
-      const balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
@@ -1382,7 +1232,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1390,11 +1240,11 @@ describe('Market', function() {
   it('fills a buy order from different sellers', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1423,19 +1273,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
-          }
+      const balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik', 'dan', 'harpagon'] }
         }
       });
-
-      const balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'harpagon');
@@ -1474,7 +1319,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1482,11 +1327,11 @@ describe('Market', function() {
   it('creates a trade history', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1515,18 +1360,13 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'tradesHistory',
-          query: {
+      let trades = await database1.find({
+        contract: 'market',
+        table: 'tradesHistory',
+        query: {
 
-          }
         }
       });
-
-      let trades = res.payload;
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1566,18 +1406,13 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'tradesHistory',
-          query: {
+      trades = await database1.find({
+        contract: 'market',
+        table: 'tradesHistory',
+        query: {
 
-          }
         }
       });
-
-      trades = res.payload;
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1631,19 +1466,13 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
+      trades = await database1.find({
+        contract: 'market',
+        table: 'tradesHistory',
+        query: {
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'tradesHistory',
-          query: {
-
-          }
         }
       });
-
-      trades = res.payload;
 
       assert.equal(trades[0].type, 'sell');
       assert.equal(trades[0].symbol, 'TKN');
@@ -1663,7 +1492,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1671,11 +1500,11 @@ describe('Market', function() {
   it('maintains the different metrics', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1704,18 +1533,13 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'market',
-          table: 'metrics',
-          query: {
-            symbol: 'TKN'
-          }
+      let volume = await database1.findOne({
+        contract: 'market',
+        table: 'metrics',
+        query: {
+          symbol: 'TKN'
         }
       });
-
-      let volume = res.payload;
 
       assert.equal(volume.symbol, 'TKN');
       assert.equal(volume.volume, 30);
@@ -1747,17 +1571,12 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'metrics',
-          query: {
-          }
+      let metrics = await database1.find({
+        contract: 'market',
+        table: 'metrics',
+        query: {
         }
       });
-
-      let metrics = res.payload;
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 60);
@@ -1785,18 +1604,13 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'metrics',
-          query: {
+      metrics = await database1.find({
+        contract: 'market',
+        table: 'metrics',
+        query: {
 
-          }
         }
       });
-
-      metrics = res.payload;
 
       assert.equal(metrics[0].symbol, 'TKN');
       assert.equal(metrics[0].volume, 9);
@@ -1825,17 +1639,12 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
-          contract: 'market',
-          table: 'metrics',
-          query: {
-          }
+      const metric = await database1.findOne({
+        contract: 'market',
+        table: 'metrics',
+        query: {
         }
       });
-
-      const metric = res.payload;
 
       assert.equal(metric.symbol, 'TKN');
       assert.equal(metric.volume, 9);
@@ -1849,7 +1658,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1857,11 +1666,11 @@ describe('Market', function() {
   it('removes an expired sell order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1882,19 +1691,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      let sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      let sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1237');
       assert.equal(sellOrders[0].account, 'vitalik');
@@ -1915,35 +1719,25 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      sellOrders = res.payload;
 
       assert.equal(sellOrders.length, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      let buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      let buyOrders = res.payload;
 
       assert.equal(buyOrders[0].txId, 'TXID1238');
       assert.equal(buyOrders[0].account, 'satoshi');
@@ -1955,7 +1749,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1963,11 +1757,11 @@ describe('Market', function() {
   it('removes an expired buy order', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -1987,19 +1781,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      let buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      let buyOrders = res.payload;
 
       assert.equal(buyOrders[0].txId, 'TXID1238');
       assert.equal(buyOrders[0].account, 'satoshi');
@@ -2020,35 +1809,25 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      buyOrders = res.payload;
 
       assert.equal(buyOrders.length, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      sellOrders = res.payload;
 
       assert.equal(sellOrders[0].txId, 'TXID1237');
       assert.equal(sellOrders[0].account, 'vitalik');
@@ -2060,7 +1839,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2068,11 +1847,11 @@ describe('Market', function() {
   it('removes dust sell orders', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -2093,19 +1872,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      let balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -2124,36 +1898,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'TKN'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'TKN'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 0);
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      let sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      let sellOrders = res.payload;
 
       assert.equal(sellOrders.length, 0);
 
@@ -2171,19 +1935,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -2202,36 +1961,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, '0.00000002');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'TKN'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'TKN'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 0);
       assert.equal(balances[0].symbol, 'TKN');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'sellBook',
-          query: {
-            account: 'vitalik',
-            symbol: 'TKN'
-          }
+      sellOrders = await database1.find({
+        contract: 'market',
+        table: 'sellBook',
+        query: {
+          account: 'vitalik',
+          symbol: 'TKN'
         }
       });
-
-      sellOrders = res.payload;
 
       assert.equal(sellOrders.length, 0);
 
@@ -2239,7 +1988,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2247,11 +1996,11 @@ describe('Market', function() {
   it('removes dust buy orders', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1228', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
@@ -2275,19 +2024,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      let balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      let balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -2306,36 +2050,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, '0.00000001');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 0);
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      let buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      let buyOrders = res.payload;
 
       assert.equal(buyOrders.length, 0);
 
@@ -2353,19 +2087,14 @@ describe('Market', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'balances',
-          query: {
-            symbol: { $in: ['TKN', 'STEEMP'] },
-            account: { $in: ['satoshi', 'vitalik'] }
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'balances',
+        query: {
+          symbol: { $in: ['TKN', 'STEEMP'] },
+          account: { $in: ['satoshi', 'vitalik'] }
         }
       });
-
-      balances = res.payload;
       balances.sort((a, b) => a._id - b._id);
 
       assert.equal(balances[0].account, 'vitalik');
@@ -2384,36 +2113,26 @@ describe('Market', function() {
       assert.equal(balances[3].symbol, 'STEEMP');
       assert.equal(balances[3].balance, '0.00000002');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'tokens',
-          table: 'contractsBalances',
-          query: {
-            symbol: 'STEEMP'
-          }
+      balances = await database1.find({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: {
+          symbol: 'STEEMP'
         }
       });
-
-      balances = res.payload;
 
       assert.equal(balances[0].balance, 0);
       assert.equal(balances[0].symbol, 'STEEMP');
       assert.equal(balances[0].account, 'market');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
-          contract: 'market',
-          table: 'buyBook',
-          query: {
-            account: 'satoshi',
-            symbol: 'TKN'
-          }
+      buyOrders = await database1.find({
+        contract: 'market',
+        table: 'buyBook',
+        query: {
+          account: 'satoshi',
+          symbol: 'TKN'
         }
       });
-
-      buyOrders = res.payload;
 
       assert.equal(buyOrders.length, 0);
 
@@ -2421,7 +2140,7 @@ describe('Market', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

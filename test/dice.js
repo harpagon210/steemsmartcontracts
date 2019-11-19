@@ -2,8 +2,7 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
-
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
@@ -25,6 +24,7 @@ const conf = {
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -106,8 +106,6 @@ let tknContractPayload = {
   code: base64ContractCode,
 };
 
-console.log(tknContractPayload)
-
 // prepare steempegged contract for deployment
 contractCode = fs.readFileSync('./contracts/steempegged.js');
 contractCode = contractCode.toString();
@@ -120,8 +118,6 @@ let spContractPayload = {
   code: base64ContractCode,
 };
 
-console.log(spContractPayload)
-
 // prepare dice contract for deployment
 contractCode = fs.readFileSync('./contracts/bootstrap/dice.js');
 contractCode = contractCode.toString();
@@ -132,8 +128,6 @@ let diceContractPayload = {
   params: '',
   code: base64ContractCode,
 };
-
-console.log(diceContractPayload)
 
 // dice
 describe('dice', function() {
@@ -185,10 +179,9 @@ describe('dice', function() {
   it('makes you win', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(30983000, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -203,12 +196,7 @@ describe('dice', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_TRANSACTION_INFO,
-        payload: 'TXID1237'
-      });
-
-      const tx = res.payload;
+      const tx = await database.getTransactionInfo('TXID1237');
 
       const logs = JSON.parse(tx.logs);
 
@@ -220,7 +208,7 @@ describe('dice', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -228,10 +216,9 @@ describe('dice', function() {
   it('makes you lose', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
    
@@ -247,12 +234,7 @@ describe('dice', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_TRANSACTION_INFO,
-        payload: 'TXID1237'
-      });
-
-      const tx = res.payload;
+      const tx = await database.getTransactionInfo('TXID1237');
 
       const logs = JSON.parse(tx.logs);
 
@@ -264,7 +246,7 @@ describe('dice', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
