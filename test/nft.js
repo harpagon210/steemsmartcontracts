@@ -2,12 +2,11 @@
 const { fork } = require('child_process');
 const assert = require('assert');
 const fs = require('fs-extra');
-const BigNumber = require('bignumber.js');
 const { Base64 } = require('js-base64');
 const { MongoClient } = require('mongodb');
 
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Transaction } = require('../libs/Transaction');
 
@@ -29,6 +28,7 @@ const conf = {
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -221,10 +221,9 @@ describe('nft', function() {
   it('updates parameters', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
@@ -242,16 +241,13 @@ describe('nft', function() {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       // check if the params updated OK
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      const res = await database1.findOne({
           contract: 'nft',
           table: 'params',
           query: {}
-        }
-      });
+        });
 
-      const params = res.payload;
+      const params = res;
       console.log(params)
 
       assert.equal(params.nftCreationFee, '22.222');
@@ -263,7 +259,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -271,10 +267,9 @@ describe('nft', function() {
   it('rejects invalid parameters', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
@@ -295,16 +290,13 @@ describe('nft', function() {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       // params should not have changed from their initial values
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      const res = await database1.findOne({
           contract: 'nft',
           table: 'params',
           query: {}
-        }
-      });
+        });
 
-      const params = res.payload;
+      const params = res;
       console.log(params)
 
       assert.equal(params.nftCreationFee, '100');
@@ -316,7 +308,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -324,10 +316,9 @@ describe('nft', function() {
   it('creates an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -347,16 +338,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -382,14 +370,11 @@ describe('nft', function() {
       assert.equal(tokens[0].delegationEnabled, false);
       assert.equal(tokens[0].undelegationCooldown, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_CONTRACT,
-        payload: {
-          name: 'nft',
-        }
+      res = await database1.findContract({
+        name: 'nft',
       });
 
-      let tables = res.payload.tables;
+      let tables = res.tables;
       console.log(tables);
       
       assert.equal('nft_TSTNFTinstances' in tables, true);
@@ -399,7 +384,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -407,10 +392,9 @@ describe('nft', function() {
   it('does not allow nft creation with invalid parameters', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -439,12 +423,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      const res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[4].logs)
       console.log(transactionsBlock1[6].logs)
@@ -470,7 +451,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -478,10 +459,9 @@ describe('nft', function() {
   it('enables delegation', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -501,16 +481,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -524,16 +501,13 @@ describe('nft', function() {
       assert.equal(tokens[0].delegationEnabled, true);
       assert.equal(tokens[0].undelegationCooldown, 5);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { "account": { "$in" : ["cryptomancer","null"] }}
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
       console.log(balances)
 
       // check fees were subtracted from account balance
@@ -549,7 +523,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -557,10 +531,9 @@ describe('nft', function() {
   it('does not enable delegation', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145385, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -587,12 +560,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[6].logs)
       console.log(transactionsBlock1[8].logs)
@@ -608,16 +578,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'symbol does not exist');
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'must be the issuer');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -631,16 +598,13 @@ describe('nft', function() {
       assert.equal(tokens[0].delegationEnabled, false);
       assert.equal(tokens[0].undelegationCooldown, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { "account": { "$in" : ["cryptomancer","null"] }}
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
       console.log(balances)
 
       // check fees were subtracted from account balance
@@ -668,12 +632,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs)
       console.log(transactionsBlock2[1].logs)
@@ -685,7 +646,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -693,10 +654,9 @@ describe('nft', function() {
   it('delegates and undelegates tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -749,12 +709,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[21].logs);
       console.log(transactionsBlock1[22].logs);
@@ -764,16 +721,13 @@ describe('nft', function() {
       console.log(transactionsBlock1[26].logs);
       console.log(transactionsBlock1[27].logs);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -792,16 +746,13 @@ describe('nft', function() {
       assert.equal(instances[2].delegatedTo.ownedBy, 'c');
       assert.equal(instances[2].delegatedTo.undelegateAt > 0, true);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -830,16 +781,13 @@ describe('nft', function() {
       assert.equal(instances[3].delegatedTo.ownedBy, 'u');
       assert.equal(instances[3].delegatedTo.undelegateAt > 0, true);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'pendingUndelegations',
           query: {}
-        }
-      });
+        });
 
-      let undelegations = res.payload;
+      let undelegations = res;
       console.log(undelegations);
 
       assert.equal(undelegations.length, 3);
@@ -868,17 +816,14 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'pendingUndelegations',
           query: {}
-        }
-      });
+        });
 
       // undelegations should still be pending as 5 days haven't passed yet
-      undelegations = res.payload;
+      undelegations = res;
       assert.equal(undelegations.length, 3);
 
       transactions = [];
@@ -896,26 +841,20 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'pendingUndelegations',
           query: {}
-        }
-      });
+        });
 
       // undelegations should be finished now
-      undelegations = res.payload;
+      undelegations = res;
       console.log(undelegations);
       assert.equal(undelegations.length, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 3,
-      });
+      res = await database1.getBlockInfo(3);
 
-      let vtxs = res.payload.virtualTransactions;
+      let vtxs = res.virtualTransactions;
       const logs = JSON.parse(vtxs[0].logs);
       console.log(logs);
       console.log(logs.events[0].data);
@@ -935,16 +874,13 @@ describe('nft', function() {
       assert.equal(logs.events[2].data.symbol, 'TEST');
       assert.equal(JSON.stringify(logs.events[2].data.ids), '[2,3,4]');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -961,16 +897,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(instances[2].delegatedTo, undefined);      
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -995,7 +928,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1003,10 +936,9 @@ describe('nft', function() {
   it('does not undelegate tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -1073,12 +1005,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[26].logs);
       console.log(transactionsBlock1[27].logs);
@@ -1096,16 +1025,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[28].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock1[29].logs).errors[0], 'invalid nft list');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1121,16 +1047,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[2].delegatedTo), '{"account":"testcontract","ownedBy":"c"}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1150,16 +1073,13 @@ describe('nft', function() {
       assert.equal(instances[3].ownedBy, 'c');
       assert.equal(JSON.stringify(instances[3].delegatedTo), '{"account":"harpagon","ownedBy":"u"}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'pendingUndelegations',
           query: {}
-        }
-      });
+        });
 
-      let undelegations = res.payload;
+      let undelegations = res;
 
       assert.equal(undelegations.length, 0);
 
@@ -1178,26 +1098,20 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'pendingUndelegations',
           query: {}
-        }
-      });
+        });
 
-      undelegations = res.payload;
+      undelegations = res;
       console.log(undelegations);
 
       assert.equal(undelegations[0].symbol, 'TEST');
@@ -1209,7 +1123,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1217,10 +1131,9 @@ describe('nft', function() {
   it('does not delegate tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -1275,12 +1188,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[20].logs);
       console.log(transactionsBlock1[22].logs);
@@ -1302,16 +1212,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[26].logs).errors[0], 'cannot delegate to null');
       assert.equal(JSON.parse(transactionsBlock1[27].logs).errors[0], 'invalid nft list');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1328,16 +1235,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(instances[2].delegatedTo, undefined);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1362,7 +1266,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1370,10 +1274,9 @@ describe('nft', function() {
   it('transfers tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -1417,28 +1320,22 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[19].logs);
       console.log(transactionsBlock1[20].logs);
       console.log(transactionsBlock1[21].logs);
       console.log(transactionsBlock1[22].logs);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -1451,16 +1348,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 4);
       assert.equal(tokens[1].circulatingSupply, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1474,16 +1368,13 @@ describe('nft', function() {
       assert.equal(instances[2].account, 'testcontract');
       assert.equal(instances[2].ownedBy, 'c');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1504,7 +1395,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1512,10 +1403,9 @@ describe('nft', function() {
   it('does not transfer tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -1565,12 +1455,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[19].logs);
       console.log(transactionsBlock1[20].logs);
@@ -1590,16 +1477,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[23].logs).errors[0], 'cannot transfer to null; use burn action instead');
       assert.equal(JSON.parse(transactionsBlock1[24].logs).errors[0], 'invalid nft list');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -1612,16 +1496,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 4);
       assert.equal(tokens[1].circulatingSupply, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1634,16 +1515,13 @@ describe('nft', function() {
       assert.equal(instances[2].account, 'aggroed');
       assert.equal(instances[2].ownedBy, 'u');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1663,7 +1541,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1671,10 +1549,9 @@ describe('nft', function() {
   it('burns tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -1708,16 +1585,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -1730,16 +1604,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 4);
       assert.equal(tokens[1].circulatingSupply, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1755,16 +1626,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15","TKN":"0.75"}`);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1784,16 +1652,13 @@ describe('nft', function() {
       assert.equal(instances[3].ownedBy, 'c');
       assert.equal(JSON.stringify(instances[3].lockedTokens), '{}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { "account": { "$in" : ["cryptomancer","aggroed"] }}
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
 
       // check issuance fees & locked tokens were subtracted from account balance
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -1802,16 +1667,13 @@ describe('nft', function() {
       assert.equal(balances[1].balance, '184.389');
       assert.equal(balances.length, 2);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'contractsBalances',
           query: {}
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
 
       // check nft contract has the proper amount of locked tokens
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -1838,26 +1700,20 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
       console.log(tokens);
 
       // check NFT supply updates OK
@@ -1871,16 +1727,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 4);
       assert.equal(tokens[1].circulatingSupply, 0);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1897,16 +1750,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[2].lockedTokens), '{}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -1927,16 +1777,13 @@ describe('nft', function() {
       assert.equal(instances[3].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[3].lockedTokens), '{}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { "account": { "$in" : ["cryptomancer","aggroed"] }}
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
       console.log(balances);
 
       // check issuance fees & locked tokens were subtracted from account balance
@@ -1954,16 +1801,13 @@ describe('nft', function() {
       assert.equal(balances[3].balance, '184.389');
       assert.equal(balances.length, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'contractsBalances',
           query: {}
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
       console.log(balances);
 
       // check nft contract has the proper amount of locked tokens
@@ -1986,7 +1830,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -1994,10 +1838,9 @@ describe('nft', function() {
   it('does not burn tokens', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
@@ -2056,12 +1899,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      let res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
@@ -2082,16 +1922,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock2[5].logs).errors[0], 'invalid nft list');
       assert.equal(JSON.parse(transactionsBlock2[6].logs).errors[0], 'cannot operate on more than 100 NFT instances at once');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -2104,16 +1941,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 4);
       assert.equal(tokens[1].circulatingSupply, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -2129,16 +1963,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15","TKN":"0.75"}`);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -2158,16 +1989,13 @@ describe('nft', function() {
       assert.equal(instances[3].ownedBy, 'c');
       assert.equal(JSON.stringify(instances[3].lockedTokens), '{}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { "account": { "$in" : ["cryptomancer","aggroed"] }}
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
 
       // check issuance fees & locked tokens were subtracted from account balance
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -2176,16 +2004,13 @@ describe('nft', function() {
       assert.equal(balances[1].balance, '184.389');
       assert.equal(balances.length, 2);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'contractsBalances',
           query: {}
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
 
       // check nft contract has the proper amount of locked tokens
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -2200,7 +2025,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2208,10 +2033,9 @@ describe('nft', function() {
   it('issues nft instances', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -2257,12 +2081,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[10].logs)
       console.log(transactionsBlock1[11].logs)
@@ -2273,16 +2094,13 @@ describe('nft', function() {
       console.log(transactionsBlock1[22].logs)
       console.log(transactionsBlock1[25].logs)
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      const tokens = res.payload;
+      const tokens = res;
       console.log(tokens);
 
       // check NFT supply updates OK
@@ -2300,16 +2118,13 @@ describe('nft', function() {
       assert.equal(tokens[1].supply, 5);
       assert.equal(tokens[1].circulatingSupply, 4);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -2326,16 +2141,13 @@ describe('nft', function() {
       assert.equal(instances[2].ownedBy, 'c');
       assert.equal(JSON.stringify(instances[2].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"}`);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TESTinstances',
           query: {}
-        }
-      });
+        });
 
-      instances = res.payload;
+      instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -2360,16 +2172,13 @@ describe('nft', function() {
       assert.equal(instances[4].ownedBy, 'u');
       assert.equal(JSON.stringify(instances[4].lockedTokens), '{}');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: { account: 'cryptomancer' }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
       console.log(balances);
 
       // check issuance fees & locked tokens were subtracted from account balance
@@ -2378,16 +2187,13 @@ describe('nft', function() {
       assert.equal(balances[1].symbol, 'TKN');
       assert.equal(balances[1].balance, '0.000');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'tokens',
           table: 'contractsBalances',
           query: {}
-        }
-      });
+        });
 
-      balances = res.payload;
+      balances = res;
       console.log(balances);
 
       // check nft contract has the proper amount of locked tokens
@@ -2408,7 +2214,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2416,10 +2222,9 @@ describe('nft', function() {
   it('does not issue nft instances', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -2486,12 +2291,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[10].logs)
       console.log(transactionsBlock1[11].logs)
@@ -2537,7 +2339,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2545,10 +2347,9 @@ describe('nft', function() {
   it('issues multiple nft instances', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       const lockTokens = {};
       lockTokens[CONSTANTS.UTILITY_TOKEN_SYMBOL] = "5.75";
@@ -2597,16 +2398,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -2640,12 +2438,9 @@ describe('nft', function() {
       assert.equal(instances[6].account, 'market');
       assert.equal(instances[6].ownedBy, 'c');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
 
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'not allowed to issue tokens');
@@ -2654,7 +2449,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2662,10 +2457,9 @@ describe('nft', function() {
   it('does not issue multiple nft instances', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       // can't issue this many at once
       let instances1 = [
@@ -2723,12 +2517,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
 
       console.log(transactionsBlock1[11].logs)
@@ -2750,16 +2541,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[2], 'data property must exist');
       assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[3], 'invalid params');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
       assert.equal(instances.length, 0);
 
@@ -2767,7 +2555,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2775,10 +2563,9 @@ describe('nft', function() {
   it('adds data properties', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -2801,16 +2588,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -2834,26 +2618,23 @@ describe('nft', function() {
       assert.equal(properties.isFood.type, "boolean");
       assert.equal(properties.isFood.isReadOnly, false);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             symbol: `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`,
             account: "cryptomancer"
           }
-        }
-      });
+        });
 
-      console.log(res.payload);
-      assert.equal(res.payload.balance, "10.00000000");
+      console.log(res);
+      assert.equal(res.balance, "10.00000000");
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2861,10 +2642,9 @@ describe('nft', function() {
   it('does not add data properties', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -2897,12 +2677,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[8].logs)
       console.log(transactionsBlock1[9].logs)
@@ -2928,16 +2705,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'cannot add the same property twice');
       assert.equal(JSON.parse(transactionsBlock1[18].logs).errors[0], 'must be the issuer');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       let properties = tokens[0].properties;
       assert.equal(Object.keys(properties).length, 3)
 
@@ -2945,7 +2719,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -2953,10 +2727,9 @@ describe('nft', function() {
   it('sets data properties', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -2993,16 +2766,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -3020,12 +2790,9 @@ describe('nft', function() {
       assert.equal(JSON.stringify(instances[2].properties), '{"level":3,"color":"black","id":"NFT-XYZ-123"}');
       assert.equal(instances.length, 3);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
 
       assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'cannot edit read-only properties');
@@ -3036,7 +2803,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3044,10 +2811,9 @@ describe('nft', function() {
   it('does not set data properties', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3085,12 +2851,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock1 = block1.transactions;
       console.log(transactionsBlock1[9].logs)
       console.log(transactionsBlock1[10].logs)
@@ -3123,16 +2886,13 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[22].logs).errors[0], 'string property max length is 100 characters');
       assert.equal(JSON.parse(transactionsBlock1[23].logs).errors[0], 'invalid data properties');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'TSTNFTinstances',
           query: {}
-        }
-      });
+        });
 
-      let instances = res.payload;
+      let instances = res;
       console.log(instances);
 
       // check NFT instances are OK
@@ -3146,7 +2906,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3154,10 +2914,9 @@ describe('nft', function() {
   it('sets data property permissions', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3196,16 +2955,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -3237,26 +2993,23 @@ describe('nft', function() {
       assert.equal(JSON.stringify(properties.isFood.authorizedEditingAccounts), '[]');
       assert.equal(JSON.stringify(properties.isFood.authorizedEditingContracts), '[]');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             symbol: `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`,
             account: "cryptomancer"
           }
-        }
-      });
+        });
 
-      console.log(res.payload);
-      assert.equal(res.payload.balance, "10.00000000");
+      console.log(res);
+      assert.equal(res.balance, "10.00000000");
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3264,10 +3017,9 @@ describe('nft', function() {
   it('does not set data property permissions', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3314,16 +3066,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -3355,12 +3104,9 @@ describe('nft', function() {
       assert.equal(JSON.stringify(properties.isFood.authorizedEditingAccounts), '["bobbie"]');
       assert.equal(JSON.stringify(properties.isFood.authorizedEditingContracts), '["mycontract1","mycontract2","mycontract3","mycontract4"]');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs)
       console.log(transactionsBlock2[1].logs)
@@ -3392,7 +3138,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3400,10 +3146,9 @@ describe('nft', function() {
   it('adds to the list of authorized issuing contracts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3427,16 +3172,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["tokens","market","contract1","contract2","dice"]');
@@ -3445,7 +3187,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3453,10 +3195,9 @@ describe('nft', function() {
   it('adds to the list of authorized issuing accounts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3480,16 +3221,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","harpagon","satoshi","aggroed","marc"]');
@@ -3498,7 +3236,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3506,10 +3244,9 @@ describe('nft', function() {
   it('does not add to the list of authorized issuing accounts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3537,12 +3274,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock = block1.transactions;
       console.log(transactionsBlock[6].logs);
       console.log(transactionsBlock[7].logs);
@@ -3566,7 +3300,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3574,10 +3308,9 @@ describe('nft', function() {
   it('does not add to the list of authorized issuing contracts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3605,12 +3338,9 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 1,
-      });
+      let res = await database1.getBlockInfo(1);
 
-      const block1 = res.payload;
+      const block1 = res;
       const transactionsBlock = block1.transactions;
       console.log(transactionsBlock[6].logs);
       console.log(transactionsBlock[7].logs);
@@ -3634,7 +3364,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3642,10 +3372,9 @@ describe('nft', function() {
   it('removes from the list of authorized issuing accounts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3669,16 +3398,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","harpagon","satoshi","aggroed","marc"]');
 
@@ -3696,16 +3422,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","marc"]');
@@ -3724,16 +3447,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '[]');
@@ -3742,7 +3462,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3750,10 +3470,9 @@ describe('nft', function() {
   it('removes from the list of authorized issuing contracts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145394, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3777,16 +3496,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["tokens","market","contract1","contract2","dice"]');
 
@@ -3804,16 +3520,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["market","contract2"]');
@@ -3832,16 +3545,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
       console.log(tokens)
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '[]');
@@ -3850,7 +3560,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3858,10 +3568,9 @@ describe('nft', function() {
   it('does not remove from the list of authorized issuing accounts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145397, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3885,16 +3594,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","harpagon","satoshi","aggroed","marc"]');
 
@@ -3914,25 +3620,19 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","harpagon","satoshi","aggroed","marc"]');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
@@ -3948,7 +3648,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -3956,10 +3656,9 @@ describe('nft', function() {
   it('does not remove from the list of authorized issuing contracts', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145398, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -3983,16 +3682,13 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      let tokens = res.payload;
+      let tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["tokens","market","contract1","contract2","dice"]');
 
@@ -4012,25 +3708,19 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'nft',
           table: 'nfts',
           query: {}
-        }
-      });
+        });
 
-      tokens = res.payload;
+      tokens = res;
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["tokens","market","contract1","contract2","dice"]');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
@@ -4046,7 +3736,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4054,10 +3744,9 @@ describe('nft', function() {
   it('updates the name of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4089,18 +3778,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      const res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       assert.equal(token.name, 'Cool Test NFT');
@@ -4109,7 +3795,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4117,10 +3803,9 @@ describe('nft', function() {
   it('does not update the name of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4154,28 +3839,22 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       assert.equal(token.name, 'test NFT');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
@@ -4189,7 +3868,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4197,10 +3876,9 @@ describe('nft', function() {
   it('updates the url of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145400, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4233,18 +3911,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      const res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       assert.equal(JSON.parse(token.metadata).url, 'https://new.token.com');
@@ -4253,7 +3928,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4261,10 +3936,9 @@ describe('nft', function() {
   it('does not update the url of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145401, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4296,28 +3970,22 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       assert.equal(JSON.parse(token.metadata).url, 'http://mynft.com');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
 
@@ -4327,7 +3995,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4335,10 +4003,9 @@ describe('nft', function() {
   it('updates the metadata of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145402, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4370,18 +4037,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      const res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       const metadata = JSON.parse(token.metadata);
@@ -4392,7 +4056,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4400,10 +4064,9 @@ describe('nft', function() {
   it('does not update the metadata of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145403, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4435,29 +4098,23 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      const token = res.payload;
+      const token = res;
       console.log(token);
 
       const metadata = JSON.parse(token.metadata);
       assert.equal(metadata.url, 'http://mynft.com');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
 
@@ -4467,7 +4124,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4475,10 +4132,9 @@ describe('nft', function() {
   it('transfers the ownership of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145403, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4497,18 +4153,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.issuer, 'cryptomancer');
       assert.equal(token.symbol, 'TSTNFT');
@@ -4526,18 +4179,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      token = res.payload;
+      token = res;
       console.log(token)
 
       assert.equal(token.issuer, 'satoshi');
@@ -4547,7 +4197,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -4555,10 +4205,9 @@ describe('nft', function() {
   it('does not transfer the ownership of an nft', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(38145404, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -4577,18 +4226,15 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      let token = res.payload;
+      let token = res;
 
       assert.equal(token.issuer, 'cryptomancer');
       assert.equal(token.symbol, 'TSTNFT');
@@ -4608,29 +4254,23 @@ describe('nft', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'nft',
           table: 'nfts',
           query: {
             symbol: 'TSTNFT'
           }
-        }
-      });
+        });
 
-      token = res.payload;
+      token = res;
       console.log(token)
 
       assert.equal(token.issuer, 'cryptomancer');
       assert.equal(token.symbol, 'TSTNFT');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO,
-        payload: 2,
-      });
+      res = await database1.getBlockInfo(2);
 
-      const block2 = res.payload;
+      const block2 = res;
       const transactionsBlock2 = block2.transactions;
       console.log(transactionsBlock2[0].logs);
       console.log(transactionsBlock2[1].logs);
@@ -4644,7 +4284,7 @@ describe('nft', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

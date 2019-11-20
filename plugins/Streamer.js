@@ -2,16 +2,16 @@ const dsteem = require('dsteem');
 const { Queue } = require('../libs/Queue');
 const { Transaction } = require('../libs/Transaction');
 const { IPC } = require('../libs/IPC');
+const { Database } = require('../libs/Database');
 const BC_PLUGIN_NAME = require('./Blockchain.constants').PLUGIN_NAME;
 const BC_PLUGIN_ACTIONS = require('./Blockchain.constants').PLUGIN_ACTIONS;
-const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
 
 const PLUGIN_PATH = require.resolve(__filename);
 const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Streamer.constants');
 
 const ipc = new IPC(PLUGIN_NAME);
 let client = null;
+let database = null;
 class ForkException {
   constructor(message) {
     this.error = 'ForkException';
@@ -35,6 +35,7 @@ const stop = () => {
   stopStream = true;
   if (blockStreamerHandler) clearTimeout(blockStreamerHandler);
   if (updaterGlobalPropsHandler) clearTimeout(updaterGlobalPropsHandler);
+  if (database) database.close();
   return lastBlockSentToBlockchain;
 };
 
@@ -244,9 +245,7 @@ const sendBlock = block => ipc.send(
   { to: BC_PLUGIN_NAME, action: BC_PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block },
 );
 
-const getLatestBlockMetadata = () => ipc.send(
-  { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA, payload: null },
-);
+const getLatestBlockMetadata = () => database.getLatestBlockMetadata();
 
 // process Steem block
 const processBlock = async (block) => {
@@ -376,7 +375,14 @@ const startStreaming = (conf) => {
 
 // stream the Steem blockchain to find transactions related to the sidechain
 const init = async (conf) => {
+  const {
+    databaseURL,
+    databaseName,
+  } = conf;
   const finalConf = conf;
+
+  database = new Database();
+  await database.init(databaseURL, databaseName);
   // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
   const res = await getLatestBlockMetadata();
   if (res && res.payload) {

@@ -4,8 +4,8 @@ const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const { IPC } = require('../libs/IPC');
-const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
-const DB_PLUGIN_ACTION = require('./Database.constants').PLUGIN_ACTIONS;
+const { Database } = require('../libs/Database');
+
 const STREAMER_PLUGIN_NAME = require('./Streamer.constants').PLUGIN_NAME;
 const STREAMER_PLUGIN_ACTION = require('./Streamer.constants').PLUGIN_ACTIONS;
 const packagejson = require('../package.json');
@@ -16,15 +16,14 @@ const PLUGIN_PATH = require.resolve(__filename);
 const ipc = new IPC(PLUGIN_NAME);
 let serverRPC = null;
 let server = null;
+let database = null;
 
 function blockchainRPC() {
   return {
     getLatestBlockInfo: async (args, callback) => {
       try {
-        const res = await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_LATEST_BLOCK_INFO },
-        );
-        callback(null, res.payload);
+        const lastestBlock = await database.getLatestBlockInfo();
+        callback(null, lastestBlock);
       } catch (error) {
         callback(error, null);
       }
@@ -33,10 +32,8 @@ function blockchainRPC() {
       const { blockNumber } = args;
 
       if (Number.isInteger(blockNumber)) {
-        const res = await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_BLOCK_INFO, payload: blockNumber },
-        );
-        callback(null, res.payload);
+        const block = await database.getBlockInfo(blockNumber);
+        callback(null, block);
       } else {
         callback({
           code: 400,
@@ -48,10 +45,8 @@ function blockchainRPC() {
       const { txid } = args;
 
       if (txid && typeof txid === 'string') {
-        const res = await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_TRANSACTION_INFO, payload: txid },
-        );
-        callback(null, res.payload);
+        const transaction = await database.getTransactionInfo(txid);
+        callback(null, transaction);
       } else {
         callback({
           code: 400,
@@ -63,16 +58,15 @@ function blockchainRPC() {
       try {
         const result = {};
         // retrieve the last block of the sidechain
-        let res = await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.GET_LATEST_BLOCK_METADATA },
-        );
-        if (res && res.payload) {
-          result.lastBlockNumber = res.payload.blockNumber;
-          result.lastBlockRefSteemBlockNumber = res.payload.refSteemBlockNumber;
+        const block = await database.getLatestBlockMetadata();
+
+        if (block) {
+          result.lastBlockNumber = block.blockNumber;
+          result.lastBlockRefSteemBlockNumber = block.refSteemBlockNumber;
         }
 
         // get the Steem block number that the streamer is currently parsing
-        res = await ipc.send(
+        const res = await ipc.send(
           { to: STREAMER_PLUGIN_NAME, action: STREAMER_PLUGIN_ACTION.GET_CURRENT_BLOCK },
         );
 
@@ -97,10 +91,8 @@ function contractsRPC() {
       const { name } = args;
 
       if (name && typeof name === 'string') {
-        const res = await ipc.send(
-          { to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTION.FIND_CONTRACT, payload: { name } },
-        );
-        callback(null, res.payload);
+        const contract = await database.findContract({ name });
+        callback(null, contract);
       } else {
         callback({
           code: 400,
@@ -115,18 +107,13 @@ function contractsRPC() {
       if (contract && typeof contract === 'string'
         && table && typeof table === 'string'
         && query && typeof query === 'object') {
-        const res = await ipc.send(
-          {
-            to: DB_PLUGIN_NAME,
-            action: DB_PLUGIN_ACTION.FIND_ONE,
-            payload: {
-              contract,
-              table,
-              query,
-            },
-          },
-        );
-        callback(null, res.payload);
+        const result = await database.findOne({
+          contract,
+          table,
+          query,
+        });
+
+        callback(null, result);
       } else {
         callback({
           code: 400,
@@ -151,21 +138,17 @@ function contractsRPC() {
         const lim = limit || 1000;
         const off = offset || 0;
         const ind = indexes || [];
-        const res = await ipc.send(
-          {
-            to: DB_PLUGIN_NAME,
-            action: DB_PLUGIN_ACTION.FIND,
-            payload: {
-              contract,
-              table,
-              query,
-              limit: lim,
-              offset: off,
-              indexes: ind,
-            },
-          },
-        );
-        callback(null, res.payload);
+
+        const result = await database.find({
+          contract,
+          table,
+          query,
+          limit: lim,
+          offset: off,
+          indexes: ind,
+        });
+
+        callback(null, result);
       } else {
         callback({
           code: 400,
@@ -176,10 +159,15 @@ function contractsRPC() {
   };
 }
 
-function init(conf) {
+const init = async (conf, callback) => {
   const {
     rpcNodePort,
+    databaseURL,
+    databaseName,
   } = conf;
+
+  database = new Database();
+  await database.init(databaseURL, databaseName);
 
   serverRPC = express();
   serverRPC.use(cors({ methods: ['POST'] }));
@@ -194,10 +182,13 @@ function init(conf) {
     .listen(rpcNodePort, () => {
       console.log(`RPC Node now listening on port ${rpcNodePort}`); // eslint-disable-line
     });
-}
+
+  callback(null);
+};
 
 function stop() {
   server.close();
+  if (database) database.close();
 }
 
 ipc.onReceiveMessage((message) => {
@@ -208,8 +199,10 @@ ipc.onReceiveMessage((message) => {
 
   switch (action) {
     case 'init':
-      init(payload);
-      ipc.reply(message);
+      init(payload, (res) => {
+        console.log('successfully initialized'); // eslint-disable-line no-console
+        ipc.reply(message, res);
+      });
       break;
     case 'stop':
       ipc.reply(message, stop());

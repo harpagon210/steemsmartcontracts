@@ -1,7 +1,6 @@
 require('dotenv').config();
 const fs = require('fs-extra');
 const { fork } = require('child_process');
-const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const jsonRPCServer = require('../plugins/JsonRPCServer');
 const streamer = require('../plugins/Streamer.simulator');
@@ -95,16 +94,11 @@ const unloadPlugin = async (plugin) => {
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
 async function start() {
-  let res = await loadPlugin(database);
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+    res = await loadPlugin(streamer);
     if (res && res.payload === null) {
-      res = await loadPlugin(streamer);
-      if (res && res.payload === null) {
-        res = await loadPlugin(jsonRPCServer);
-      }
+      res = await loadPlugin(jsonRPCServer);
     }
   }
 }
@@ -113,7 +107,6 @@ async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
   const res = await unloadPlugin(streamer);
   await unloadPlugin(blockchain);
-  await unloadPlugin(database);
   callback(res.payload);
 }
 

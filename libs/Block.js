@@ -4,9 +4,6 @@ const enchex = require('crypto-js/enc-hex');
 const { SmartContracts } = require('./SmartContracts');
 const { Transaction } = require('../libs/Transaction');
 
-const DB_PLUGIN_NAME = require('../plugins/Database.constants').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('../plugins/Database.constants').PLUGIN_ACTIONS;
-
 class Block {
   constructor(timestamp, refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, previousBlockNumber, previousHash = '', previousDatabaseHash = '') {
     this.blockNumber = previousBlockNumber + 1;
@@ -79,14 +76,14 @@ class Block {
   }
 
   // produce the block (deploy a smart contract or execute a smart contract)
-  async produceBlock(ipc, jsVMTimeout) {
+  async produceBlock(database, jsVMTimeout) {
     const nbTransactions = this.transactions.length;
 
     let currentDatabaseHash = this.previousDatabaseHash;
 
     for (let i = 0; i < nbTransactions; i += 1) {
       const transaction = this.transactions[i];
-      await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
+      await this.processTransaction(database, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
 
       currentDatabaseHash = transaction.databaseHash;
     }
@@ -108,12 +105,12 @@ class Block {
     }
 
     if (this.refSteemBlockNumber >= 38145385) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
-
       // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
       if (this.refSteemBlockNumber % 1200 === 0) {
         virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
       }
+
+      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
     const nbVirtualTransactions = virtualTransactions.length;
@@ -121,7 +118,7 @@ class Block {
       const transaction = virtualTransactions[i];
       transaction.refSteemBlockNumber = this.refSteemBlockNumber;
       transaction.transactionId = `${this.refSteemBlockNumber}-${i}`;
-      await this.processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
+      await this.processTransaction(database, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
       currentDatabaseHash = transaction.databaseHash;
       // if there are outputs in the virtual transaction we save the transaction into the block
       // the "unknown error" errors are removed as they are related to a non existing action
@@ -156,7 +153,7 @@ class Block {
     }
   }
 
-  async processTransaction(ipc, jsVMTimeout, transaction, currentDatabaseHash) {
+  async processTransaction(database, jsVMTimeout, transaction, currentDatabaseHash) {
     const {
       sender,
       contract,
@@ -168,11 +165,7 @@ class Block {
     let newCurrentDatabaseHash = currentDatabaseHash;
 
     // init the database hash for that transactions
-    await ipc.send({ // eslint-disable-line
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.INIT_DATABASE_HASH,
-      payload: newCurrentDatabaseHash,
-    });
+    await database.initDatabaseHash(newCurrentDatabaseHash);
 
     if (sender && contract && action) {
       if (contract === 'contract' && (action === 'deploy' || action === 'update') && payload) {
@@ -180,7 +173,7 @@ class Block {
 
         if (authorizedAccountContractDeployment.includes(sender)) {
           results = await SmartContracts.deploySmartContract( // eslint-disable-line
-            ipc, transaction, this.blockNumber, this.timestamp,
+            database, transaction, this.blockNumber, this.timestamp,
             this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
           );
         } else {
@@ -191,7 +184,7 @@ class Block {
         results = { logs: { errors: ['blockProduction contract not available'] } };
       } else {
         results = await SmartContracts.executeSmartContract(// eslint-disable-line
-          ipc, transaction, this.blockNumber, this.timestamp,
+          database, transaction, this.blockNumber, this.timestamp,
           this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
         );
       }
@@ -200,14 +193,7 @@ class Block {
     }
 
     // get the database hash
-    const res = await ipc.send({ // eslint-disable-line
-      to: DB_PLUGIN_NAME,
-      action: DB_PLUGIN_ACTIONS.GET_DATABASE_HASH,
-      payload: {
-      },
-    });
-
-    newCurrentDatabaseHash = res.payload;
+    newCurrentDatabaseHash = await database.getDatabaseHash();
 
 
     // console.log('transac logs', results.logs);

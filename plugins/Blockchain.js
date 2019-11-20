@@ -1,8 +1,7 @@
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
 const { IPC } = require('../libs/IPC');
-const DB_PLUGIN_NAME = require('./Database.constants').PLUGIN_NAME;
-const DB_PLUGIN_ACTIONS = require('./Database.constants').PLUGIN_ACTIONS;
+const { Database } = require('../libs/Database');
 const { Bootstrap } = require('../contracts/bootstrap/Bootstrap');
 
 const PLUGIN_PATH = require.resolve(__filename);
@@ -11,38 +10,45 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Blockchain.constants');
 const actions = {};
 
 const ipc = new IPC(PLUGIN_NAME);
+let database = null;
 let javascriptVMTimeout = 0;
 let producing = false;
 let stopRequested = false;
 
-async function createGenesisBlock(payload, callback) {
-  const { chainId, genesisSteemBlock } = payload;
-  const genesisTransactions = await Bootstrap.getBootstrapTransactions(genesisSteemBlock);
-  genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
+const createGenesisBlock = async (payload) => {
+  // check if genesis block hasn't been generated already
+  let genesisBlock = await database.getBlockInfo(0);
 
-  const genesisBlock = new Block('2018-06-01T00:00:00', 0, '', '', genesisTransactions, -1, '0');
-  await genesisBlock.produceBlock(ipc, javascriptVMTimeout);
-  return callback(genesisBlock);
-}
+  if (!genesisBlock) {
+    // insert the genesis block
+    const { chainId, genesisSteemBlock } = payload;
+    const genesisTransactions = await Bootstrap.getBootstrapTransactions(genesisSteemBlock);
+    genesisTransactions.unshift(new Transaction(genesisSteemBlock, 0, 'null', 'null', 'null', JSON.stringify({ chainId, genesisSteemBlock })));
+
+    genesisBlock = new Block('2018-06-01T00:00:00', 0, '', '', genesisTransactions, -1, '0');
+    await genesisBlock.produceBlock(database, javascriptVMTimeout);
+
+    await database.insertGenesisBlock(genesisBlock);
+  }
+};
 
 function getLatestBlockMetadata() {
-  return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.GET_LATEST_BLOCK_METADATA });
+  return database.getLatestBlockMetadata();
 }
 
 function addBlock(block) {
-  return ipc.send({ to: DB_PLUGIN_NAME, action: DB_PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
+  return database.addBlock(block);
 }
 
 // produce all the pending transactions, that will result in the creation of a block
 async function producePendingTransactions(
   refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, timestamp,
 ) {
-  const res = await getLatestBlockMetadata();
-  if (res) {
-    const previousBlock = res.payload;
-
+  const previousBlock = await getLatestBlockMetadata();
+  if (previousBlock) {
     // skip block if it has been parsed already
     if (refSteemBlockNumber <= previousBlock.refSteemBlockNumber) {
+      // eslint-disable-next-line no-console
       console.warn(`skipping Steem block ${refSteemBlockNumber} as it has already been parsed`);
       return;
     }
@@ -58,7 +64,7 @@ async function producePendingTransactions(
       previousBlock.databaseHash,
     );
 
-    await newBlock.produceBlock(ipc, javascriptVMTimeout);
+    await newBlock.produceBlock(database, javascriptVMTimeout);
 
     if (newBlock.transactions.length > 0 || newBlock.virtualTransactions.length > 0) {
       await addBlock(newBlock);
@@ -140,13 +146,25 @@ function stop(callback) {
     setTimeout(() => stop(callback), 500);
   } else {
     stopRequested = false;
+    if (database) database.close();
     callback();
   }
 }
 
-function init(conf) {
+const init = async (conf, callback) => {
+  const {
+    databaseURL,
+    databaseName,
+  } = conf;
   javascriptVMTimeout = conf.javascriptVMTimeout; // eslint-disable-line prefer-destructuring
-}
+
+  database = new Database();
+  await database.init(databaseURL, databaseName);
+
+  await createGenesisBlock(conf);
+
+  callback(null);
+};
 
 ipc.onReceiveMessage((message) => {
   const {
@@ -156,17 +174,14 @@ ipc.onReceiveMessage((message) => {
   } = message;
 
   if (action === 'init') {
-    init(payload);
-    console.log('successfully initialized'); // eslint-disable-line no-console
-    ipc.reply(message);
+    init(payload, (res) => {
+      console.log('successfully initialized'); // eslint-disable-line no-console
+      ipc.reply(message, res);
+    });
   } else if (action === 'stop') {
     stop(() => {
       console.log('successfully stopped'); // eslint-disable-line no-console
       ipc.reply(message);
-    });
-  } else if (action === PLUGIN_ACTIONS.CREATE_GENESIS_BLOCK) {
-    createGenesisBlock(payload, (genBlock) => {
-      ipc.reply(message, genBlock);
     });
   } else if (action === PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC) {
     produceNewBlockSync(payload, () => {
