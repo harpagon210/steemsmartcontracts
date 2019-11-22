@@ -32,6 +32,16 @@ actions.createSSC = async () => {
   }
 };
 
+// helper function to check that token transfers succeeded
+const isTokenTransferVerified = (result, from, to, symbol, quantity, eventStr) => {
+  if (result.errors === undefined
+    && result.events && result.events.find(el => el.contract === 'tokens' && el.event === eventStr
+    && el.data.from === from && el.data.to === to && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
+    return true;
+  }
+  return false;
+};
+
 // The contract owner can use this action to update settings
 // without having to change & redeploy the contract source code.
 actions.updateParams = async (payload) => {
@@ -173,24 +183,87 @@ actions.createNft = async (payload) => {
   }
 };
 
+// This action can be called by a token holder to change
+// their critter's name.
 actions.updateName = async (payload) => {
-  const { name, symbol } = payload;
+  const { id, name } = payload;
 
-  if (api.assert(symbol && typeof symbol === 'string'
+  if (api.assert(id && typeof id === 'string'
+    && !api.BigNumber(id).isNaN() && api.BigNumber(id).gt(0)
     && name && typeof name === 'string', 'invalid params')
-    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')) {
-    // check if the NFT exists
-    const nft = await api.db.findOne('nfts', { symbol });
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 25, 'invalid name: letters, numbers, whitespaces only, max length of 25')) {
+    // fetch the token we want to edit
+    const instance = await api.db.findOneInTable('nft', 'CRITTERinstances', { _id: api.BigNumber(id).toNumber() });
 
-    if (nft) {
-      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
-        nft.name = name;
-        await api.db.update('nfts', nft);
+    if (instance) {
+      // make sure this token is owned by the caller
+      if (api.assert(instance.account === api.sender && instance.ownedBy === 'u', 'must be the token holder')) {
+        await api.executeSmartContract('nft', 'setProperties', {
+          symbol: 'CRITTER',
+          fromType: 'contract',
+          nfts: [{
+            id, properties: {name}
+          }],
+        });
       }
     }
   }
 };
 
+// issue some random critters!
 actions.hatch = async (payload) => {
+  // this action requires active key authorization
+  const {
+    edition,
+    packs,  // how many critters to hatch (1 pack = 5 critters)
+    isSignedWithActiveKey,
+  } = payload;
 
+  // get contract params
+  const params = await api.db.findOne('params', {});
+  const { editionMapping } = params;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(edition && typeof edition === 'number' && edition > 0 && Number.isInteger(edition), 'invalid edition')
+    && api.assert(packs && typeof packs === 'number' && packs > 0 && packs <= 100 && Number.isInteger(packs), 'packs must be an integer between 1 and 100')) {
+    // ensure user asked for a valid edition
+    let paymentSymbol = null
+    for (const [symbol, editionNumber] of Object.entries(editionMapping)) {
+      if (edition === editionNumber) {
+        paymentSymbol = symbol;
+        break;
+      }
+    }
+    if (api.assert(paymentSymbol !== null, 'edition does not exist')) {
+      // verify user has enough balance to pay for all the packs
+      const paymentTokenBalance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: paymentSymbol });
+      const authorized = paymentTokenBalance && api.BigNumber(paymentTokenBalance.balance).gte(packs);
+      if (api.assert(authorized, 'you must have enough pack tokens')) {
+        // verify this contract has enough balance to pay the NFT issuance fees
+        const crittersToHatch = packs * 5;
+        const nftParams = await api.db.findOneInTable('nft', 'params', {});
+        const { nftIssuanceFee } = nftParams;
+        const oneTokenIssuanceFee = api.BigNumber(nftIssuanceFee[UTILITY_TOKEN_SYMBOL]).multipliedBy(8); // base fee + 7 data properties
+        const totalIssuanceFee = oneTokenIssuanceFee.multipliedBy(crittersToHatch);
+        const utilityTokenBalance = await api.db.findOneInTable('tokens', 'contractsBalances', { account: CONTRACT_NAME, symbol: UTILITY_TOKEN_SYMBOL });
+        const canAffordIssuance = utilityTokenBalance && api.BigNumber(utilityTokenBalance.balance).gte(totalIssuanceFee);
+        if (api.assert(canAffordIssuance, 'contract cannot afford issuance')) {
+          // burn the pack tokens
+          const res = await api.executeSmartContract('tokens', 'transfer', {
+            to: 'null', symbol: paymentSymbol, quantity: packs.toString(), isSignedWithActiveKey,
+          });
+          if (!api.assert(isTokenTransferVerified(res, api.sender, 'null', paymentSymbol, packs.toString(), 'transfer'), 'unable to transfer pack tokens')) {
+            return false;
+          }
+
+          // we will issue critters in packs of 5 at once
+          for (let i = 0; i < packs; i += 1) {
+          }
+
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 };
