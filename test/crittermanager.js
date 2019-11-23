@@ -137,7 +137,7 @@ console.log(critterContractPayload);
 
 // crittermanager
 describe('crittermanager', function() {
-  this.timeout(20000);
+  this.timeout(200000);
 
   before((done) => {
     new Promise(async (resolve) => {
@@ -202,6 +202,11 @@ describe('crittermanager', function() {
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // TODO: get rid of this block later once contract code is finalized
+      const block1 = await database1.getBlockInfo(1);
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[0].logs)
 
       // check if the params updated OK
       const params = await database1.findOne({
@@ -398,6 +403,63 @@ describe('crittermanager', function() {
       console.log(transactionsBlock2[1].logs)
 
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'CRITTER already exists');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
+  it('hatches critters', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(critterContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 100 }`));
+
+      let block = {
+        refSteemBlockNumber: 38145386,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // check if the expected amount of critters were issued
+      const token = await database1.findOne({
+        contract: 'nft',
+        table: 'nfts',
+        query: { symbol: 'CRITTER' }
+      });
+
+      console.log(token);
+
+      assert.equal(token.supply, 500);
+      assert.equal(token.circulatingSupply, 500);
+
+      // check if the critters were issued OK
+      const instances = await database1.find({
+        contract: 'nft',
+        table: 'CRITTERinstances',
+        query: {}
+      });
+
+      console.log(instances);
 
       resolve();
     })
