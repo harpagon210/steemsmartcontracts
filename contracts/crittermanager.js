@@ -1,3 +1,7 @@
+/* eslint-disable no-await-in-loop */
+/* eslint-disable max-len */
+/* global actions, api */
+
 // test contract to demonstrate Splinterlands style
 // pack issuance of collectable critters
 const CONTRACT_NAME = 'crittermanager';
@@ -29,7 +33,7 @@ actions.createSSC = async () => {
       // eslint-disable-next-line no-template-curly-in-string
       "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'": 1,
       ALPHA: 2,
-      BETA: 3
+      BETA: 3,
     };
     await api.db.insert('params', params);
   }
@@ -93,7 +97,7 @@ actions.createNft = async (payload) => {
       name: 'Mischievous Crypto Critters',
       symbol: 'CRITTER',
       authorizedIssuingAccounts: [],
-      authorizedIssuingContracts: [ CONTRACT_NAME ],
+      authorizedIssuingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -113,7 +117,7 @@ actions.createNft = async (payload) => {
       type: 'number',
       isReadOnly: true,
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -127,7 +131,7 @@ actions.createNft = async (payload) => {
       type: 'number',
       isReadOnly: true,
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -139,7 +143,7 @@ actions.createNft = async (payload) => {
       type: 'number',
       isReadOnly: true,
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -150,7 +154,7 @@ actions.createNft = async (payload) => {
       type: 'boolean',
       isReadOnly: true,
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -161,7 +165,7 @@ actions.createNft = async (payload) => {
       name: 'name',
       type: 'string',
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
 
@@ -172,7 +176,7 @@ actions.createNft = async (payload) => {
       name: 'xp', // experience points
       type: 'number',
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
     await api.executeSmartContract('nft', 'addProperty', {
@@ -180,7 +184,7 @@ actions.createNft = async (payload) => {
       name: 'hp', // health points
       type: 'number',
       authorizedEditingAccounts: [],
-      authorizedEditingContracts: [ CONTRACT_NAME ],
+      authorizedEditingContracts: [CONTRACT_NAME],
       isSignedWithActiveKey,
     });
   }
@@ -205,7 +209,7 @@ actions.updateName = async (payload) => {
           symbol: 'CRITTER',
           fromType: 'contract',
           nfts: [{
-            id, properties: {name}
+            id, properties: { name },
           }],
         });
       }
@@ -223,11 +227,9 @@ const generateRandomCritter = (edition, to) => {
   let rarityRoll = Math.floor(api.random() * 1000) + 1;
   if (rarityRoll > 995) { // 0.5% chance of legendary
     rarity = 3;
-  }
-  else if (rarityRoll > 900) { // 10% chance of rare or higher
+  } else if (rarityRoll > 900) { // 10% chance of rare or higher
     rarity = 2;
-  }
-  else if (rarityRoll > 700) { // 30% of uncommon or higher
+  } else if (rarityRoll > 700) { // 30% of uncommon or higher
     rarity = 1;
   }
 
@@ -263,8 +265,8 @@ const generateRandomCritter = (edition, to) => {
 actions.hatch = async (payload) => {
   // this action requires active key authorization
   const {
-    packSymbol,  // the token we want to buy with determines which edition to issue
-    packs,  // how many critters to hatch (1 pack = 5 critters)
+    packSymbol, // the token we want to buy with determines which edition to issue
+    packs, // how many critters to hatch (1 pack = 5 critters)
     isSignedWithActiveKey,
   } = payload;
 
