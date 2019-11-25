@@ -106,7 +106,7 @@ async function calculateRoundHash(startBlockRound, endBlockRound) {
   // calculate round hash
   while (blockNum <= endBlockRound) {
     // get the block from the current node
-    const blockFromNode = await database.getBlock(blockNum);
+    const blockFromNode = await database.getBlockInfo(blockNum);
     if (blockFromNode !== null) {
       calculatedRoundHash = SHA256(`${calculatedRoundHash}${blockFromNode.hash}`).toString(enchex);
     } else {
@@ -540,7 +540,7 @@ const manageRoundProposition = async () => {
       && currentWitness === this.witnessAccount
       && currentRound > lastProposedRoundNumber) {
       // handle round propositions
-      const block = await database.getBlock(lastBlockRound);
+      const block = await database.getBlockInfo(lastBlockRound);
 
       if (block !== null) {
         const startblockNum = params.lastVerifiedBlockNumber + 1;
