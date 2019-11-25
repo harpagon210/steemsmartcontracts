@@ -210,7 +210,7 @@ actions.updateName = async (payload) => {
         });
       }
     }
-  }i
+  }
 };
 
 // generate issuance data for a random critter of the given edition
@@ -274,7 +274,7 @@ actions.hatch = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(packSymbol && typeof packSymbol === 'string' && packSymbol in editionMapping, 'invalid pack symbol')
-    && api.assert(packs && typeof packs === 'number' && packs >= 1 && packs <= 100 && Number.isInteger(packs), 'packs must be an integer between 1 and 100')) {
+    && api.assert(packs && typeof packs === 'number' && packs >= 1 && packs <= 10 && Number.isInteger(packs), 'packs must be an integer between 1 and 10')) {
     // verify user has enough balance to pay for all the packs
     const paymentTokenBalance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: packSymbol });
     const authorized = paymentTokenBalance && api.BigNumber(paymentTokenBalance.balance).gte(packs);

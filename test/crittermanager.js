@@ -203,11 +203,6 @@ describe('crittermanager', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      // TODO: get rid of this block later once contract code is finalized
-      const block1 = await database1.getBlockInfo(1);
-      const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[0].logs)
-
       // check if the params updated OK
       const params = await database1.findOne({
         contract: 'crittermanager',
@@ -426,9 +421,10 @@ describe('crittermanager', function() {
       transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(critterContractPayload)));
       transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
       transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1000", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"1000", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145386, 'TXID1236', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 100 }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145386, 'TXID1238', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 10 }`));
 
       let block = {
         refSteemBlockNumber: 38145386,
@@ -449,17 +445,263 @@ describe('crittermanager', function() {
 
       console.log(token);
 
-      assert.equal(token.supply, 500);
-      assert.equal(token.circulatingSupply, 500);
+      assert.equal(token.supply, 50);
+      assert.equal(token.circulatingSupply, 50);
 
       // check if the critters were issued OK
       const instances = await database1.find({
         contract: 'nft',
         table: 'CRITTERinstances',
-        query: {}
+        query: {},
       });
 
-      console.log(instances);
+      console.log(instances[0]);
+
+      assert.equal(instances.length, 50);
+      assert.equal(instances[0].account, 'aggroed');
+      assert.equal(instances[0].ownedBy, 'u');
+      assert.equal(instances[0].properties.edition, 1);
+
+      // ensure packs were subtracted from purchasing account
+      let balance = await database1.findOne({
+        contract: 'tokens',
+        table: 'balances',
+        query: { account: 'aggroed' }
+      });
+
+      console.log(balance)
+
+      assert.equal(balance.symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
+      assert.equal(balance.balance, '990.00000000');
+
+      // ensure issuance fees were paid by the contract, not the calling user
+      balance = await database1.findOne({
+        contract: 'tokens',
+        table: 'contractsBalances',
+        query: { account: 'crittermanager' }
+      });
+
+      console.log(balance)
+
+      assert.equal(balance.symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
+      assert.equal(balance.balance, '960.00000000'); // 10 packs x 5 critters per pack x 0.8 fee per critter = 40 token issuance fee
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
+  it('does not hatch critters', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(critterContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"9", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"39.999", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145386, 'TXID1238', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": false, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 10 }`));
+      transactions.push(new Transaction(38145386, 'TXID1239', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "GAMMA", "packs": 10 }`));
+      transactions.push(new Transaction(38145386, 'TXID1240', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 0 }`));
+      transactions.push(new Transaction(38145386, 'TXID1241', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 11 }`));
+      transactions.push(new Transaction(38145386, 'TXID1242', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 3.14159 }`));
+      transactions.push(new Transaction(38145386, 'TXID1243', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": "notanumber" }`));
+      transactions.push(new Transaction(38145386, 'TXID1244', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 10 }`));
+      transactions.push(new Transaction(38145386, 'TXID1245', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"1", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1246', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 10 }`));
+
+      let block = {
+        refSteemBlockNumber: 38145386,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // make sure no critters were issued
+      const token = await database1.findOne({
+        contract: 'nft',
+        table: 'nfts',
+        query: { symbol: 'CRITTER' }
+      });
+
+      assert.equal(token.supply, 0);
+      assert.equal(token.circulatingSupply, 0);
+
+      const block1 = await database1.getBlockInfo(1);
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[8].logs)
+      console.log(transactionsBlock1[9].logs)
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[13].logs)
+      console.log(transactionsBlock1[14].logs)
+      console.log(transactionsBlock1[16].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'invalid pack symbol');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'packs must be an integer between 1 and 10');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'packs must be an integer between 1 and 10');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'packs must be an integer between 1 and 10');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'packs must be an integer between 1 and 10');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'you must have enough pack tokens');
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'contract cannot afford issuance');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
+  it('names critters', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(critterContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145386, 'TXID1238', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 1 }`));
+      transactions.push(new Transaction(38145386, 'TXID1239', 'aggroed', 'crittermanager', 'updateName', '{ "id": "2", "name": "Toothless" }'));
+
+      let block = {
+        refSteemBlockNumber: 38145386,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // check if the expected amount of critters were issued
+      const token = await database1.findOne({
+        contract: 'nft',
+        table: 'nfts',
+        query: { symbol: 'CRITTER' }
+      });
+
+      assert.equal(token.supply, 5);
+      assert.equal(token.circulatingSupply, 5);
+
+      // check if the critter was renamed OK
+      const instance = await database1.findOne({
+        contract: 'nft',
+        table: 'CRITTERinstances',
+        query: { _id: 2 },
+      });
+
+      console.log(instance);
+
+      assert.equal(instance.account, 'aggroed');
+      assert.equal(instance.ownedBy, 'u');
+      assert.equal(instance.properties.name, 'Toothless');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
+  it('does not name critters', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(critterContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', 'steemsc', 'tokens', 'transferToContract', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"crittermanager", "quantity":"1000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'crittermanager', 'createNft', '{ "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145386, 'TXID1238', 'aggroed', 'crittermanager', 'hatch', `{ "isSignedWithActiveKey": true, "packSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "packs": 1 }`));
+      transactions.push(new Transaction(38145386, 'TXID1239', 'aggroed', 'crittermanager', 'updateName', '{ "name": "Toothless" }'));
+      transactions.push(new Transaction(38145386, 'TXID1240', 'aggroed', 'crittermanager', 'updateName', '{ "id": "notanumber", "name": "Toothless" }'));
+      transactions.push(new Transaction(38145386, 'TXID1241', 'aggroed', 'crittermanager', 'updateName', '{ "id": "2" }'));
+      transactions.push(new Transaction(38145386, 'TXID1242', 'aggroed', 'crittermanager', 'updateName', '{ "id": "2", "name": "tooooooooooooolllllllooooooooooooonnnnnnnnnnnnnggggggggggggggggg" }'));
+      transactions.push(new Transaction(38145386, 'TXID1243', 'aggroed', 'crittermanager', 'updateName', '{ "id": "222", "name": "Mega Drive" }')); // id doesn't exist
+      transactions.push(new Transaction(38145386, 'TXID1244', 'cryptomancer', 'crittermanager', 'updateName', '{ "id": "2", "name": "Mega Drive" }'));
+
+      let block = {
+        refSteemBlockNumber: 38145386,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      const block1 = await database1.getBlockInfo(1);
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[9].logs)
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[13].logs)
+      console.log(transactionsBlock1[14].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid name: letters, numbers, whitespaces only, max length of 25');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'must be the token holder');
+
+      // check if the expected amount of critters were issued
+      const token = await database1.findOne({
+        contract: 'nft',
+        table: 'nfts',
+        query: { symbol: 'CRITTER' }
+      });
+
+      assert.equal(token.supply, 5);
+      assert.equal(token.circulatingSupply, 5);
+
+      // make sure the critter was not renamed
+      const instance = await database1.findOne({
+        contract: 'nft',
+        table: 'CRITTERinstances',
+        query: { _id: 2 },
+      });
+
+      console.log(instance);
+
+      assert.equal(instance.account, 'aggroed');
+      assert.equal(instance.ownedBy, 'u');
+      assert.equal(instance.properties.name, '');
 
       resolve();
     })
