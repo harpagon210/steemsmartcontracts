@@ -91,11 +91,11 @@ actions.sell = async (payload) => {
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(nfts && typeof nfts === 'object' && Array.isArray(nfts)
-    && nfts.length <= MAX_NUM_UNITS_OPERABLE
     && symbol && typeof symbol === 'string'
     && priceSymbol && typeof priceSymbol === 'string'
     && price && typeof price === 'string' && !api.BigNumber(price).isNaN()
     && fee && typeof fee === 'number' && fee >= 0 && fee <= 10000 && Number.isInteger(fee), 'invalid params')
+    && api.assert(nfts.length <= MAX_NUM_UNITS_OPERABLE, `cannot sell more than ${MAX_NUM_UNITS_OPERABLE} NFT instances at once`)
     && api.assert(tableExists, 'market not enabled for symbol')) {
     // get the price token params
     const token = await api.db.findOneInTable('tokens', 'tokens', { symbol: priceSymbol });
