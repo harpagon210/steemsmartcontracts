@@ -427,7 +427,8 @@ describe('nftmarket', function() {
       transactions.push(new Transaction(38145386, 'TXID1244', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1"], "price": "2.000", "priceSymbol": "INVALID", "fee": 500 }`));
       transactions.push(new Transaction(38145386, 'TXID1245', 'marc', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
       transactions.push(new Transaction(38145386, 'TXID1246', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "NOEXIST", "nfts": ["1"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
-      transactions.push(new Transaction(38145386, 'TXID1247', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["notanumber"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
+      transactions.push(new Transaction(38145386, 'TXID1247', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "nfts": ["1"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
+      transactions.push(new Transaction(38145386, 'TXID1248', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["notanumber"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
 
       let block = {
         refSteemBlockNumber: 38145386,
@@ -453,6 +454,7 @@ describe('nftmarket', function() {
       console.log(transactionsBlock1[15].logs);
       console.log(transactionsBlock1[16].logs);
       console.log(transactionsBlock1[17].logs);
+      console.log(transactionsBlock1[18].logs);
 
       assert.equal(JSON.parse(transactionsBlock1[7].logs).errors[0], 'market not enabled for symbol');
       assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -462,7 +464,8 @@ describe('nftmarket', function() {
       assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'invalid price');
       assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'market not enabled for symbol');
-      assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'invalid nft list');
+      assert.equal(JSON.parse(transactionsBlock1[17].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[18].logs).errors[0], 'invalid nft list');
 
       // make sure no tokens were sent to the market
       instances = await database1.find({

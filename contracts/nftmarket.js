@@ -21,8 +21,12 @@ actions.createSSC = async () => {
 
 const countDecimals = value => api.BigNumber(value).dp();
 
-/*const isValidIdArray = (arr) => {
+const isValidIdArray = (arr) => {
   try {
+    if (!api.assert(arr && typeof arr === 'object' && Array.isArray(arr), 'invalid id list')) {
+      return false;
+    }
+
     let instanceCount = 0;
     for (let i = 0; i < arr.length; i += 1) {
       let validContents = false;
@@ -49,7 +53,7 @@ const countDecimals = value => api.BigNumber(value).dp();
     return false;
   }
   return true;
-};*/
+};
 
 actions.enableMarket = async (payload) => {
   const {
@@ -76,6 +80,27 @@ actions.enableMarket = async (payload) => {
   }
 };
 
+actions.cancel = async (payload) => {
+  const {
+    symbol,
+    orders,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (!api.assert(symbol && typeof symbol === 'string', 'invalid params')) {
+    return;
+  }
+
+  const marketTableName = symbol + 'sellBook';
+  const tableExists = await api.db.tableExists(marketTableName);
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(tableExists, 'market not enabled for symbol')
+    && isValidIdArray(orders)) {
+
+  }
+};
+
 actions.sell = async (payload) => {
   const {
     symbol,
@@ -86,12 +111,15 @@ actions.sell = async (payload) => {
     isSignedWithActiveKey,
   } = payload;
 
+  if (!api.assert(symbol && typeof symbol === 'string', 'invalid params')) {
+    return;
+  }
+
   const marketTableName = symbol + 'sellBook';
   const tableExists = await api.db.tableExists(marketTableName);
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(nfts && typeof nfts === 'object' && Array.isArray(nfts)
-    && symbol && typeof symbol === 'string'
     && priceSymbol && typeof priceSymbol === 'string'
     && price && typeof price === 'string' && !api.BigNumber(price).isNaN()
     && fee && typeof fee === 'number' && fee >= 0 && fee <= 10000 && Number.isInteger(fee), 'invalid params')
