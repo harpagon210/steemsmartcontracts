@@ -27,25 +27,13 @@ const isValidIdArray = (arr) => {
       return false;
     }
 
-    let instanceCount = 0;
+    if (!api.assert(arr.length <= MAX_NUM_UNITS_OPERABLE, `cannot act on more than ${MAX_NUM_UNITS_OPERABLE} IDs at once`)) {
+      return false;
+    }
+
     for (let i = 0; i < arr.length; i += 1) {
-      let validContents = false;
-      const { symbol, ids } = arr[i];
-      if (api.assert(symbol && typeof symbol === 'string'
-        && api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= MAX_SYMBOL_LENGTH
-        && ids && typeof ids === 'object' && Array.isArray(ids), 'invalid nft list')) {
-        instanceCount += ids.length;
-        if (api.assert(instanceCount <= MAX_NUM_NFTS_OPERABLE, `cannot operate on more than ${MAX_NUM_NFTS_OPERABLE} NFT instances at once`)) {
-          for (let j = 0; j < ids.length; j += 1) {
-            const id = ids[j];
-            if (!api.assert(id && typeof id === 'string' && !api.BigNumber(id).isNaN() && api.BigNumber(id).gt(0), 'invalid nft list')) {
-              return false;
-            }
-          }
-          validContents = true;
-        }
-      }
-      if (!validContents) {
+      const id = arr[i];
+      if (!api.assert(id && typeof id === 'string' && !api.BigNumber(id).isNaN() && api.BigNumber(id).gt(0), 'invalid id list')) {
         return false;
       }
     }
@@ -72,7 +60,7 @@ actions.enableMarket = async (payload) => {
       const marketTableName = symbol + 'sellBook';
       const tableExists = await api.db.tableExists(marketTableName);
       if (api.assert(tableExists === false, 'market already enabled')) {
-        await api.db.createTable(marketTableName, ['account', 'priceSymbol', 'priceDec']);
+        await api.db.createTable(marketTableName, ['account', 'ownedBy', 'nftId', 'priceSymbol', 'priceDec']);
 
         api.emit('enableMarket', { symbol });
       }
@@ -83,7 +71,7 @@ actions.enableMarket = async (payload) => {
 actions.cancel = async (payload) => {
   const {
     symbol,
-    orders,
+    nfts,
     isSignedWithActiveKey,
   } = payload;
 
@@ -95,9 +83,87 @@ actions.cancel = async (payload) => {
   const tableExists = await api.db.tableExists(marketTableName);
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
-    && api.assert(tableExists, 'market not enabled for symbol')
-    && isValidIdArray(orders)) {
+    && isValidIdArray(nfts)
+    && api.assert(tableExists, 'market not enabled for symbol')) {
+    // look up order info
+    const orders = await api.db.find(
+      marketTableName,
+      {
+        nftId: {
+          $in: nfts,
+        },
+      },
+      MAX_NUM_UNITS_OPERABLE,
+      0,
+      [{ index: 'nftId', descending: false }],
+    );
 
+    if (orders.length > 0) {
+      // need to make sure that caller is actually the owner of each order
+      const ids = [];
+      const idMap = {};
+      for (let i = 0; i < orders.length; i += 1) {
+        const order = orders[i];
+        if (!api.assert(order.account === api.sender
+          && order.ownedBy === 'u', 'all orders must be your own')) {
+          return;
+        }
+        ids.push(order.nftId);
+        idMap[order.nftId] = order;
+      }
+
+      // move the locked NFTs back to their owner
+      const nftArray = [];
+      const wrappedNfts = {
+        symbol,
+        ids,
+      };
+      nftArray.push(wrappedNfts);
+      const res = await api.executeSmartContract('nft', 'transfer', {
+        fromType: 'contract',
+        to: api.sender,
+        toType: 'user',
+        nfts: nftArray,
+        isSignedWithActiveKey,
+      });
+
+      // it's possible (but unlikely) that some transfers could have failed
+      // due to validation errors & whatnot, so we need to loop over the
+      // transfer results and only cancel orders for the transfers that succeeded
+      if (res.events) {
+        for (let j = 0; j < res.events.length; j += 1) {
+          const ev = res.events[j];
+          if (ev.contract && ev.event && ev.data
+            && ev.contract === 'nft'
+            && ev.event === 'transfer'
+            && ev.data.from === CONTRACT_NAME
+            && ev.data.fromType === 'c'
+            && ev.data.to === api.sender
+            && ev.data.toType === 'u'
+            && ev.data.symbol === symbol) {
+            // transfer is verified, now we can cancel the order
+            const instanceId = ev.data.id;
+            if (instanceId in idMap) {
+              const order = idMap[instanceId];
+
+              await api.db.remove(marketTableName, order);
+
+              api.emit('cancelOrder', {
+                account: order.account,
+                ownedBy: order.ownedBy,
+                symbol,
+                nftId: order.nftId,
+                timestamp: order.timestamp,
+                price: order.price,
+                priceSymbol: order.priceSymbol,
+                fee: order.fee,
+                orderId: order._id,
+              });
+            }
+          }
+        }
+      }
+    }
   }
 };
 
