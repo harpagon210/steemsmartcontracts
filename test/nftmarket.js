@@ -316,6 +316,126 @@ describe('nftmarket', function() {
       });
   });
 
+  it('cancels multiple sell orders', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      // setup environment
+      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(nftmarketContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"}, "dataPropertyCreationFee": "1" }`));
+      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TEST", "url":"http://mynft.com" }'));
+      for (let i = 36; i < 36+50; i += 1) {
+        const txId = 'TXID12' + i.toString();
+        transactions.push(new Transaction(38145386, txId, 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      }
+      transactions.push(new Transaction(38145386, 'TXID1286', 'cryptomancer', 'nftmarket', 'enableMarket', '{ "isSignedWithActiveKey": true, "symbol": "TEST" }'));
+
+      let block = {
+        refSteemBlockNumber: 38145386,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // do 50 sell orders (the maximum allowed)
+      transactions = [];
+      transactions.push(new Transaction(38145387, 'TXID1287', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
+
+      block = {
+        refSteemBlockNumber: 38145387,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // check if the NFT instances were sent to the market
+      let instances = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: { account: 'aggroed' }
+      });
+
+      assert.equal(instances.length, 0);
+
+      instances = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: { account: 'nftmarket' }
+      });
+
+      assert.equal(instances.length, 50);
+
+      // check if orders were created
+      let orders = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTsellBook',
+        query: {}
+      });
+
+      assert.equal(orders.length, 50);
+
+      // now cancel all the orders
+      transactions = [];
+      transactions.push(new Transaction(38145388, 'TXID1288', 'aggroed', 'nftmarket', 'cancel', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"] }'));
+
+      block = {
+        refSteemBlockNumber: 38145388,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // check if the NFT instances were sent back to the owner
+      instances = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: { account: 'aggroed' }
+      });
+
+      assert.equal(instances.length, 50);
+
+      instances = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: { account: 'nftmarket' }
+      });
+
+      assert.equal(instances.length, 0);
+
+      // check if orders were removed
+      orders = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTsellBook',
+        query: {}
+      });
+
+      assert.equal(orders.length, 0);
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
   it('cancels a sell order', (done) => {
     new Promise(async (resolve) => {
 
