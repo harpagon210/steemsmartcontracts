@@ -68,6 +68,81 @@ actions.enableMarket = async (payload) => {
   }
 };
 
+actions.changePrice = async (payload) => {
+  const {
+    symbol,
+    nfts,
+    price,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (!api.assert(symbol && typeof symbol === 'string', 'invalid params')) {
+    return;
+  }
+
+  const marketTableName = symbol + 'sellBook';
+  const tableExists = await api.db.tableExists(marketTableName);
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && isValidIdArray(nfts)
+    && api.assert(price && typeof price === 'string' && !api.BigNumber(price).isNaN(), 'invalid params')
+    && api.assert(tableExists, 'market not enabled for symbol')) {
+    // look up order info
+    const orders = await api.db.find(
+      marketTableName,
+      {
+        nftId: {
+          $in: nfts,
+        },
+      },
+      MAX_NUM_UNITS_OPERABLE,
+      0,
+      [{ index: 'nftId', descending: false }],
+    );
+
+    if (orders.length > 0) {
+      // need to make sure that caller is actually the owner of each order
+      // and all orders have the same price symbol
+      let priceSymbol = '';
+      for (let i = 0; i < orders.length; i += 1) {
+        const order = orders[i];
+        if (priceSymbol === '') {
+          priceSymbol = order.priceSymbol;
+        }
+        if (!api.assert(order.account === api.sender
+          && order.ownedBy === 'u', 'all orders must be your own')
+          || !api.assert(priceSymbol === order.priceSymbol, 'all orders must have the same price symbol')) {
+          return;
+        }
+      }
+      // get the price token params
+      const token = await api.db.findOneInTable('tokens', 'tokens', { symbol: priceSymbol });
+      if (api.assert(token
+        && api.BigNumber(price).gt(0)
+        && countDecimals(price) <= token.precision, 'invalid price')) {
+        const finalPrice = api.BigNumber(price).toFixed(token.precision);
+        for (i = 0; i < orders.length; i += 1) {
+          const order = orders[i];
+          const oldPrice = order.price;
+          order.price = finalPrice;
+          order.priceDec = { $numberDecimal: finalPrice };
+
+          await api.db.update(marketTableName, order);
+
+          api.emit('changePrice', {
+            symbol,
+            nftId: order.nftId,
+            oldPrice,
+            newPrice: order.price,
+            priceSymbol: order.priceSymbol,
+            orderId: order._id,
+          });
+        }
+      }
+    }
+  }
+};
+
 actions.cancel = async (payload) => {
   const {
     symbol,
