@@ -16,11 +16,11 @@ const MAX_DATA_PROPERTY_LENGTH = 100;
 const MAX_NUM_NFTS_ISSUABLE = 10;
 
 // cannot set properties on more than this number of NFT instances in one action
-const MAX_NUM_NFTS_EDITABLE = 100;
+const MAX_NUM_NFTS_EDITABLE = 50;
 
 // cannot burn, transfer, delegate, or undelegate more than
 // this number of NFT instances in one action
-const MAX_NUM_NFTS_OPERABLE = 100;
+const MAX_NUM_NFTS_OPERABLE = 50;
 
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('nfts');
@@ -658,6 +658,40 @@ actions.setPropertyPermissions = async (payload) => {
   }
 };
 
+actions.setGroupBy = async (payload) => {
+  const {
+    symbol, properties, isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && properties && typeof properties === 'object' && Array.isArray(properties), 'invalid params')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      const nftPropertyCount = Object.keys(nft.properties).length;
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')
+        && api.assert(nft.groupBy === undefined || nft.groupBy.length === 0, 'list is already set')
+        && api.assert(properties.length <= nftPropertyCount, 'cannot set more data properties than NFT has')
+        && api.assert(!containsDuplicates(properties), 'list cannot contain duplicates')) {
+        for (let i = 0; i < properties.length; i += 1) {
+          const name = properties[i];
+          if (!api.assert(name && typeof name === 'string'
+            && name in nft.properties, 'data property must exist')) {
+            return false;
+          }
+        }
+
+        nft.groupBy = properties;
+        await api.db.update('nfts', nft);
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 actions.setProperties = async (payload) => {
   const {
     symbol, fromType, nfts, callingContractInfo,
@@ -1115,6 +1149,7 @@ actions.create = async (payload) => {
           authorizedIssuingAccounts: initialAccountList,
           authorizedIssuingContracts: [],
           properties: {},
+          groupBy: [],
         };
 
         // create a new table to hold issued instances of this NFT

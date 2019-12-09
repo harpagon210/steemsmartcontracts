@@ -1920,7 +1920,7 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock2[3].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock2[4].logs).errors[0], 'invalid nft list');
       assert.equal(JSON.parse(transactionsBlock2[5].logs).errors[0], 'invalid nft list');
-      assert.equal(JSON.parse(transactionsBlock2[6].logs).errors[0], 'cannot operate on more than 100 NFT instances at once');
+      assert.equal(JSON.parse(transactionsBlock2[6].logs).errors[0], 'cannot operate on more than 50 NFT instances at once');
 
       res = await database1.find({
           contract: 'nft',
@@ -2560,6 +2560,175 @@ describe('nft', function() {
       });
   });
 
+  it('sets the market group by list', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true }'));
+      transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false }'));
+      transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood"] }'));
+
+      let block = {
+        refSteemBlockNumber: 38145391,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await database1.find({
+        contract: 'nft',
+        table: 'nfts',
+        query: {}
+      });
+
+      let tokens = res;
+      console.log(tokens)
+
+      assert.equal(tokens[0].symbol, 'TSTNFT');
+      assert.equal(tokens[0].issuer, 'cryptomancer');
+      assert.equal(JSON.stringify(tokens[0].groupBy), '["level","isFood"]');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
+  it('does not set the market group by list', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
+      transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"frozen", "type":"boolean", "isReadOnly":true }'));
+      transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false }'));
+      
+      // all these should fail
+      transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":false, "symbol":"TSTNFT", "properties": ["level","isFood"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "properties": ["level","isFood"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1241', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": {"level":"isFood"} }'));
+      transactions.push(new Transaction(38145391, 'TXID1242', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"BAD", "properties": ["level","isFood"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1243', 'aggroed', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1244', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood","color","frozen","badproperty"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1245', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood","level"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1246', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","Level"] }'));
+
+      let block = {
+        refSteemBlockNumber: 38145391,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      let res = await database1.getBlockInfo(1);
+
+      const block1 = res;
+      const transactionsBlock1 = block1.transactions;
+      console.log(transactionsBlock1[9].logs)
+      console.log(transactionsBlock1[10].logs)
+      console.log(transactionsBlock1[11].logs)
+      console.log(transactionsBlock1[12].logs)
+      console.log(transactionsBlock1[13].logs)
+      console.log(transactionsBlock1[14].logs)
+      console.log(transactionsBlock1[15].logs)
+      console.log(transactionsBlock1[16].logs)
+
+      assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'you must use a custom_json signed with your active key');
+      assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
+      assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'must be the issuer');
+      assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'cannot set more data properties than NFT has');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], 'list cannot contain duplicates');
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'data property must exist');
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'nfts',
+        query: {}
+      });
+
+      let tokens = res;
+      console.log(tokens)
+
+      assert.equal(tokens[0].symbol, 'TSTNFT');
+      assert.equal(tokens[0].issuer, 'cryptomancer');
+      assert.equal(JSON.stringify(tokens[0].groupBy), '[]');
+
+      // make sure the list cannot be set more than once
+      transactions = [];
+      transactions.push(new Transaction(38145392, 'TXID1247', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood"] }'));
+      transactions.push(new Transaction(38145392, 'TXID1248', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["color","frozen"] }'));
+
+      block = {
+        refSteemBlockNumber: 38145392,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await database1.getBlockInfo(2);
+
+      const block2 = res;
+      const transactionsBlock2 = block2.transactions;
+      console.log(transactionsBlock2[0].logs)
+      console.log(transactionsBlock2[1].logs)
+
+      assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'list is already set');
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'nfts',
+        query: {}
+      });
+
+      tokens = res;
+
+      // make sure list didn't change once set
+      assert.equal(tokens[0].symbol, 'TSTNFT');
+      assert.equal(tokens[0].issuer, 'cryptomancer');
+      assert.equal(JSON.stringify(tokens[0].groupBy), '["level","isFood"]');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
   it('adds data properties', (done) => {
     new Promise(async (resolve) => {
 
@@ -2872,7 +3041,7 @@ describe('nft', function() {
       console.log(transactionsBlock1[23].logs)
 
       assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
-      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'cannot set properties on more than 100 NFT instances at once');
+      assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'cannot set properties on more than 50 NFT instances at once');
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock1[13].logs).errors[0], 'symbol does not exist');
       assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'nft instance does not exist');
