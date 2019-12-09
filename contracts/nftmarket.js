@@ -300,6 +300,8 @@ actions.sell = async (payload) => {
         const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
         const timestamp = blockDate.getTime();
         const finalPrice = api.BigNumber(price).toFixed(token.precision);
+        const nftIntegerIdList = [];
+        const orderDataMap = {};
 
         for (let i = 0; i < res.events.length; i += 1) {
           const ev = res.events[i];
@@ -314,31 +316,46 @@ actions.sell = async (payload) => {
             // transfer is verified, now we can add a market order
             let instanceId = ev.data.id;
 
-            const order = {
-              account: api.sender,
-              ownedBy: ev.data.fromType,
+            const orderData = {
               nftId: instanceId,
-              timestamp,
-              price: finalPrice,
-              priceDec: { $numberDecimal: finalPrice },
-              priceSymbol,
-              fee,
+              grouping: {},
             };
-
-            const result = await api.db.insert(marketTableName, order);
-
-            api.emit('sellOrder', {
-              account: order.account,
-              ownedBy: order.ownedBy,
-              symbol,
-              nftId: order.nftId,
-              timestamp,
-              price: order.price,
-              priceSymbol: order.priceSymbol,
-              fee,
-              orderId: result._id,
-            });
+            const integerId = api.BigNumber(instanceId).toNumber();
+            nftIntegerIdList.push(integerId);
+            orderDataMap[integerId] = orderData;
           }
+        }
+
+        // TODO: query NFT instances here to construct the grouping
+
+        // create the orders
+        for (let j = 0; j < nftIntegerIdList.length; j += 1) {
+          const intId = nftIntegerIdList[j];
+          const orderInfo = orderDataMap[intId];
+          const order = {
+            account: api.sender,
+            ownedBy: 'u',
+            nftId: orderInfo.nftId,
+            timestamp,
+            price: finalPrice,
+            priceDec: { $numberDecimal: finalPrice },
+            priceSymbol,
+            fee,
+          };
+
+          const result = await api.db.insert(marketTableName, order);
+
+          api.emit('sellOrder', {
+            account: order.account,
+            ownedBy: order.ownedBy,
+            symbol,
+            nftId: order.nftId,
+            timestamp,
+            price: order.price,
+            priceSymbol: order.priceSymbol,
+            fee,
+            orderId: result._id,
+          });
         }
       }
     }

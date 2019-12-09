@@ -377,7 +377,7 @@ describe('nftmarket', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[13].logs);
+      console.log(transactionsBlock1[16].logs);
 
       // check if the NFT instances were sent to the market
       let instances = await database1.find({
@@ -963,7 +963,7 @@ describe('nftmarket', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[9].logs);
+      console.log(transactionsBlock1[12].logs);
 
       // check if the NFT instances were sent to the market
       let instances = await database1.find({
