@@ -58,9 +58,11 @@ actions.enableMarket = async (payload) => {
       // create a new table to hold market orders for this NFT
       // eslint-disable-next-line prefer-template
       const marketTableName = symbol + 'sellBook';
+      const metricsTableName = symbol + 'metrics';
       const tableExists = await api.db.tableExists(marketTableName);
       if (api.assert(tableExists === false, 'market already enabled')) {
-        await api.db.createTable(marketTableName, ['account', 'ownedBy', 'nftId', 'priceSymbol', 'priceDec']);
+        await api.db.createTable(marketTableName, ['account', 'ownedBy', 'nftId', 'grouping', 'priceSymbol']);
+        await api.db.createTable(metricsTableName, ['grouping']);
 
         api.emit('enableMarket', { symbol });
       }
@@ -266,6 +268,11 @@ actions.sell = async (payload) => {
     && fee && typeof fee === 'number' && fee >= 0 && fee <= 10000 && Number.isInteger(fee), 'invalid params')
     && api.assert(nfts.length <= MAX_NUM_UNITS_OPERABLE, `cannot sell more than ${MAX_NUM_UNITS_OPERABLE} NFT instances at once`)
     && api.assert(tableExists, 'market not enabled for symbol')) {
+    const nft = await api.db.findOneInTable('nft', 'nfts', { symbol });
+    if (!api.assert(nft && nft.groupBy && nft.groupBy.length > 0, 'market grouping not set')) {
+      return;
+    }
+
     // get the price token params
     const token = await api.db.findOneInTable('tokens', 'tokens', { symbol: priceSymbol });
     if (api.assert(token
