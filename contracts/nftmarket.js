@@ -21,6 +21,12 @@ actions.createSSC = async () => {
 
 const countDecimals = value => api.BigNumber(value).dp();
 
+// a valid Steem account is between 3 and 16 characters in length
+const isValidSteemAccountLength = account => account.length >= 3 && account.length <= 16;
+
+// helper for buy action
+const makeMapKey = (account, type) => account + '-' + type;
+
 const isValidIdArray = (arr) => {
   try {
     if (!api.assert(arr && typeof arr === 'object' && Array.isArray(arr), 'invalid id list')) {
@@ -239,6 +245,108 @@ actions.cancel = async (payload) => {
             }
           }
         }
+      }
+    }
+  }
+};
+
+actions.buy = async (payload) => {
+  const {
+    symbol,
+    nfts,
+    marketAccount,
+    isSignedWithActiveKey,
+  } = payload;
+
+  if (!api.assert(symbol && typeof symbol === 'string'
+    && marketAccount && typeof marketAccount === 'string', 'invalid params')) {
+    return;
+  }
+
+  const marketTableName = symbol + 'sellBook';
+  const tableExists = await api.db.tableExists(marketTableName);
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && isValidIdArray(nfts)
+    && api.assert(tableExists, 'market not enabled for symbol')) {
+    const finalMarketAccount = marketAccount.trim().toLowerCase();
+    if (api.assert(isValidSteemAccountLength(finalMarketAccount), 'invalid market account')) {
+      // look up order info
+      const orders = await api.db.find(
+        marketTableName,
+        {
+          nftId: {
+            $in: nfts,
+          },
+        },
+        MAX_NUM_UNITS_OPERABLE,
+        0,
+        [{ index: 'nftId', descending: false }],
+      );
+
+      if (orders.length > 0) {
+        // do a couple more sanity checks
+        let priceSymbol = '';
+        for (let i = 0; i < orders.length; i += 1) {
+          const order = orders[i];
+          if (priceSymbol === '') {
+            priceSymbol = order.priceSymbol;
+          }
+          if (!api.assert(!(order.ownedBy === 'u' && order.account === api.sender), 'cannot fill your own orders')
+            || !api.assert(priceSymbol === order.priceSymbol, 'all orders must have the same price symbol')) {
+            return;
+          }
+        }
+        // get the price token params
+        const token = await api.db.findOneInTable('tokens', 'tokens', { symbol: priceSymbol });
+        if (!token) {
+          return;
+        }
+
+        // create order maps
+        let feeTotal = api.BigNumber(0);
+        let paymentTotal = api.BigNumber(0);
+        const sellerMap = {};
+        for (i = 0; i < orders.length; i += 1) {
+          const order = orders[i];
+          const finalPrice = api.BigNumber(order.price);
+          const feePercent = order.fee / 10000;
+          let finalFee = finalPrice.multipliedBy(feePercent).decimalPlaces(token.precision)
+          if (finalFee.gt(finalPrice)) {
+            finalFee = finalPrice; // unlikely but need to be sure
+          }
+          let finalPayment = finalPrice.minus(finalFee).decimalPlaces(token.precision);
+          if (finalPayment.lt(0)) {
+            finalPayment = api.BigNumber(0); // unlikely but need to be sure
+          }
+          paymentTotal = paymentTotal.plus(finalPayment);
+          feeTotal = feeTotal.plus(finalFee);
+
+          const key = makeMapKey(order.account, order.ownedBy);
+          const sellerInfo = key in sellerMap
+            ? sellerMap[key]
+            : {
+              account: order.account,
+              ownedBy: order.ownedBy,
+              nftIds: [],
+              paymentTotal: api.BigNumber(0),
+            };
+
+          sellerInfo.paymentTotal = sellerInfo.paymentTotal.plus(finalPayment);
+          sellerInfo.nftIds.push(order.nftId);
+          sellerMap[key] = sellerInfo;
+        }
+
+        // verify buyer has enough funds for payment
+        const requiredBalance = paymentTotal.plus(feeTotal).toFixed(token.precision);
+        const buyerBalance = await api.db.findOneInTable('tokens', 'balances', { account: api.sender, symbol: priceSymbol });
+        if (!api.assert(buyerBalance
+          && api.BigNumber(buyerBalance.balance).gte(requiredBalance), 'you must have enough tokens for payment')) {
+          return;
+        }
+
+        console.log(sellerMap);
+        // TODO: send fees to market account, loop over sellerMap values and send payment to each, transfer NFTs to new owner, delete market orders
       }
     }
   }
