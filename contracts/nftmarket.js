@@ -259,6 +259,7 @@ actions.sell = async (payload) => {
   }
 
   const marketTableName = symbol + 'sellBook';
+  const instanceTableName = symbol + 'instances';
   const tableExists = await api.db.tableExists(marketTableName);
 
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
@@ -326,16 +327,42 @@ actions.sell = async (payload) => {
           }
         }
 
-        // TODO: query NFT instances here to construct the grouping
+        // query NFT instances to construct the grouping
+        const instances = await api.db.findInTable(
+          'nft',
+          instanceTableName,
+          {
+            _id: {
+              $in: nftIntegerIdList,
+            },
+          },
+          MAX_NUM_UNITS_OPERABLE,
+          0,
+          [{ index: '_id', descending: false }],
+        );
+
+        for (let j = 0; j < instances.length; j += 1) {
+          const instance = instances[j];
+          const grouping = {};
+          nft.groupBy.forEach((name) => {
+            if (instance.properties[name] !== undefined && instance.properties[name] !== null) {
+              grouping[name] = instance.properties[name].toString();
+            } else {
+              grouping[name] = '';
+            }
+          });
+          orderDataMap[instance._id].grouping = grouping;
+        }
 
         // create the orders
-        for (let j = 0; j < nftIntegerIdList.length; j += 1) {
-          const intId = nftIntegerIdList[j];
+        for (let k = 0; k < nftIntegerIdList.length; k += 1) {
+          const intId = nftIntegerIdList[k];
           const orderInfo = orderDataMap[intId];
           const order = {
             account: api.sender,
             ownedBy: 'u',
             nftId: orderInfo.nftId,
+            grouping: orderInfo.grouping,
             timestamp,
             price: finalPrice,
             priceDec: { $numberDecimal: finalPrice },

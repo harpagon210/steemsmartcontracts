@@ -941,13 +941,15 @@ describe('nftmarket', function() {
       transactions.push(new Transaction(38145386, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TEST", "url":"http://mynft.com" }'));
       transactions.push(new Transaction(38145386, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145386, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"level", "type":"number" }'));
-      transactions.push(new Transaction(38145386, 'TXID1238', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "properties": ["level","color"] }'));
-      transactions.push(new Transaction(38145386, 'TXID1239', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
-      transactions.push(new Transaction(38145386, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"marc", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));      
-      transactions.push(new Transaction(38145386, 'TXID1241', 'cryptomancer', 'nftmarket', 'enableMarket', '{ "isSignedWithActiveKey": true, "symbol": "TEST" }'));
+      transactions.push(new Transaction(38145386, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"isRare", "type":"boolean" }'));
+      transactions.push(new Transaction(38145386, 'TXID1239', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "properties": ["level","isRare"] }'));
+      transactions.push(new Transaction(38145386, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      transactions.push(new Transaction(38145386, 'TXID1241', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"marc", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));      
+      transactions.push(new Transaction(38145386, 'TXID1242', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TEST", "nfts": [{"id":"1", "properties": {"level":3, "color":"red", "isRare": true}}] }'));
+      transactions.push(new Transaction(38145386, 'TXID1243', 'cryptomancer', 'nftmarket', 'enableMarket', '{ "isSignedWithActiveKey": true, "symbol": "TEST" }'));
 
       // do a sell order
-      transactions.push(new Transaction(38145386, 'TXID1242', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","1","2"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
+      transactions.push(new Transaction(38145386, 'TXID1244', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","1","2"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
 
       let block = {
         refSteemBlockNumber: 38145386,
@@ -963,7 +965,7 @@ describe('nftmarket', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[12].logs);
+      console.log(transactionsBlock1[14].logs);
 
       // check if the NFT instances were sent to the market
       let instances = await database1.find({
@@ -995,6 +997,7 @@ describe('nftmarket', function() {
       assert.equal(orders.length, 1);
       assert.equal(orders[0].account, 'aggroed');
       assert.equal(orders[0].ownedBy, 'u');
+      assert.equal(JSON.stringify(orders[0].grouping), '{"level":"3","isRare":"true"}');
       assert.equal(orders[0].nftId, '1');
       assert.equal(orders[0].price, '2.00000000');
       assert.equal(orders[0].priceSymbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -1133,7 +1136,11 @@ describe('nftmarket', function() {
         const txId = 'TXID12' + i.toString();
         transactions.push(new Transaction(38145386, txId, 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
       }
-      transactions.push(new Transaction(38145386, 'TXID1289', 'cryptomancer', 'nftmarket', 'enableMarket', '{ "isSignedWithActiveKey": true, "symbol": "TEST" }'));
+      for (let i = 89; i < 89+50; i += 1) {
+        const txId = 'TXID12' + i.toString();
+        transactions.push(new Transaction(38145386, txId, 'cryptomancer', 'nft', 'setProperties', `{ "symbol":"TEST", "nfts": [{"id":"${i-88}", "properties": {"level":${i-88}}}] }`));
+      }
+      transactions.push(new Transaction(38145386, 'TXID12139', 'cryptomancer', 'nftmarket', 'enableMarket', '{ "isSignedWithActiveKey": true, "symbol": "TEST" }'));
       
       let block = {
         refSteemBlockNumber: 38145386,
@@ -1147,7 +1154,7 @@ describe('nftmarket', function() {
 
       // do 50 sell orders (the maximum allowed)
       transactions = [];
-      transactions.push(new Transaction(38145387, 'TXID1290', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
+      transactions.push(new Transaction(38145387, 'TXID12140', 'aggroed', 'nftmarket', 'sell', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"], "price": "2.000", "priceSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "fee": 500 }`));
 
       block = {
         refSteemBlockNumber: 38145387,
@@ -1188,6 +1195,7 @@ describe('nftmarket', function() {
         const nftId = j + 1;
         assert.equal(orders[j].account, 'aggroed');
         assert.equal(orders[j].ownedBy, 'u');
+        assert.equal(JSON.stringify(orders[j].grouping), `{"level":"${nftId}","color":""}`);
         assert.equal(orders[j].nftId, nftId.toString());
         assert.equal(orders[j].price, '2.00000000');
         assert.equal(orders[j].priceSymbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
