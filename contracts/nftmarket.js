@@ -19,6 +19,16 @@ actions.createSSC = async () => {
   }
 };
 
+// check that token transfers succeeded
+const isTokenTransferVerified = (result, from, to, symbol, quantity, eventStr) => {
+  if (result.errors === undefined
+    && result.events && result.events.find(el => el.contract === 'tokens' && el.event === eventStr
+    && el.data.from === from && el.data.to === to && el.data.quantity === quantity && el.data.symbol === symbol) !== undefined) {
+    return true;
+  }
+  return false;
+};
+
 const countDecimals = value => api.BigNumber(value).dp();
 
 // a valid Steem account is between 3 and 16 characters in length
@@ -306,6 +316,8 @@ actions.buy = async (payload) => {
         // create order maps
         let feeTotal = api.BigNumber(0);
         let paymentTotal = api.BigNumber(0);
+        let soldNfts = [];
+        let sellers = [];
         const sellerMap = {};
         for (i = 0; i < orders.length; i += 1) {
           const order = orders[i];
@@ -344,9 +356,69 @@ actions.buy = async (payload) => {
           && api.BigNumber(buyerBalance.balance).gte(requiredBalance), 'you must have enough tokens for payment')) {
           return;
         }
+        paymentTotal = paymentTotal.toFixed(token.precision);
 
-        console.log(sellerMap);
-        // TODO: send fees to market account, loop over sellerMap values and send payment to each, transfer NFTs to new owner, delete market orders
+        // send fees to market account
+        if (feeTotal.gt(0)) {
+          feeTotal = feeTotal.toFixed(token.precision);
+          let res = await api.executeSmartContract('tokens', 'transfer', {
+            to: finalMarketAccount, symbol: priceSymbol, quantity: feeTotal, isSignedWithActiveKey,
+          });
+          if (!api.assert(isTokenTransferVerified(res, api.sender, finalMarketAccount, priceSymbol, feeTotal, 'transfer'), 'unable to transfer market fees')) {
+            return;
+          }
+        }
+
+        // send payments to sellers
+        // eslint-disable-next-line no-restricted-syntax
+        for (const info of Object.values(sellerMap)) {
+          if (info.paymentTotal.gt(0)) {
+            const contractAction = info.ownedBy === 'u' ? 'transfer' : 'transferToContract';
+            info.paymentTotal = info.paymentTotal.toFixed(token.precision);
+            let res = await api.executeSmartContract('tokens', contractAction, {
+              to: info.account, symbol: priceSymbol, quantity: info.paymentTotal, isSignedWithActiveKey,
+            });
+            if (api.assert(isTokenTransferVerified(res, api.sender, info.account, priceSymbol, info.paymentTotal, contractAction), `unable to transfer payment to ${info.account}`)) {
+              soldNfts = soldNfts.concat(info.nftIds);
+              sellers.push(info);
+            }
+          } else {
+            soldNfts = soldNfts.concat(info.nftIds);
+            sellers.push(info);
+          }
+        }
+
+        // transfer sold NFT instances to new owner
+        const nftArray = [];
+        const wrappedNfts = {
+          symbol,
+          ids: soldNfts,
+        };
+        nftArray.push(wrappedNfts);
+        await api.executeSmartContract('nft', 'transfer', {
+          fromType: 'contract',
+          to: api.sender,
+          toType: 'user',
+          nfts: nftArray,
+          isSignedWithActiveKey,
+        });
+
+        // delete sold market orders
+        const soldSet = new Set(soldNfts);
+        for (i = 0; i < orders.length; i += 1) {
+          const order = orders[i];
+          if (soldSet.has(order.nftId)) {
+            await api.db.remove(marketTableName, order);
+          }
+        }
+
+        api.emit('hitSellOrder', {
+          symbol,
+          priceSymbol,
+          sellers,
+          paymentTotal,
+          feeTotal,
+        });
       }
     }
   }
