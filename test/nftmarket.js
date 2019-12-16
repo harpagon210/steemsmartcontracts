@@ -712,6 +712,16 @@ describe('nftmarket', function() {
       assert.equal(balances[1].balance, '7.60000000');
       assert.equal(balances[1].account, 'marc');
 
+      // check that trade history table was updated
+      let history = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTtradesHistory',
+        query: {}
+      });
+      console.log(history);
+      assert.equal(history.length, 1);
+      console.log(history[0].counterparties);
+
       resolve();
     })
       .then(() => {

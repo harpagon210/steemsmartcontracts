@@ -11,12 +11,13 @@ const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 const MAX_NUM_UNITS_OPERABLE = 50;
 
 actions.createSSC = async () => {
-  const tableExists = await api.db.tableExists('sellBook');
+  // TODO: get rid of this, nothing to do here
+  /*const tableExists = await api.db.tableExists('sellBook');
 
   if (tableExists === false) {
     await api.db.createTable('tradesHistory', ['symbol']);
     await api.db.createTable('metrics', ['symbol']);
-  }
+  }*/
 };
 
 // check that token transfers succeeded
@@ -75,15 +76,68 @@ actions.enableMarket = async (payload) => {
       // eslint-disable-next-line prefer-template
       const marketTableName = symbol + 'sellBook';
       const metricsTableName = symbol + 'metrics';
+      const historyTableName = symbol + 'tradesHistory';
       const tableExists = await api.db.tableExists(marketTableName);
       if (api.assert(tableExists === false, 'market already enabled')) {
         await api.db.createTable(marketTableName, ['account', 'ownedBy', 'nftId', 'grouping', 'priceSymbol']);
         await api.db.createTable(metricsTableName, ['grouping']);
+        await api.db.createTable(historyTableName, ['priceSymbol', 'timestamp']);
 
         api.emit('enableMarket', { symbol });
       }
     }
   }
+};
+
+const updateTradesHistory = async (type, account, ownedBy, counterparties, symbol, priceSymbol, price, marketAccount, fee, volume) => {
+  const blockDate = new Date(`${api.steemBlockTimestamp}.000Z`);
+  const timestampSec = blockDate.getTime() / 1000;
+  const timestampMinus24hrs = blockDate.setDate(blockDate.getDate() - 1) / 1000;
+  const historyTableName = symbol + 'tradesHistory';
+
+  // clean history
+  let tradesToDelete = await api.db.find(
+    historyTableName,
+    {
+      priceSymbol,
+      timestamp: {
+        $lt: timestampMinus24hrs,
+      },
+    },
+  );
+  let nbTradesToDelete = tradesToDelete.length;
+
+  while (nbTradesToDelete > 0) {
+    for (let index = 0; index < nbTradesToDelete; index += 1) {
+      const trade = tradesToDelete[index];
+      //await updateVolumeMetric(trade.symbol, trade.volume, false);
+      await api.db.remove(historyTableName, trade);
+    }
+    tradesToDelete = await api.db.find(
+      historyTableName,
+      {
+        priceSymbol,
+        timestamp: {
+          $lt: timestampMinus24hrs,
+        },
+      },
+    );
+    nbTradesToDelete = tradesToDelete.length;
+  }
+  // add order to the history
+  const newTrade = {};
+  newTrade.type = type;
+  newTrade.account = account;
+  newTrade.ownedBy = ownedBy;
+  newTrade.counterparties = counterparties;
+  newTrade.priceSymbol = priceSymbol;
+  newTrade.price = price;
+  newTrade.marketAccount = marketAccount;
+  newTrade.fee = fee;
+  newTrade.timestamp = timestampSec;
+  newTrade.volume = volume;
+  await api.db.insert(historyTableName, newTrade);
+  //await updatePriceMetrics(symbol, price);
 };
 
 actions.changePrice = async (payload) => {
@@ -412,9 +466,14 @@ actions.buy = async (payload) => {
           }
         }
 
+        // add the trade to the history
+        await updateTradesHistory('buy', api.sender, 'u', sellers, symbol, priceSymbol, requiredBalance, finalMarketAccount, feeTotal, soldNfts.length);
+
         api.emit('hitSellOrder', {
           symbol,
           priceSymbol,
+          account: api.sender,
+          ownedBy: 'u',
           sellers,
           paymentTotal,
           feeTotal,
