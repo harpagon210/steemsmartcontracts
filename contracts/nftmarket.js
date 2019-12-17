@@ -11,13 +11,7 @@ const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 const MAX_NUM_UNITS_OPERABLE = 50;
 
 actions.createSSC = async () => {
-  // TODO: get rid of this, nothing to do here
-  /*const tableExists = await api.db.tableExists('sellBook');
-
-  if (tableExists === false) {
-    await api.db.createTable('tradesHistory', ['symbol']);
-    await api.db.createTable('metrics', ['symbol']);
-  }*/
+  // nothing to do here
 };
 
 // check that token transfers succeeded
@@ -37,6 +31,15 @@ const isValidSteemAccountLength = account => account.length >= 3 && account.leng
 
 // helper for buy action
 const makeMapKey = (account, type) => account + '-' + type;
+
+// helper for updating open interest
+const makeGroupingKey = (grouping, groupBy) => {
+  let key = '';
+  groupBy.forEach((name) => {
+    key = key + ':' + name + ':' + grouping[name];
+  });
+  return key;
+};
 
 const isValidIdArray = (arr) => {
   try {
@@ -75,16 +78,75 @@ actions.enableMarket = async (payload) => {
       // create a new table to hold market orders for this NFT
       // eslint-disable-next-line prefer-template
       const marketTableName = symbol + 'sellBook';
-      const metricsTableName = symbol + 'metrics';
+      const metricsTableName = symbol + 'openInterest';
       const historyTableName = symbol + 'tradesHistory';
       const tableExists = await api.db.tableExists(marketTableName);
       if (api.assert(tableExists === false, 'market already enabled')) {
-        await api.db.createTable(marketTableName, ['account', 'ownedBy', 'nftId', 'grouping', 'priceSymbol']);
-        await api.db.createTable(metricsTableName, ['grouping']);
+        await api.db.createTable(marketTableName, ['ownedBy', 'account', 'nftId', 'grouping', 'priceSymbol']);
+        await api.db.createTable(metricsTableName, ['side', 'priceSymbol', 'grouping']);
         await api.db.createTable(historyTableName, ['priceSymbol', 'timestamp']);
 
         api.emit('enableMarket', { symbol });
       }
+    }
+  }
+};
+
+const updateOpenInterest = async (side, symbol, priceSymbol, groups, groupBy) => {
+  const metricsTableName = symbol + 'openInterest';
+
+  // collect all the groupings to fetch
+  // eslint-disable-next-line no-restricted-syntax
+  const groupKeys = [];
+  for (const info of Object.values(groups)) {
+    groupKeys.push(info.grouping);
+  }
+
+  if (groupKeys.length <= 0) {
+    return;
+  }
+
+  let openInterest = await api.db.find(
+    metricsTableName,
+    {
+      side,
+      priceSymbol,
+      grouping: {
+        $in: groupKeys,
+      },
+    },
+    MAX_NUM_UNITS_OPERABLE,
+    0,
+    [{ index: 'side', descending: false }, { index: 'priceSymbol', descending: false }, { index: 'grouping', descending: false }],
+  );
+
+  // update existing records...
+  for (let i = 0; i < openInterest.length; i += 1) {
+    const metric = openInterest[i];
+    const key = makeGroupingKey(metric.grouping, groupBy);
+    if (key in groups) {
+      groups[key].isInCollection = true;
+      metric.count += groups[key].count;
+      if (metric.count < 0) {
+        metric.count = 0; // shouldn't happen, but need to safeguard
+      }
+      
+      await api.db.update(metricsTableName, metric);
+    }
+  }
+
+  // ...and add new ones
+  for (const info of Object.values(groups)) {
+    if (!info.isInCollection) {
+      const finalCount = info.count > 0 ? info.count : 0;
+      const newMetric = {
+        side,
+        priceSymbol,
+        grouping: info.grouping,
+        count: finalCount,
+      };
+
+      await api.db.insert(metricsTableName, newMetric);
     }
   }
 };
@@ -110,7 +172,6 @@ const updateTradesHistory = async (type, account, ownedBy, counterparties, symbo
   while (nbTradesToDelete > 0) {
     for (let index = 0; index < nbTradesToDelete; index += 1) {
       const trade = tradesToDelete[index];
-      //await updateVolumeMetric(trade.symbol, trade.volume, false);
       await api.db.remove(historyTableName, trade);
     }
     tradesToDelete = await api.db.find(
@@ -137,7 +198,6 @@ const updateTradesHistory = async (type, account, ownedBy, counterparties, symbo
   newTrade.timestamp = timestampSec;
   newTrade.volume = volume;
   await api.db.insert(historyTableName, newTrade);
-  //await updatePriceMetrics(symbol, price);
 };
 
 actions.changePrice = async (payload) => {
@@ -232,6 +292,11 @@ actions.cancel = async (payload) => {
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && isValidIdArray(nfts)
     && api.assert(tableExists, 'market not enabled for symbol')) {
+    const nft = await api.db.findOneInTable('nft', 'nfts', { symbol });
+    if (!api.assert(nft && nft.groupBy && nft.groupBy.length > 0, 'market grouping not set')) {
+      return;
+    }
+
     // look up order info
     const orders = await api.db.find(
       marketTableName,
@@ -249,10 +314,14 @@ actions.cancel = async (payload) => {
       // need to make sure that caller is actually the owner of each order
       const ids = [];
       const idMap = {};
+      let priceSymbol = '';
       for (let i = 0; i < orders.length; i += 1) {
         const order = orders[i];
-        if (!api.assert(order.account === api.sender
-          && order.ownedBy === 'u', 'all orders must be your own')) {
+        if (priceSymbol === '') {
+          priceSymbol = order.priceSymbol;
+        }
+        if (!api.assert(order.account === api.sender && order.ownedBy === 'u', 'all orders must be your own')
+          || !api.assert(priceSymbol === order.priceSymbol, 'all orders must have the same price symbol')) {
           return;
         }
         ids.push(order.nftId);
@@ -278,6 +347,7 @@ actions.cancel = async (payload) => {
       // due to validation errors & whatnot, so we need to loop over the
       // transfer results and only cancel orders for the transfers that succeeded
       if (res.events) {
+        const groupingMap = {};
         for (let j = 0; j < res.events.length; j += 1) {
           const ev = res.events[j];
           if (ev.contract && ev.event && ev.data
@@ -306,9 +376,23 @@ actions.cancel = async (payload) => {
                 fee: order.fee,
                 orderId: order._id,
               });
+
+              const key = makeGroupingKey(order.grouping, nft.groupBy);
+              const groupInfo = key in groupingMap
+                ? groupingMap[key]
+                : {
+                  grouping: order.grouping,
+                  isInCollection: false,
+                  count: 0,
+                };
+              groupInfo.count -= 1;
+              groupingMap[key] = groupInfo;
             }
           }
         }
+
+        // update open interest metrics
+        await updateOpenInterest('sell', symbol, priceSymbol, groupingMap, nft.groupBy);
       }
     }
   }
@@ -335,6 +419,11 @@ actions.buy = async (payload) => {
     && api.assert(tableExists, 'market not enabled for symbol')) {
     const finalMarketAccount = marketAccount.trim().toLowerCase();
     if (api.assert(isValidSteemAccountLength(finalMarketAccount), 'invalid market account')) {
+      const nft = await api.db.findOneInTable('nft', 'nfts', { symbol });
+      if (!api.assert(nft && nft.groupBy && nft.groupBy.length > 0, 'market grouping not set')) {
+        return;
+      }
+
       // look up order info
       const orders = await api.db.find(
         marketTableName,
@@ -458,11 +547,23 @@ actions.buy = async (payload) => {
         });
 
         // delete sold market orders
+        const groupingMap = {};
         const soldSet = new Set(soldNfts);
         for (i = 0; i < orders.length; i += 1) {
           const order = orders[i];
           if (soldSet.has(order.nftId)) {
             await api.db.remove(marketTableName, order);
+
+            const key = makeGroupingKey(order.grouping, nft.groupBy);
+            const groupInfo = key in groupingMap
+              ? groupingMap[key]
+              : {
+                grouping: order.grouping,
+                isInCollection: false,
+                count: 0,
+              };
+            groupInfo.count -= 1;
+            groupingMap[key] = groupInfo;
           }
         }
 
@@ -478,6 +579,9 @@ actions.buy = async (payload) => {
           paymentTotal,
           feeTotal,
         });
+
+        // update open interest metrics
+        await updateOpenInterest('sell', symbol, priceSymbol, groupingMap, nft.groupBy);
       }
     }
   }
@@ -559,6 +663,7 @@ actions.sell = async (payload) => {
             const orderData = {
               nftId: instanceId,
               grouping: {},
+              groupingKey: '',
             };
             const integerId = api.BigNumber(instanceId).toNumber();
             nftIntegerIdList.push(integerId);
@@ -583,17 +688,21 @@ actions.sell = async (payload) => {
         for (let j = 0; j < instances.length; j += 1) {
           const instance = instances[j];
           const grouping = {};
+          let groupingKey = '';
           nft.groupBy.forEach((name) => {
             if (instance.properties[name] !== undefined && instance.properties[name] !== null) {
               grouping[name] = instance.properties[name].toString();
             } else {
               grouping[name] = '';
             }
+            groupingKey = groupingKey + ':' + name + ':' + grouping[name];
           });
           orderDataMap[instance._id].grouping = grouping;
+          orderDataMap[instance._id].groupingKey = groupingKey;
         }
 
         // create the orders
+        const groupingMap = {};
         for (let k = 0; k < nftIntegerIdList.length; k += 1) {
           const intId = nftIntegerIdList[k];
           const orderInfo = orderDataMap[intId];
@@ -622,7 +731,20 @@ actions.sell = async (payload) => {
             fee,
             orderId: result._id,
           });
+
+          const groupInfo = orderInfo.groupingKey in groupingMap
+            ? groupingMap[orderInfo.groupingKey]
+            : {
+              grouping: orderInfo.grouping,
+              isInCollection: false,
+              count: 0,
+            };
+          groupInfo.count += 1;
+          groupingMap[orderInfo.groupingKey] = groupInfo;
         }
+
+        // update open interest metrics
+        await updateOpenInterest('sell', symbol, priceSymbol, groupingMap, nft.groupBy);
       }
     }
   }

@@ -225,7 +225,15 @@ describe('nftmarket', function() {
 
       exists = await database1.tableExists({
         contract: 'nftmarket',
-        table: 'TESTmetrics'
+        table: 'TESTopenInterest'
+      });
+
+      console.log(exists);
+      assert.equal(exists, true);
+
+      exists = await database1.tableExists({
+        contract: 'nftmarket',
+        table: 'TESTtradesHistory'
       });
 
       console.log(exists);
@@ -294,7 +302,15 @@ describe('nftmarket', function() {
 
       exists = await database1.tableExists({
         contract: 'nftmarket',
-        table: 'TESTmetrics'
+        table: 'TESTopenInterest'
+      });
+
+      console.log(exists);
+      assert.equal(exists, false);
+
+      exists = await database1.tableExists({
+        contract: 'nftmarket',
+        table: 'TESTtradesHistory'
       });
 
       console.log(exists);
@@ -413,6 +429,16 @@ describe('nftmarket', function() {
 
       assert.equal(orders.length, 50);
 
+      // check that open interest was recorded
+      openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      assert.equal(openInterest.length, 50);
+      assert.equal(openInterest[0].count, 1);
+
       // now buy all the orders
       transactions = [];
       transactions.push(new Transaction(38145388, 'TXID12140', 'cryptomancer', 'nftmarket', 'buy', '{ "isSignedWithActiveKey": true, "marketAccount": "peakmonsters", "symbol": "TEST", "nfts": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"] }'));
@@ -485,6 +511,17 @@ describe('nftmarket', function() {
         assert.equal(balances[0].balance, '0.09900000');
         assert.equal(balances[0].account, accountName);
       }
+
+      // check that open interest was recorded
+      openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 50);
+      assert.equal(openInterest[0].count, 0);
 
       resolve();
     })
@@ -721,6 +758,17 @@ describe('nftmarket', function() {
       console.log(history);
       assert.equal(history.length, 1);
       console.log(history[0].counterparties);
+
+      // check that open interest was recorded
+      openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 1);
+      assert.equal(openInterest[0].count, 0);
 
       resolve();
     })
@@ -1267,6 +1315,17 @@ describe('nftmarket', function() {
 
       assert.equal(orders.length, 2);
 
+      // check that open interest was recorded
+      let openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 1);
+      assert.equal(openInterest[0].count, 2);
+
       // cancel an order
       transactions = [];
       transactions.push(new Transaction(38145387, 'TXID1243', 'aggroed', 'nftmarket', 'cancel', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "nfts": ["5", "500", "1"] }'));
@@ -1313,6 +1372,17 @@ describe('nftmarket', function() {
 
       assert.equal(orders.length, 1);
       console.log(orders);
+
+      // check that open interest was recorded
+      openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 1);
+      assert.equal(openInterest[0].count, 1);
 
       resolve();
     })
@@ -1402,6 +1472,16 @@ describe('nftmarket', function() {
       assert.equal(orders[0].priceSymbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
       assert.equal(orders[0].timestamp, 1527811200000);
       assert.equal(orders[0].fee, 500);
+
+      // check that open interest was recorded
+      let openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 1);
 
       resolve();
     })
@@ -1601,6 +1681,16 @@ describe('nftmarket', function() {
         assert.equal(orders[j].timestamp, 1527811200000);
         assert.equal(orders[j].fee, 500);
       }
+
+      // check that open interest was recorded
+      let openInterest = await database1.find({
+        contract: 'nftmarket',
+        table: 'TESTopenInterest',
+        query: {}
+      });
+
+      console.log(openInterest);
+      assert.equal(openInterest.length, 50);
 
       resolve();
     })
