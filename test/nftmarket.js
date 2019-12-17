@@ -125,7 +125,6 @@ let nftContractPayload = {
 // prepare nftmarket contract for deployment
 contractCode = fs.readFileSync('./contracts/nftmarket.js');
 contractCode = contractCode.toString();
-contractCode = contractCode.replace(/'\$\{CONSTANTS.UTILITY_TOKEN_SYMBOL\}\$'/g, CONSTANTS.UTILITY_TOKEN_SYMBOL);
 base64ContractCode = Base64.encode(contractCode);
 
 let nftmarketContractPayload = {

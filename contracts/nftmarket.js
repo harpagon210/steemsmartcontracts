@@ -1,11 +1,10 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable max-len */
+/* eslint-disable prefer-template */
+/* eslint-disable no-underscore-dangle */
 /* global actions, api */
 
 const CONTRACT_NAME = 'nftmarket';
-
-// eslint-disable-next-line no-template-curly-in-string
-const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 
 // cannot buy or sell more than this number of NFT instances in one action
 const MAX_NUM_UNITS_OPERABLE = 50;
@@ -96,8 +95,8 @@ const updateOpenInterest = async (side, symbol, priceSymbol, groups, groupBy) =>
   const metricsTableName = symbol + 'openInterest';
 
   // collect all the groupings to fetch
-  // eslint-disable-next-line no-restricted-syntax
   const groupKeys = [];
+  // eslint-disable-next-line no-restricted-syntax
   for (const info of Object.values(groups)) {
     groupKeys.push(info.grouping);
   }
@@ -106,7 +105,7 @@ const updateOpenInterest = async (side, symbol, priceSymbol, groups, groupBy) =>
     return;
   }
 
-  let openInterest = await api.db.find(
+  const openInterest = await api.db.find(
     metricsTableName,
     {
       side,
@@ -125,17 +124,19 @@ const updateOpenInterest = async (side, symbol, priceSymbol, groups, groupBy) =>
     const metric = openInterest[i];
     const key = makeGroupingKey(metric.grouping, groupBy);
     if (key in groups) {
+      // eslint-disable-next-line no-param-reassign
       groups[key].isInCollection = true;
       metric.count += groups[key].count;
       if (metric.count < 0) {
         metric.count = 0; // shouldn't happen, but need to safeguard
       }
-      
+
       await api.db.update(metricsTableName, metric);
     }
   }
 
   // ...and add new ones
+  // eslint-disable-next-line no-restricted-syntax
   for (const info of Object.values(groups)) {
     if (!info.isInCollection) {
       const finalCount = info.count > 0 ? info.count : 0;
@@ -239,7 +240,7 @@ actions.changePrice = async (payload) => {
       for (let i = 0; i < orders.length; i += 1) {
         const order = orders[i];
         if (priceSymbol === '') {
-          priceSymbol = order.priceSymbol;
+          ({ priceSymbol } = order);
         }
         if (!api.assert(order.account === api.sender
           && order.ownedBy === 'u', 'all orders must be your own')
@@ -253,7 +254,7 @@ actions.changePrice = async (payload) => {
         && api.BigNumber(price).gt(0)
         && countDecimals(price) <= token.precision, 'invalid price')) {
         const finalPrice = api.BigNumber(price).toFixed(token.precision);
-        for (i = 0; i < orders.length; i += 1) {
+        for (let i = 0; i < orders.length; i += 1) {
           const order = orders[i];
           const oldPrice = order.price;
           order.price = finalPrice;
@@ -318,7 +319,7 @@ actions.cancel = async (payload) => {
       for (let i = 0; i < orders.length; i += 1) {
         const order = orders[i];
         if (priceSymbol === '') {
-          priceSymbol = order.priceSymbol;
+          ({ priceSymbol } = order);
         }
         if (!api.assert(order.account === api.sender && order.ownedBy === 'u', 'all orders must be your own')
           || !api.assert(priceSymbol === order.priceSymbol, 'all orders must have the same price symbol')) {
@@ -443,7 +444,7 @@ actions.buy = async (payload) => {
         for (let i = 0; i < orders.length; i += 1) {
           const order = orders[i];
           if (priceSymbol === '') {
-            priceSymbol = order.priceSymbol;
+            ({ priceSymbol } = order);
           }
           if (!api.assert(!(order.ownedBy === 'u' && order.account === api.sender), 'cannot fill your own orders')
             || !api.assert(priceSymbol === order.priceSymbol, 'all orders must have the same price symbol')) {
@@ -460,13 +461,13 @@ actions.buy = async (payload) => {
         let feeTotal = api.BigNumber(0);
         let paymentTotal = api.BigNumber(0);
         let soldNfts = [];
-        let sellers = [];
+        const sellers = [];
         const sellerMap = {};
-        for (i = 0; i < orders.length; i += 1) {
+        for (let i = 0; i < orders.length; i += 1) {
           const order = orders[i];
           const finalPrice = api.BigNumber(order.price);
           const feePercent = order.fee / 10000;
-          let finalFee = finalPrice.multipliedBy(feePercent).decimalPlaces(token.precision)
+          let finalFee = finalPrice.multipliedBy(feePercent).decimalPlaces(token.precision);
           if (finalFee.gt(finalPrice)) {
             finalFee = finalPrice; // unlikely but need to be sure
           }
@@ -504,7 +505,7 @@ actions.buy = async (payload) => {
         // send fees to market account
         if (feeTotal.gt(0)) {
           feeTotal = feeTotal.toFixed(token.precision);
-          let res = await api.executeSmartContract('tokens', 'transfer', {
+          const res = await api.executeSmartContract('tokens', 'transfer', {
             to: finalMarketAccount, symbol: priceSymbol, quantity: feeTotal, isSignedWithActiveKey,
           });
           if (!api.assert(isTokenTransferVerified(res, api.sender, finalMarketAccount, priceSymbol, feeTotal, 'transfer'), 'unable to transfer market fees')) {
@@ -518,7 +519,7 @@ actions.buy = async (payload) => {
           if (info.paymentTotal.gt(0)) {
             const contractAction = info.ownedBy === 'u' ? 'transfer' : 'transferToContract';
             info.paymentTotal = info.paymentTotal.toFixed(token.precision);
-            let res = await api.executeSmartContract('tokens', contractAction, {
+            const res = await api.executeSmartContract('tokens', contractAction, {
               to: info.account, symbol: priceSymbol, quantity: info.paymentTotal, isSignedWithActiveKey,
             });
             if (api.assert(isTokenTransferVerified(res, api.sender, info.account, priceSymbol, info.paymentTotal, contractAction), `unable to transfer payment to ${info.account}`)) {
@@ -549,7 +550,7 @@ actions.buy = async (payload) => {
         // delete sold market orders
         const groupingMap = {};
         const soldSet = new Set(soldNfts);
-        for (i = 0; i < orders.length; i += 1) {
+        for (let i = 0; i < orders.length; i += 1) {
           const order = orders[i];
           if (soldSet.has(order.nftId)) {
             await api.db.remove(marketTableName, order);
@@ -658,7 +659,7 @@ actions.sell = async (payload) => {
             && ev.data.toType === 'c'
             && ev.data.symbol === symbol) {
             // transfer is verified, now we can add a market order
-            let instanceId = ev.data.id;
+            const instanceId = ev.data.id;
 
             const orderData = {
               nftId: instanceId,
