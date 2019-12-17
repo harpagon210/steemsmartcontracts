@@ -799,6 +799,8 @@ actions.burn = async (payload) => {
               const origLockTokens = nftInstance.lockedTokens;
               nftInstance.lockedTokens = finalLockTokens;
               if (isTransferSuccess) {
+                nftInstance.previousAccount = nftInstance.account;
+                nftInstance.previousOwnedBy = nftInstance.ownedBy;
                 nftInstance.account = 'null';
                 nftInstance.ownedBy = 'u';
                 nft.circulatingSupply -= 1;
@@ -864,6 +866,8 @@ actions.transfer = async (payload) => {
                 const origOwnedBy = nftInstance.ownedBy;
                 const newOwnedBy = finalToType === 'user' ? 'u' : 'c';
 
+                nftInstance.previousAccount = nftInstance.account;
+                nftInstance.previousOwnedBy = nftInstance.ownedBy;
                 nftInstance.account = finalTo;
                 nftInstance.ownedBy = newOwnedBy;
 
