@@ -7,7 +7,7 @@ const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 const MAX_ROUNDS_MISSED_IN_A_ROW = 3; // after that the witness is disabled
-const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 10; // 10 blocks
+const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 100; // 10 blocks
 const NB_TOKENS_TO_REWARD = '0.01902587';
 const NB_TOKENS_NEEDED_BEFORE_REWARDING = '0.09512935';
 // eslint-disable-next-line no-template-curly-in-string
@@ -46,13 +46,23 @@ actions.createSSC = async () => {
 
   for (let index = 0; index < witnesses.length; index += 1) {
     const witness = witnesses[index];
-    if (witness.verifiedRounds === undefined || witness.verifiedRounds === null) {
-      witness.verifiedRounds = 0;
-      witness.lastRoundVerified = null;
-      witness.lastBlockVerified = null;
-      await api.db.update('witnesses', witness);
-    }
+    witness.missedRounds = 0;
+    witness.missedRoundsInARow = 0;
+    witness.enabled = true;
+    await api.db.update('witnesses', witness);
   }
+
+  const schedules = await api.db.find('schedules', { });
+
+  for (let index = 0; index < schedules.length; index += 1) {
+    const schedule = schedules[index];
+    await api.db.remove('schedules', schedule);
+  }
+
+  const params = await api.db.findOne('params', {});
+  params.currentWitness = null;
+  params.lastWitnesses = [];
+  await api.db.update('params', params);
 };
 
 const updateWitnessRank = async (witness, approvalWeight) => {
