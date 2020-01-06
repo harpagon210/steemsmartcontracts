@@ -1622,7 +1622,7 @@ describe('witnesses', function () {
       });
   });
 
-  it('changes the current witness if it has not validated a round in time', (done) => {
+  it.skip('changes the current witness if it has not validated a round in time', (done) => {
     new Promise(async (resolve) => {
       
       await loadPlugin(blockchain);
