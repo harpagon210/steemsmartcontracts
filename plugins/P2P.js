@@ -1,37 +1,39 @@
 /* eslint-disable no-await-in-loop */
+const jayson = require('jayson');
+const http = require('http');
+const cors = require('cors');
+const express = require('express');
+const bodyParser = require('body-parser');
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
 const dsteem = require('dsteem');
-const io = require('socket.io');
-const ioclient = require('socket.io-client');
-const http = require('http');
-const { IPC } = require('../libs/IPC');
+const axios = require('axios');
 const { Queue } = require('../libs/Queue');
+const { IPC } = require('../libs/IPC');
 const { Database } = require('../libs/Database');
 
-const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./P2P.constants');
-
+const PLUGIN_NAME = 'P2P';
 const PLUGIN_PATH = require.resolve(__filename);
+const POST_TIMEOUT = 20000;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 
-const actions = {};
-
 const ipc = new IPC(PLUGIN_NAME);
-
-let socketServer = null;
-const sockets = {};
+let serverP2P = null;
+let server = null;
 let database = null;
-
 let currentRound = 0;
 let currentWitness = null;
 let lastBlockRound = 0;
-let lastVerifiedRoundNumber = 0;
 let lastProposedRoundNumber = 0;
 let lastProposedRound = null;
+let lastVerifiedRoundNumber = 0;
+let SIGNING_KEY = null;
+let WITNESS_ACCOUNT = null;
 
 let manageRoundPropositionTimeoutHandler = null;
-let manageP2PConnectionsTimeoutHandler = null;
 let sendingToSidechain = false;
+
+let requestId = 1;
 
 const steemClient = {
   account: null,
@@ -48,7 +50,7 @@ const steemClient = {
   },
   async sendCustomJSON(json) {
     const transaction = {
-      required_auths: [this.account],
+      required_auths: [this.witnessAccount],
       required_posting_auths: [],
       id: `ssc-${this.sidechainId}`,
       json: JSON.stringify(json),
@@ -66,8 +68,9 @@ const steemClient = {
           || (json.contractPayload.round && json.contractPayload.round > lastVerifiedRoundNumber))
         && sendingToSidechain === false) {
         sendingToSidechain = true;
-
+        console.log('test1')
         await this.client.broadcast.json(transaction, this.signingKey);
+        console.log('test2')
         if (json.contractAction === 'proposeRound') {
           lastProposedRound = null;
         }
@@ -81,23 +84,6 @@ const steemClient = {
       setTimeout(() => this.sendCustomJSON(json), 1000);
     }
   },
-};
-
-if (process.env.ACTIVE_SIGNING_KEY && process.env.ACCOUNT) {
-  steemClient.signingKey = dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY);
-  // eslint-disable-next-line prefer-destructuring
-  steemClient.account = process.env.ACCOUNT;
-}
-
-const generateRandomString = (length) => {
-  let text = '';
-  const possibleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-=';
-
-  for (let i = 0; i < length; i += 1) {
-    text += possibleChars.charAt(Math.floor(Math.random() * possibleChars.length));
-  }
-
-  return text;
 };
 
 async function calculateRoundHash(startBlockRound, endBlockRound) {
@@ -140,24 +126,6 @@ const findOne = async (contract, table, query) => {
   return result;
 };
 
-const errorHandler = async (id, error) => {
-  console.error(id, error);
-
-  if (error.code === 'ECONNREFUSED') {
-    if (sockets[id]) {
-      console.log(`closed connection with peer ${sockets[id].witness.account}/ ${sockets[id]} / ${id}`);
-      delete sockets[id];
-    }
-  }
-};
-
-const disconnectHandler = async (id, reason) => {
-  if (sockets[id]) {
-    console.log(`closed connection with peer ${sockets[id].witness.account} / ${sockets[id]} / ${id}`, reason);
-    delete sockets[id];
-  }
-};
-
 const checkSignature = (payload, signature, publicKey, isPayloadSHA256 = false) => {
   try {
     const sig = dsteem.Signature.fromString(signature);
@@ -192,10 +160,17 @@ const signPayload = (payload, isPayloadSHA256 = false) => {
 
   const buffer = Buffer.from(payloadHash, 'hex');
 
-  return this.signingKey.sign(buffer).toString();
+  return SIGNING_KEY.sign(buffer).toString();
+};
+
+const getReqId = () => {
+  requestId = requestId + 1 > Number.MAX_SAFE_INTEGER ? 1 : requestId + 1;
+
+  return requestId;
 };
 
 const verifyRoundHandler = async (witnessAccount, data) => {
+  console.log(witnessAccount, data)
   if (lastProposedRound !== null) {
     console.log('verification round received from', witnessAccount);
     const {
@@ -241,269 +216,46 @@ const verifyRoundHandler = async (witnessAccount, data) => {
   }
 };
 
-const proposeRoundHandler = async (id, data, cb) => {
-  console.log('round hash proposition received', id, data.round);
-  if (sockets[id] && sockets[id].authenticated === true) {
-    const witnessSocket = sockets[id];
-
-    const {
-      round,
-      roundHash,
-      signature,
-    } = data;
-
-    if (signature && typeof signature === 'string'
-      && round && Number.isInteger(round)
-      && roundHash && typeof roundHash === 'string' && roundHash.length === 64) {
-      // get the current round info
-      const params = await findOne('witnesses', 'params', {});
-
-      if (params.round === round && params.currentWitness === witnessSocket.witness.account) {
-        // get witness signing key
-        const witness = await findOne('witnesses', 'witnesses', { account: witnessSocket.witness.account });
-
-        if (witness !== null) {
-          const { signingKey } = witness;
-
-          // check if the signature is valid
-          if (checkSignature(roundHash, signature, signingKey, true)) {
-            if (currentRound < params.round) {
-              // eslint-disable-next-line prefer-destructuring
-              currentRound = params.round;
-            }
-
-            // eslint-disable-next-line prefer-destructuring
-            lastBlockRound = params.lastBlockRound;
-
-            const startblockNum = params.lastVerifiedBlockNumber + 1;
-            const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
-
-            if (calculatedRoundHash === roundHash) {
-              if (round > lastVerifiedRoundNumber) {
-                lastVerifiedRoundNumber = round;
-              }
-
-              const sig = signPayload(calculatedRoundHash, true);
-              const roundPayload = {
-                round,
-                roundHash,
-                signature: sig,
-              };
-
-              cb(null, roundPayload);
-              console.log('verified round', round);
-            } else {
-              // TODO: handle dispute
-              cb('round hash different', null);
-            }
-          } else {
-            cb('invalid signature', null);
-            console.error(`invalid signature, round ${round}, witness ${witness.account}`);
-          }
-        }
-      } else {
-        cb('non existing schedule', null);
-      }
-    }
-  } else if (sockets[id] && sockets[id].authenticated === false) {
-    cb('not authenticated', null);
-    console.error(`witness ${sockets[id].witness.account} not authenticated`);
-  }
-};
-
-const handshakeResponseHandler = async (id, data) => {
-  const { authToken, signature, account } = data;
-  let authFailed = true;
-
-  if (authToken && typeof authToken === 'string' && authToken.length === 32
-    && signature && typeof signature === 'string' && signature.length === 130
-    && account && typeof account === 'string' && account.length >= 3 && account.length <= 16
-    && sockets[id]) {
-    const witnessSocket = sockets[id];
-
-    // check if this peer is a witness
-    const witness = await findOne('witnesses', 'witnesses', { account });
-
-    if (witness && witnessSocket.witness.authToken === authToken) {
-      const {
-        signingKey,
-      } = witness;
-
-      if (checkSignature({ authToken }, signature, signingKey)) {
-        witnessSocket.witness.account = account;
-        witnessSocket.authenticated = true;
-        authFailed = false;
-        witnessSocket.socket.on('proposeRound', (round, cb) => proposeRoundHandler(id, round, cb));
-        witnessSocket.socket.emitWithTimeout = (event, arg, cb, timeout) => {
-          const finalTimeout = timeout || 10000;
-          let called = false;
-          let timeoutHandler = null;
-          witnessSocket.socket.emit(event, arg, (err, res) => {
-            if (called) return;
-            called = true;
-            if (timeoutHandler) {
-              clearTimeout(timeoutHandler);
-            }
-            cb(err, res);
-          });
-
-          timeoutHandler = setTimeout(() => {
-            if (called) return;
-            called = true;
-            cb(new Error('callback timeout'));
-          }, finalTimeout);
-        };
-        console.log(`witness ${witnessSocket.witness.account} is now authenticated`);
-      }
-    }
-  }
-
-  if (authFailed === true && sockets[id]) {
-    console.log(`handshake failed, dropping connection with peer ${account}`);
-    sockets[id].socket.disconnect();
-    delete sockets[id];
-  }
-};
-
-const handshakeHandler = async (id, payload, cb) => {
-  const { authToken, account, signature } = payload;
-  let authFailed = true;
-
-  if (authToken && typeof authToken === 'string' && authToken.length === 32
-    && signature && typeof signature === 'string' && signature.length === 130
-    && account && typeof account === 'string' && account.length >= 3 && account.length <= 16
-    && sockets[id]) {
-    const witnessSocket = sockets[id];
-
-    // get the current round info
-    const params = await findOne('witnesses', 'params', {});
-    const { round } = params;
-    // check if the account is a witness scheduled for the current round
-    const schedule = await findOne('witnesses', 'schedules', { round, witness: account });
-
-    if (schedule) {
-      // get the witness details
-      const witness = await findOne('witnesses', 'witnesses', {
-        account,
-      });
-
-      if (witness) {
-        const {
-          IP,
-          signingKey,
-        } = witness;
-
-        const ip = witnessSocket.address;
-        if ((IP === ip || IP === ip.replace('::ffff:', ''))
-          && checkSignature({ authToken }, signature, signingKey)) {
-          witnessSocket.witness.account = account;
-          authFailed = false;
-          cb({ authToken, signature: signPayload({ authToken }), account: this.witnessAccount });
-
-          if (witnessSocket.authenticated !== true) {
-            const respAuthToken = generateRandomString(32);
-            witnessSocket.witness.authToken = respAuthToken;
-            witnessSocket.socket.emit('handshake',
-              {
-                authToken: respAuthToken,
-                signature: signPayload({ authToken: respAuthToken }),
-                account: this.witnessAccount,
-              },
-              data => handshakeResponseHandler(id, data));
-          }
-        }
-      }
-    }
-  }
-
-  if (authFailed === true && sockets[id]) {
-    console.log(`handshake failed, dropping connection with peer ${account}`);
-    sockets[id].socket.disconnect();
-    delete sockets[id];
-  }
-};
-
-const connectionHandler = async (socket) => {
-  const { id } = socket;
-  // if already connected to this peer, close the web socket
-  if (sockets[id]) {
-    console.log('connectionHandler', 'closing because of existing connection with id', id);
-    socket.disconnect();
-  } else {
-    socket.on('close', reason => disconnectHandler(id, reason));
-    socket.on('disconnect', reason => disconnectHandler(id, reason));
-    socket.on('error', error => errorHandler(id, error));
-
-    const authToken = generateRandomString(32);
-    sockets[id] = {
-      socket,
-      address: socket.handshake.address,
-      witness: {
-        authToken,
+const proposeRound = async (witness, round, retry = 0) => {
+  const witnessRec = await findOne('witnesses', 'witnesses', { account: witness });
+  try {
+    const data = {
+      jsonrpc: '2.0',
+      id: getReqId(),
+      method: 'proposeRoundHash',
+      params: {
+        round,
       },
-      authenticated: false,
     };
+    const url = `http://${witnessRec.IP}:${witnessRec.P2PPort}/p2p`;
 
-    socket.on('handshake', (payload, cb) => handshakeHandler(id, payload, cb));
-
-    sockets[id].socket.emit('handshake',
-      {
-        authToken,
-        signature: signPayload({ authToken }),
-        account: this.witnessAccount,
+    console.log(url)
+    const response = await axios({
+      url,
+      method: 'POST',
+      timeout: POST_TIMEOUT,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
       },
-      data => handshakeResponseHandler(id, data));
-  }
-};
-
-const connectToWitness = (witness) => {
-  const {
-    IP,
-    P2PPort,
-    account,
-    signingKey,
-  } = witness;
-
-  const id = `${IP}:${P2PPort}`;
-  sockets[id] = {
-    socket: null,
-    address: IP,
-    witness: {
-      account,
-      signingKey,
-    },
-    authenticated: false,
-  };
-
-  const socket = ioclient.connect(`http://${IP}:${P2PPort}`);
-  sockets[id].socket = socket;
-
-  socket.on('disconnect', reason => disconnectHandler(id, reason));
-  socket.on('error', error => errorHandler(id, error));
-  socket.on('handshake', (payload, cb) => handshakeHandler(id, payload, cb));
-};
-
-const proposeRound = async (witness, round) => {
-  const witnessSocket = Object.values(sockets).find(w => w.witness.account === witness);
-  // if a websocket with this witness is already opened and authenticated
-  if (witnessSocket !== undefined && witnessSocket.authenticated === true) {
-    // eslint-disable-next-line func-names
-    witnessSocket.socket.emitWithTimeout('proposeRound', round, (err, res) => {
-      if (err) console.error(witness, err);
-      if (res) {
-        verifyRoundHandler(witness, res);
-      } else if (err === 'round hash different') {
-        setTimeout(() => {
-          proposeRound(witness, round);
-        }, 3000);
-      }
+      data,
     });
-    console.log('proposing round', round.round, 'to witness', witnessSocket.witness.account);
-  } else {
-    // wait for the connection to be established
-    setTimeout(() => {
-      proposeRound(witness, round);
-    }, 3000);
+    console.log(response.data)
+    if (response.data.result) {
+      verifyRoundHandler(witness, response.data.result);
+    } else {
+      console.error(`Error posting to ${witness} / round ${round} / ${response.error.code} / ${response.error.message}`);
+
+      if (response.error.message === 'round hash different') {
+        if (retry < 3) {
+          setTimeout(() => {
+            proposeRound(witness, round, retry + 1);
+          }, 4000);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Error posting to ${witness} / round ${round} / ${error}`);
   }
 };
 
@@ -531,11 +283,11 @@ const manageRoundProposition = async () => {
     const schedules = await find('witnesses', 'schedules', { round: currentRound });
 
     // check if this witness is part of the round
-    const witnessFound = schedules.find(w => w.witness === this.witnessAccount);
+    const witnessFound = schedules.find(w => w.witness === WITNESS_ACCOUNT);
 
     if (witnessFound !== undefined
       && lastProposedRound === null
-      && currentWitness === this.witnessAccount
+      && currentWitness === WITNESS_ACCOUNT
       && currentRound > lastProposedRoundNumber) {
       // handle round propositions
       const block = await database.getBlockInfo(lastBlockRound);
@@ -549,18 +301,19 @@ const manageRoundProposition = async () => {
         lastProposedRound = {
           round: currentRound,
           roundHash: calculatedRoundHash,
-          signatures: [[this.witnessAccount, signature]],
+          signatures: [[WITNESS_ACCOUNT, signature]],
         };
 
         const round = {
           round: currentRound,
           roundHash: calculatedRoundHash,
           signature,
+          account: process.env.ACCOUNT,
         };
 
         for (let index = 0; index < schedules.length; index += 1) {
           const schedule = schedules[index];
-          if (schedule.witness !== this.witnessAccount) {
+          if (schedule.witness !== WITNESS_ACCOUNT) {
             proposeRound(schedule.witness, round);
           }
         }
@@ -573,38 +326,96 @@ const manageRoundProposition = async () => {
   }, 3000);
 };
 
-const manageP2PConnections = async () => {
-  if (currentRound > 0) {
-    // get the witness participating in this round
-    const schedules = await find('witnesses', 'schedules', { round: currentRound });
+const proposeRoundHandler = async (args, callback) => {
+  console.log('round hash proposition received', args.round.account, args.round);
 
-    // check if this witness is part of the round
-    const witnessFound = schedules.find(w => w.witness === this.witnessAccount);
+  const {
+    round,
+    roundHash,
+    signature,
+    account,
+  } = args.round;
 
-    if (witnessFound !== undefined) {
-      // connect to the witnesses
-      for (let index = 0; index < schedules.length; index += 1) {
-        const schedule = schedules[index];
-        const witnessSocket = Object.values(sockets)
-          .find(w => w.witness.account === schedule.witness);
-        if (schedule.witness !== this.witnessAccount
-          && witnessSocket === undefined) {
-          // connect to the witness
-          const witnessInfo = await findOne('witnesses', 'witnesses', { account: schedule.witness });
-          if (witnessInfo !== null) {
-            connectToWitness(witnessInfo);
+  if (signature && typeof signature === 'string'
+    && round && Number.isInteger(round)
+    && roundHash && typeof roundHash === 'string' && roundHash.length === 64) {
+    // get the current round info
+    const params = await findOne('witnesses', 'params', {});
+
+    if (params && params.round && params.round === round && params.currentWitness === account) {
+      // get witness signing key
+      const witness = await findOne('witnesses', 'witnesses', { account });
+
+      if (witness !== null) {
+        const { signingKey } = witness;
+
+        // check if the signature is valid
+        if (checkSignature(roundHash, signature, signingKey, true)) {
+          if (currentRound < params.round) {
+            // eslint-disable-next-line prefer-destructuring
+            currentRound = params.round;
           }
-        }
-      }
-    }
-  }
 
-  manageP2PConnectionsTimeoutHandler = setTimeout(() => {
-    manageP2PConnections();
-  }, 3000);
+          // eslint-disable-next-line prefer-destructuring
+          lastBlockRound = params.lastBlockRound;
+
+          const startblockNum = params.lastVerifiedBlockNumber + 1;
+          const calculatedRoundHash = await calculateRoundHash(startblockNum, lastBlockRound);
+
+          if (calculatedRoundHash === roundHash) {
+            if (round > lastVerifiedRoundNumber) {
+              lastVerifiedRoundNumber = round;
+            }
+
+            const sig = signPayload(calculatedRoundHash, true);
+            const roundPayload = {
+              round,
+              roundHash,
+              signature: sig,
+            };
+
+            callback(null, roundPayload);
+            console.log('verified round', round);
+          } else {
+            // TODO: handle dispute
+            callback({
+              code: 404,
+              message: 'round hash different',
+            }, null);
+          }
+        } else {
+          callback({
+            code: 401,
+            message: 'invalid signature',
+          }, null);
+          console.error(`invalid signature, round ${round}, witness ${witness.account}`);
+        }
+      } else {
+        callback({
+          code: 404,
+          message: 'invalid request',
+        }, null);
+      }
+    } else {
+      callback({
+        code: 404,
+        message: 'invalid request',
+      }, null);
+    }
+  } else {
+    callback({
+      code: 404,
+      message: 'invalid request',
+    }, null);
+  }
 };
 
-// init the P2P plugin
+function p2p() {
+  return {
+    proposeRoundHash: (args, callback) => proposeRoundHandler(args, callback),
+  };
+}
+
 const init = async (conf, callback) => {
   const {
     p2pPort,
@@ -625,45 +436,46 @@ const init = async (conf, callback) => {
   } else {
     database = new Database();
     await database.init(databaseURL, databaseName);
-
     streamNodes.forEach(node => steemClient.nodes.push(node));
+    steemClient.account = process.env.ACCOUNT;
     steemClient.sidechainId = chainId;
     steemClient.steemAddressPrefix = steemAddressPrefix;
     steemClient.steemChainId = steemChainId;
 
-    this.witnessAccount = process.env.ACCOUNT || null;
-    this.signingKey = process.env.ACTIVE_SIGNING_KEY
+    WITNESS_ACCOUNT = process.env.ACCOUNT || null;
+    steemClient.witnessAccount = WITNESS_ACCOUNT;
+    SIGNING_KEY = process.env.ACTIVE_SIGNING_KEY
       ? dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY)
       : null;
+    steemClient.signingKey = SIGNING_KEY;
 
-    // enable the web socket server
-    if (this.signingKey && this.witnessAccount) {
-      const server = http.createServer();
-      server.listen(p2pPort, '0.0.0.0');
-      socketServer = io.listen(server);
-      socketServer.on('connection', socket => connectionHandler(socket));
-      console.log(`P2P Node now listening on port ${p2pPort}`); // eslint-disable-line
+    // enable the server
+    if (SIGNING_KEY && WITNESS_ACCOUNT) {
+      serverP2P = express();
+      serverP2P.use(cors({ methods: ['POST'] }));
+      serverP2P.use(bodyParser.urlencoded({ extended: true }));
+      serverP2P.use(bodyParser.json());
+      serverP2P.set('trust proxy', true);
+      serverP2P.set('trust proxy', 'loopback');
+      serverP2P.post('/p2p', jayson.server(p2p()).middleware());
+
+      server = http.createServer(serverP2P)
+        .listen(p2pPort, () => {
+          console.log(`P2P server now listening on port ${p2pPort}`); // eslint-disable-line
+        });
 
       manageRoundProposition();
-      manageP2PConnections();
     }
 
     callback(null);
   }
 };
 
-// stop the P2P plugin
-const stop = (callback) => {
+function stop() {
   if (manageRoundPropositionTimeoutHandler) clearTimeout(manageRoundPropositionTimeoutHandler);
-  if (manageP2PConnectionsTimeoutHandler) clearTimeout(manageP2PConnectionsTimeoutHandler);
-
-  if (socketServer) {
-    socketServer.close();
-  }
-
+  server.close();
   if (database) database.close();
-  callback();
-};
+}
 
 ipc.onReceiveMessage((message) => {
   const {
@@ -671,27 +483,22 @@ ipc.onReceiveMessage((message) => {
     payload,
   } = message;
 
-  if (action === 'init') {
-    init(payload, (res) => {
-      console.log('successfully initialized'); // eslint-disable-line no-console
-      ipc.reply(message, res);
-    });
-  } else if (action === 'stop') {
-    stop((res) => {
+  switch (action) {
+    case 'init':
+      init(payload, (res) => {
+        console.log('successfully initialized'); // eslint-disable-line no-console
+        ipc.reply(message, res);
+      });
+      break;
+    case 'stop':
+      ipc.reply(message, stop());
       console.log('successfully stopped'); // eslint-disable-line no-console
-      ipc.reply(message, res);
-    });
-  } else if (action && typeof actions[action] === 'function') {
-    actions[action](payload, (res) => {
-      // console.log('action', action, 'res', res, 'payload', payload);
-      ipc.reply(message, res);
-    });
-  } else {
-    ipc.reply(message);
+      break;
+    default:
+      ipc.reply(message);
+      break;
   }
 });
 
-module.exports.PLUGIN_PATH = PLUGIN_PATH;
 module.exports.PLUGIN_NAME = PLUGIN_NAME;
-module.exports.PLUGIN_ACTIONS = PLUGIN_ACTIONS;
-module.exports.PLUGIN_ACTIONS = PLUGIN_ACTIONS;
+module.exports.PLUGIN_PATH = PLUGIN_PATH;
