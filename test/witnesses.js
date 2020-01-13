@@ -144,7 +144,7 @@ let witnessesContractPayload = {
   code: base64ContractCode,
 };
 
-describe('witnesses', function () {
+describe.skip('witnesses', function () {
   this.timeout(60000);
 
   before((done) => {

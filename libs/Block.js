@@ -30,8 +30,6 @@ class Block {
     return SHA256(
       this.previousHash
       + this.previousDatabaseHash
-      + this.databaseHash
-      + this.merkleRoot
       + this.blockNumber.toString()
       + this.refSteemBlockNumber.toString()
       + this.refSteemBlockId
@@ -101,17 +99,28 @@ class Block {
     }
 
     if (this.refSteemBlockNumber >= 37899120) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+      // virtualTransactions
+      // .push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
     }
 
+    if (this.refSteemBlockNumber >= 37899120) {
+      const nftContract = await database.findContract({ name: 'nft' });
+
+      if (nftContract !== null) {
+        virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
+      }
+    }
+
+
+    /*
     if (this.refSteemBlockNumber >= 38145385) {
       // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
       if (this.refSteemBlockNumber % 1200 === 0) {
-        virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+        virtualTransactions
+          .push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{
+            "isSignedWithActiveKey": true }'));
       }
-
-      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
-    }
+    } */
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {

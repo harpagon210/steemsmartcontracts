@@ -158,7 +158,9 @@ describe('Database', function () {
           assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
           assert.equal(genesisBlock.merkleRoot, '5264617bda99adc846ec4100f0f3ecaf843e3d9122d628a5d096a1230b970e9f');
       } else {
-        assert.equal(true, false);
+        assert.equal(genesisBlock.hash, 'c1dee96a6b7a0cc9408ccb407ab641f444c26f6859ba33b9c9ba2c0a368d20b2');
+        assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
+        assert.equal(genesisBlock.merkleRoot, '7048315fc8861b98fe1b2a82b86a24f80aa6e6dd225223e39771807532f5fb21');
       }
 
       resolve();
