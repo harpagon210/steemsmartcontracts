@@ -1,8 +1,6 @@
 require('dotenv').config();
-const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
 const { fork } = require('child_process');
-const database = require('../plugins/Database');
 const blockchain = require('../plugins/Blockchain');
 const jsonRPCServer = require('../plugins/JsonRPCServer');
 const streamer = require('../plugins/Streamer.simulator');
@@ -96,18 +94,11 @@ const unloadPlugin = async (plugin) => {
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
 async function start() {
-  let res = await loadPlugin(database);
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-    res = await send(getPlugin(blockchain),
-      { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
+    res = await loadPlugin(streamer);
     if (res && res.payload === null) {
-      res = await loadPlugin(streamer);
-      if (res && res.payload === null) {
-        res = await loadPlugin(jsonRPCServer);
-      }
+      res = await loadPlugin(jsonRPCServer);
     }
   }
 }
@@ -116,7 +107,6 @@ async function stop(callback) {
   await unloadPlugin(jsonRPCServer);
   const res = await unloadPlugin(streamer);
   await unloadPlugin(blockchain);
-  await unloadPlugin(database);
   callback(res.payload);
 }
 
@@ -137,15 +127,19 @@ function stopApp(signal = 0) {
 start();
 
 // graceful app closing
-nodeCleanup((exitCode, signal) => {
-  if (signal) {
-    console.log('Closing App... ', exitCode, signal); // eslint-disable-line
+let shuttingDown = false;
 
-    stopApp();
-
-    nodeCleanup.uninstall(); // don't call cleanup handler again
-    return false;
+const gracefulShutdown = () => {
+  if (shuttingDown === false) {
+    shuttingDown = true;
+    stopApp('SIGINT');
   }
+};
 
-  return true;
+process.on('SIGTERM', () => {
+  gracefulShutdown();
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown();
 });

@@ -35,7 +35,6 @@ function sendBlock(block) {
 
 function replayFile(callback) {
   let lr;
-
   // make sure file exists
   fs.stat(filePath, async (err, stats) => {
     if (!err && stats.isFile()) {
@@ -108,7 +107,7 @@ function init(payload) {
   const { blocksLogFilePath, streamNodes } = payload;
   filePath = blocksLogFilePath;
   steemNode = streamNodes[0]; // eslint-disable-line
-  steemClient = process.env.NODE_ENV === 'test' ? new dsteem.Client('https://testnet.steemitdev.com', { addressPrefix: 'TST', chainId: '46d82ab7d8db682eb1959aed0ada039a6d49afa1602491f93dde9cac3e8e6c32' }) : new dsteem.Client(steemNode);
+  steemClient = new dsteem.Client(steemNode);
 }
 
 ipc.onReceiveMessage((message) => {

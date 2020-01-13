@@ -81,23 +81,6 @@ class Bootstrap {
 
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
-    // dice contract
-    /* contractCode = await fs.readFileSync('./contracts/bootstrap/dice.js');
-    contractCode = contractCode.toString();
-
-    base64ContractCode = Base64.encode(contractCode);
-
-    contractPayload = {
-      name: 'dice',
-      params: '',
-      code: base64ContractCode,
-    };
-
-    transactions.push(new Transaction(
-      genesisSteemBlock, 0, 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-    */
-
-
     // bootstrap transactions
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'create', `{ "name": "Steem Engine Token", "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "precision": ${CONSTANTS.UTILITY_TOKEN_PRECISION}, "maxSupply": ${Number.MAX_SAFE_INTEGER} }`));
     transactions.push(new Transaction(genesisSteemBlock, 0, 'null', 'tokens', 'updateMetadata', `{"symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "metadata": { "url":"https://steem-engine.com", "icon": "https://s3.amazonaws.com/steem-engine/images/icon_steem-engine_gradient.svg", "desc": "ENG is the native token for the Steem Engine platform" }}`));

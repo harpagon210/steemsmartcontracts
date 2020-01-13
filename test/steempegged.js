@@ -4,13 +4,11 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const { MongoClient } = require('mongodb');
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Transaction } = require('../libs/Transaction');
 
 const { CONSTANTS } = require('../libs/Constants');
-
-//process.env.NODE_ENV = 'test';
 
 const conf = {
   chainId: "test-chain-id",
@@ -21,11 +19,13 @@ const conf = {
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
+  streamNodes: ["https://api.steemit.com"],
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -169,10 +169,9 @@ describe('Steem Pegged', function () {
   it('buys STEEMP', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -190,9 +189,7 @@ describe('Steem Pegged', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -201,10 +198,9 @@ describe('Steem Pegged', function () {
               $in: ['harpagon', 'satoshi']
             }
           }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
       assert.equal(balances[0].balance, 0.001);
       assert.equal(balances[0].account, 'harpagon');
       assert.equal(balances[0].symbol, 'STEEMP');
@@ -217,7 +213,7 @@ describe('Steem Pegged', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -225,10 +221,9 @@ describe('Steem Pegged', function () {
   it('withdraws STEEM', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -248,9 +243,7 @@ describe('Steem Pegged', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      let res = await database1.find({
           contract: 'tokens',
           table: 'balances',
           query: {
@@ -259,10 +252,9 @@ describe('Steem Pegged', function () {
               $in: ['harpagon', 'satoshi']
             }
           }
-        }
-      });
+        });
 
-      let balances = res.payload;
+      let balances = res;
 
       assert.equal(balances[0].balance, 0);
       assert.equal(balances[0].account, 'harpagon');
@@ -272,17 +264,14 @@ describe('Steem Pegged', function () {
       assert.equal(balances[1].account, 'satoshi');
       assert.equal(balances[1].symbol, 'STEEMP');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'steempegged',
           table: 'withdrawals',
           query: {
           }
-        }
-      });
+        });
 
-      let withdrawals = res.payload;
+      let withdrawals = res;
 
       assert.equal(withdrawals[0].id, 'TXID1236-fee');
       assert.equal(withdrawals[0].type, 'STEEM');
@@ -324,7 +313,7 @@ describe('Steem Pegged', function () {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -332,10 +321,9 @@ describe('Steem Pegged', function () {
   it('does not withdraw STEEM', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(CONSTANTS.FORK_BLOCK_NUMBER, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
@@ -355,43 +343,37 @@ describe('Steem Pegged', function () {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             symbol: 'STEEMP',
             account: 'satoshi'
           }
-        }
-      });
+        });
 
-      let balance = res.payload;
+      let balance = res;
 
       assert.equal(balance.balance, 0.87);
       assert.equal(balance.account, 'satoshi');
       assert.equal(balance.symbol, 'STEEMP');
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND,
-        payload: {
+      res = await database1.find({
           contract: 'steempegged',
           table: 'withdrawals',
           query: {
             'recipient': 'satoshi'
           }
-        }
-      });
+        });
 
-      let withdrawals = res.payload;
+      let withdrawals = res;
       assert.equal(withdrawals.length, 0);
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

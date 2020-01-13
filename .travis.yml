@@ -2,3 +2,6 @@ services: mongodb
 language: node_js
 node_js:
   - "10.5"
+script:
+  - npm run lint
+  - npm run test

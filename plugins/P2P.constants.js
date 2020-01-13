@@ -1,7 +1,7 @@
-const PLUGIN_NAME = 'Blockchain';
+const PLUGIN_NAME = 'P2P';
 
 const PLUGIN_ACTIONS = {
-  PRODUCE_NEW_BLOCK_SYNC: 'produceNewBlockSync',
+  ADD_PEER: 'addPeer',
 };
 
 module.exports.PLUGIN_NAME = PLUGIN_NAME;

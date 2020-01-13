@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const { MongoClient } = require('mongodb');
 
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Transaction } = require('../libs/Transaction');
 
@@ -19,11 +19,13 @@ const conf = {
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
+  streamNodes: ["https://api.steemit.com"],
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database1 = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -142,10 +144,9 @@ describe('sscstore smart contract', function() {
   it('should buy tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "steemsc", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
@@ -160,19 +161,16 @@ describe('sscstore smart contract', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'Satoshi',
             symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
-        }
-      });
+        });
 
-      const balanceSatoshi = res.payload;
+      const balanceSatoshi = res;
 
       assert.equal(balanceSatoshi.balance, CONSTANTS.SSC_STORE_QTY);
 
@@ -180,7 +178,7 @@ describe('sscstore smart contract', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -188,10 +186,9 @@ describe('sscstore smart contract', function() {
   it('should not buy tokens', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'Satoshi', 'sscstore', 'buy', '{ "recipient": "Satoshi", "amountSTEEMSBD": "0.001 STEEM", "isSignedWithActiveKey": true }'));
@@ -206,19 +203,16 @@ describe('sscstore smart contract', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'Satoshi',
             symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
-        }
-      });
+        });
 
-      let balanceSatoshi = res.payload;
+      let balanceSatoshi = res;
 
       assert.equal(balanceSatoshi, null);
 
@@ -236,19 +230,16 @@ describe('sscstore smart contract', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      res = await database1.findOne({
           contract: 'tokens',
           table: 'balances',
           query: {
             account: 'Satoshi',
             symbol: CONSTANTS.UTILITY_TOKEN_SYMBOL
           }
-        }
-      });
+        });
 
-      balanceSatoshi = res.payload;
+      balanceSatoshi = res;
 
       assert.equal(balanceSatoshi, null);
 
@@ -256,7 +247,7 @@ describe('sscstore smart contract', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -265,10 +256,9 @@ describe('sscstore smart contract', function() {
   it('should update params', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
@@ -283,17 +273,14 @@ describe('sscstore smart contract', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'sscstore',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       assert.equal(params.priceSBD, 0.002);
       assert.equal(params.priceSteem, 0.003);
@@ -304,7 +291,7 @@ describe('sscstore smart contract', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });
@@ -312,10 +299,9 @@ describe('sscstore smart contract', function() {
   it('should not update params', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(30529000, 'TXID1236', 'steemsc', 'sscstore', 'updateParams', '{ "priceSBD": 0.002, "priceSteem": 0.003, "quantity": 5, "disabled": true }'));
@@ -331,17 +317,14 @@ describe('sscstore smart contract', function() {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', {
-        action: database.PLUGIN_ACTIONS.FIND_ONE,
-        payload: {
+      let res = await database1.findOne({
           contract: 'sscstore',
           table: 'params',
           query: {
           }
-        }
-      });
+        });
 
-      let params = res.payload;
+      let params = res;
 
       assert.equal(params.priceSBD, 0.002);
       assert.equal(params.priceSteem, 0.003);
@@ -352,7 +335,7 @@ describe('sscstore smart contract', function() {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database1.close();
         done();
       });
   });

@@ -3,11 +3,12 @@ const { fork } = require('child_process');
 const assert = require('assert');
 const { Base64 } = require('js-base64');
 const { MongoClient } = require('mongodb');
-
-const database = require('../plugins/Database');
+const { Database } = require('../libs/Database');
 const blockchain = require('../plugins/Blockchain');
 const { Block } = require('../libs/Block');
 const { Transaction } = require('../libs/Transaction');
+const { CONSTANTS } = require('../libs/Constants');
+const configFile = require('../config.json');
 
 const conf = {
   chainId: "test-chain-id",
@@ -18,11 +19,13 @@ const conf = {
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
+  streamNodes: ["https://api.steemit.com"],
 };
 
 let plugins = {};
 let jobs = new Map();
 let currentJobId = 0;
+let database = null;
 
 function send(pluginName, from, message) {
   const plugin = plugins[pluginName];
@@ -81,7 +84,7 @@ const loadPlugin = (newPlugin) => {
 
   plugins[newPlugin.PLUGIN_NAME] = plugin;
 
-  return send(newPlugin.PLUGIN_NAME, 'MASTER', { action: 'init', payload: conf });
+  return send(newPlugin.PLUGIN_NAME, 'MASTER', { action: 'init', payload: Object.assign(conf, { chainId: configFile.chainId }, { genesisSteemBlock: configFile.genesisSteemBlock }) });
 };
 
 const unloadPlugin = (plugin) => {
@@ -142,17 +145,29 @@ describe('Database', function () {
   it('should get the genesis block', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_BLOCK_INFO, payload: 0 });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
+      const genesisBlock = await database.getBlockInfo(0);
+      assert.equal(genesisBlock.blockNumber, 0);
 
-      assert.equal(res.payload.blockNumber, 0);
+      if (configFile.chainId === 'testnet1'
+        && configFile.genesisSteemBlock === 29862600
+        && CONSTANTS.UTILITY_TOKEN_SYMBOL === 'SSC') {
+          assert.equal(genesisBlock.hash, '48dab740d11ceacdae78d4625730311b22224f2b7b74208221606029ca6a7c8c');
+          assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
+          assert.equal(genesisBlock.merkleRoot, '5264617bda99adc846ec4100f0f3ecaf843e3d9122d628a5d096a1230b970e9f');
+      } else {
+        assert.equal(genesisBlock.hash, 'c1dee96a6b7a0cc9408ccb407ab641f444c26f6859ba33b9c9ba2c0a368d20b2');
+        assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
+        assert.equal(genesisBlock.merkleRoot, '7048315fc8861b98fe1b2a82b86a24f80aa6e6dd225223e39771807532f5fb21');
+      }
+
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -160,9 +175,9 @@ describe('Database', function () {
   it('should get the latest block', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', ''));
@@ -177,7 +192,7 @@ describe('Database', function () {
         'PREV_HASH',
       );
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
+      await database.addBlock(block);
 
       transactions = [];
       transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'contract', 'deploy', ''));
@@ -192,15 +207,15 @@ describe('Database', function () {
         'PREV_HASH',
       );
 
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.ADD_BLOCK, payload: block });
+      await database.addBlock(block);
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      assert.equal(res.payload.blockNumber, 123456790);
+      const res = await database.getLatestBlockInfo();
+      assert.equal(res.blockNumber, 123456790);
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -256,9 +271,9 @@ describe('Smart Contracts', function ()  {
   it('should deploy a basic smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -287,8 +302,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
-      const contract = res.payload;
+      const contract = await database.findContract({ name: 'testContract' });
 
       assert.equal(contract._id, 'testContract');
       assert.equal(contract.owner, 'steemsc');
@@ -296,7 +310,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -304,9 +318,9 @@ describe('Smart Contracts', function ()  {
   it('should create a table during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -336,19 +350,18 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
-      const contract = res.payload;
+      const contract = await database.findContract({ name: 'testContract' });
 
       assert.notEqual(contract.tables['testContract_testTable'], undefined);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
+      res = await database.getTableDetails({ contract: 'testContract', table: 'testTable' });
 
-      assert.notEqual(res.payload, null);
+      assert.notEqual(res, null);
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -356,9 +369,9 @@ describe('Smart Contracts', function ()  {
   it('should create a table with indexes during the smart contract deployment', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -388,8 +401,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
-      const table = res.payload;
+      const table = await database.getTableDetails({ contract: 'testContract', table: 'testTable' });
       const { indexes } = table;
 
       assert.equal(indexes._id_[0][0], '_id');
@@ -405,7 +417,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -413,10 +425,10 @@ describe('Smart Contracts', function ()  {
   it('should add a record into a smart contract table', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
+      
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
@@ -455,8 +467,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "steemsc" } } });
-      const user = res.payload;
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } });
 
       assert.equal(user.id, 'steemsc');
 
@@ -464,7 +475,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -472,10 +483,10 @@ describe('Smart Contracts', function ()  {
   it('should update a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
+      
       const smartContractCode = `
         actions.createSSC = async (payload) => {
           // Initialize the smart contract via the create action
@@ -526,8 +537,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "steemsc" } } });
-      const user = res.payload;
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } })
 
       assert.equal(user.id, 'steemsc');
       assert.equal(user.username, 'MyUsernameUpdated');
@@ -536,7 +546,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -544,9 +554,9 @@ describe('Smart Contracts', function ()  {
   it('should remove a record from a smart contract table', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -594,8 +604,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "steemsc" } } });
-      const user = res.payload;
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } });
 
       assert.equal(user, null);
 
@@ -603,7 +612,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -611,9 +620,9 @@ describe('Smart Contracts', function ()  {
   it('should read the records from a smart contract table via pagination', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -670,8 +679,7 @@ describe('Smart Contracts', function ()  {
         limit: 5
       };
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      let users = res.payload;
+      let users = await database.find(payload);
 
       assert.equal(users[0]._id, 1);
       assert.equal(users[4]._id, 5);
@@ -684,8 +692,7 @@ describe('Smart Contracts', function ()  {
         offset: 5,
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);
 
       assert.equal(users[0]._id, 6);
       assert.equal(users[4]._id, 10);
@@ -698,8 +705,7 @@ describe('Smart Contracts', function ()  {
         offset: 10,
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);
 
       assert.equal(users.length, 0);
 
@@ -707,7 +713,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -715,9 +721,9 @@ describe('Smart Contracts', function ()  {
   it('should read the records from a smart contract table using an index ascending (integer)', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -778,8 +784,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      let users = res.payload;
+      let users = await database.find(payload);
 
       assert.equal(users[0]._id, 6);
       assert.equal(users[4]._id, 2);
@@ -793,8 +798,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);
 
       assert.equal(users[0]._id, 10);
       assert.equal(users[4]._id, 5);
@@ -808,8 +812,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);
 
       assert.equal(users.length, 0);
 
@@ -817,7 +820,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -825,9 +828,9 @@ describe('Smart Contracts', function ()  {
   it.skip('should read the records from a smart contract table using an index ascending (string)', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -888,8 +891,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      let users = res.payload;
+      let users = await database.find(payload);;
 
       assert.equal(users[0]._id, 6);
       assert.equal(users[4]._id, 2);
@@ -903,8 +905,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);;
 
       assert.equal(users[0]._id, 10);
       assert.equal(users[4]._id, 5);
@@ -918,8 +919,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: false }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);;
 
       assert.equal(users.length, 0);
 
@@ -927,7 +927,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -935,9 +935,9 @@ describe('Smart Contracts', function ()  {
   it('should read the records from a smart contract table using an index descending (integer)', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -997,8 +997,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      let users = res.payload;
+      let users = await database.find(payload);;
 
       assert.equal(users[0]._id, 5);
       assert.equal(users[4]._id, 10);
@@ -1012,8 +1011,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);
 
       assert.equal(users[0]._id, 2);
       assert.equal(users[4]._id, 6);
@@ -1027,8 +1025,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);;
 
       assert.equal(users.length, 0);
 
@@ -1036,7 +1033,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1044,9 +1041,9 @@ describe('Smart Contracts', function ()  {
   it.skip('should read the records from a smart contract table using an index descending (string)', (done) => {
     new Promise(async (resolve) => {
       
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1106,8 +1103,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      let users = res.payload;
+      let users = await database.find(payload);;
 
       assert.equal(users[0]._id, 5);
       assert.equal(users[4]._id, 10);
@@ -1121,8 +1117,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);;
 
       assert.equal(users[0]._id, 2);
       assert.equal(users[4]._id, 6);
@@ -1136,8 +1131,7 @@ describe('Smart Contracts', function ()  {
         indexes: [{ index: 'age', descending: true }],
       };
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND, payload });
-      users = res.payload;
+      users = await database.find(payload);;
 
       assert.equal(users.length, 0);
 
@@ -1145,7 +1139,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1153,9 +1147,9 @@ describe('Smart Contracts', function ()  {
   it('should allow only the owner of the smart contract to perform certain actions', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1199,8 +1193,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Dan" } } });
-      let user = res.payload;
+      let user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "Dan" } });
 
       assert.equal(user, null);
 
@@ -1217,8 +1210,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'usersContract', table: 'users', query: { "id": "Dan" } } });
-      user = res.payload;
+      user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "Dan" } });
 
       assert.equal(user.id, "Dan");
 
@@ -1226,7 +1218,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1234,9 +1226,9 @@ describe('Smart Contracts', function ()  {
   it('should perform a search in a smart contract table from another smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1309,8 +1301,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } } });
-      const book = res.payload;
+      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } });
 
       assert.equal(book.title, "The Awesome Book");
 
@@ -1318,7 +1309,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1326,9 +1317,9 @@ describe('Smart Contracts', function ()  {
   it('should execute a smart contract from another smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1404,8 +1395,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_ONE, payload: { contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } } });
-      const book = res.payload;
+      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } });
 
       assert.equal(book.title, "The Awesome Book");
 
@@ -1413,7 +1403,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1421,9 +1411,9 @@ describe('Smart Contracts', function ()  {
   it('should emit an event from a smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = function (payload) {
@@ -1454,8 +1444,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      const latestBlock = res.payload;
+      const latestBlock = await database.getLatestBlockInfo();
 
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
 
@@ -1468,7 +1457,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1476,9 +1465,9 @@ describe('Smart Contracts', function ()  {
   it('should emit an event from another smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1531,8 +1520,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      const latestBlock = res.payload;
+      const latestBlock = await database.getLatestBlockInfo();
 
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
@@ -1545,7 +1533,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1554,9 +1542,9 @@ describe('Smart Contracts', function ()  {
   it('should log an error during the deployment of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1587,8 +1575,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      const latestBlock = res.payload;
+      const latestBlock = await database.getLatestBlockInfo();
 
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1234');
 
@@ -1600,7 +1587,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1608,9 +1595,9 @@ describe('Smart Contracts', function ()  {
   it('should log an error during the execution of a smart contract if an error is thrown', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1644,8 +1631,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      const latestBlock = res.payload;
+      const latestBlock = await database.getLatestBlockInfo();
 
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
@@ -1657,7 +1643,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1665,9 +1651,9 @@ describe('Smart Contracts', function ()  {
   it('should log an error from another smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const usersSmartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1720,8 +1706,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      const latestBlock = res.payload;
+      const latestBlock = await database.getLatestBlockInfo()
 
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
@@ -1733,7 +1718,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1741,9 +1726,9 @@ describe('Smart Contracts', function ()  {
   it('should generate random numbers in a deterministic way', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       const smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1784,8 +1769,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      let latestBlock = res.payload;
+      let latestBlock = await database.getLatestBlockInfo();
 
       let txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
@@ -1797,10 +1781,10 @@ describe('Smart Contracts', function ()  {
       assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
+      transactions.push(new Transaction(1234567891, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
 
       block = {
-        refSteemBlockNumber: 123456789,
+        refSteemBlockNumber: 1234567891,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1809,8 +1793,7 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_LATEST_BLOCK_INFO });
-      latestBlock = res.payload;
+      latestBlock = await database.getLatestBlockInfo();
 
       txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1236');
 
@@ -1825,7 +1808,7 @@ describe('Smart Contracts', function ()  {
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });
@@ -1833,9 +1816,9 @@ describe('Smart Contracts', function ()  {
   it('should update a smart contract', (done) => {
     new Promise(async (resolve) => {
 
-      await loadPlugin(database);
       await loadPlugin(blockchain);
-      await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
+      database = new Database();
+      await database.init(conf.databaseURL, conf.databaseName);
 
       let smartContractCode = `
         actions.createSSC = async (payload) => {
@@ -1856,7 +1839,7 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456789, 'TXID1234', 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
+        refSteemBlockNumber: 123456789,
         refSteemBlockId: 'ABCD1',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
@@ -1879,7 +1862,7 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456790, 'TXID1235', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
 
       block = {
-        refSteemBlockNumber: 1,
+        refSteemBlockNumber: 123456790,
         refSteemBlockId: 'ABCD3',
         prevRefSteemBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:01:00',
@@ -1888,26 +1871,25 @@ describe('Smart Contracts', function ()  {
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      let res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.FIND_CONTRACT, payload: { name: 'testContract' } });
-      const contract = res.payload;
+      const contract = await database.findContract({ name: 'testContract' });
 
       assert.equal(contract.version, 2);
       assert.notEqual(contract.tables['testContract_testTable'], undefined);
       assert.notEqual(contract.tables['testContract_testUpdateTable'], undefined);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testTable' } });
+      res = await database.getTableDetails({ contract: 'testContract', table: 'testTable' })
 
-      assert.notEqual(res.payload, null);
+      assert.notEqual(res, null);
 
-      res = await send(database.PLUGIN_NAME, 'MASTER', { action: database.PLUGIN_ACTIONS.GET_TABLE_DETAILS, payload: { contract: 'testContract', table: 'testUpdateTable' } });
+      res = await database.getTableDetails({ contract: 'testContract', table: 'testUpdateTable' })
 
-      assert.notEqual(res.payload, null);
+      assert.notEqual(res, null);
 
       resolve();
     })
       .then(() => {
         unloadPlugin(blockchain);
-        unloadPlugin(database);
+        database.close();
         done();
       });
   });

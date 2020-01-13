@@ -1,19 +1,18 @@
 {
     "chainId": "mainnet1",
     "rpcNodePort": 5000,
+    "p2pPort": 5001,
     "databaseURL": "mongodb://localhost:27017",
     "databaseName": "ssc",
-    "dataDirectory": "./data/",
-    "databaseFileName": "database.db",
     "blocksLogFilePath": "./blocks.log",
-    "autosaveInterval": 1800000,
     "javascriptVMTimeout": 10000,
     "streamNodes": [
         "https://api.steemit.com",
-        "https://rpc.buildteam.io",
-        "https://rpc.steemviz.com",
-        "https://steemd.minnowsupportproject.org"
+        "https://anyx.io"
     ],
-    "startSteemBlock": 29864752,
-    "genesisSteemBlock": 29862600
+    "steemAddressPrefix": "STM",
+    "steemChainId": "0000000000000000000000000000000000000000000000000000000000000000",
+    "startSteemBlock": 29862600,
+    "genesisSteemBlock": 29862600,
+    "witnessEnabled": false
 }

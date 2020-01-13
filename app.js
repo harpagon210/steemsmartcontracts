@@ -1,15 +1,14 @@
 require('dotenv').config();
-const nodeCleanup = require('node-cleanup');
 const fs = require('fs-extra');
 const program = require('commander');
 const { fork } = require('child_process');
 const { createLogger, format, transports } = require('winston');
 const packagejson = require('./package.json');
-const database = require('./plugins/Database');
 const blockchain = require('./plugins/Blockchain');
 const jsonRPCServer = require('./plugins/JsonRPCServer');
 const streamer = require('./plugins/Streamer');
 const replay = require('./plugins/Replay');
+// const p2p = require('./plugins/P2P');
 
 const conf = require('./config');
 
@@ -43,7 +42,7 @@ const jobs = new Map();
 let currentJobId = 0;
 
 // send an IPC message to a plugin with a promise in return
-function send(plugin, message) {
+const send = (plugin, message) => {
   const newMessage = {
     ...message,
     to: plugin.name,
@@ -51,6 +50,9 @@ function send(plugin, message) {
     type: 'request',
   };
   currentJobId += 1;
+  if (currentJobId > Number.MAX_SAFE_INTEGER) {
+    currentJobId = 1;
+  }
   newMessage.jobId = currentJobId;
   plugin.cp.send(newMessage);
   return new Promise((resolve) => {
@@ -59,7 +61,7 @@ function send(plugin, message) {
       resolve,
     });
   });
-}
+};
 
 // function to route the IPC requests
 const route = (message) => {
@@ -102,6 +104,7 @@ const loadPlugin = (newPlugin) => {
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
   plugin.cp.on('message', msg => route(msg));
+  plugin.cp.on('error', err => logger.error(`[${newPlugin.PLUGIN_NAME}] ${err}`));
   plugin.cp.stdout.on('data', (data) => {
     logger.info(`[${newPlugin.PLUGIN_NAME}] ${data.toString()}`);
   });
@@ -122,30 +125,26 @@ const unloadPlugin = async (plugin) => {
     plg.cp.kill('SIGINT');
     plg = null;
   }
-
   return res;
 };
 
 // start streaming the Steem blockchain and produce the sidechain blocks accordingly
-async function start() {
-  let res = await loadPlugin(database);
+const start = async () => {
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-    res = await send(getPlugin(blockchain),
-      { action: blockchain.PLUGIN_ACTIONS.START_BLOCK_PRODUCTION });
+    res = await loadPlugin(streamer);
     if (res && res.payload === null) {
-      res = await loadPlugin(streamer);
+      // res = await loadPlugin(p2p);
       if (res && res.payload === null) {
         res = await loadPlugin(jsonRPCServer);
       }
     }
   }
-}
+};
 
-async function stop(callback) {
+const stop = async () => {
   await unloadPlugin(jsonRPCServer);
+  // await unloadPlugin(p2p);
   // get the last Steem block parsed
   let res = null;
   const streamerPlugin = getPlugin(streamer);
@@ -156,40 +155,34 @@ async function stop(callback) {
   }
 
   await unloadPlugin(blockchain);
-  await unloadPlugin(database);
-  callback(res.payload);
-}
 
-function saveConfig(lastBlockParsed) {
+  return res.payload;
+};
+
+const saveConfig = (lastBlockParsed) => {
+  logger.info('Saving config');
   const config = fs.readJSONSync('./config.json');
   config.startSteemBlock = lastBlockParsed;
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
-}
+};
 
-function stopApp(signal = 0) {
-  stop((lastBlockParsed) => {
-    logger.info('Saving config');
-    saveConfig(lastBlockParsed);
-    // calling process.exit() won't inform parent process of signal
-    process.kill(process.pid, signal);
-  });
-}
+const stopApp = async (signal = 0) => {
+  const lastBlockParsed = await stop();
+  saveConfig(lastBlockParsed);
+  // calling process.exit() won't inform parent process of signal
+  process.kill(process.pid, signal);
+};
 
 // replay the sidechain from a blocks log file
-async function replayBlocksLog() {
-  let res = await loadPlugin(database);
+const replayBlocksLog = async () => {
+  let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
-    res = await loadPlugin(blockchain);
-    await send(getPlugin(database),
-      { action: database.PLUGIN_ACTIONS.GENERATE_GENESIS_BLOCK, payload: conf });
-    if (res && res.payload === null) {
-      await loadPlugin(replay);
-      res = await send(getPlugin(replay),
-        { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
-      stopApp();
-    }
+    await loadPlugin(replay);
+    res = await send(getPlugin(replay),
+      { action: replay.PLUGIN_ACTIONS.REPLAY_FILE });
+    stopApp();
   }
-}
+};
 
 // manage the console args
 program
@@ -204,15 +197,19 @@ if (program.replay !== undefined) {
 }
 
 // graceful app closing
-nodeCleanup((exitCode, signal) => {
-  if (signal) {
-    logger.info(`Closing App...  exitCode: ${exitCode} signal: ${signal}`);
+let shuttingDown = false;
 
-    stopApp(signal);
-
-    nodeCleanup.uninstall(); // don't call cleanup handler again
-    return false;
+const gracefulShutdown = () => {
+  if (shuttingDown === false) {
+    shuttingDown = true;
+    stopApp('SIGINT');
   }
+};
 
-  return true;
+process.on('SIGTERM', () => {
+  gracefulShutdown();
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown();
 });
