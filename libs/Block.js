@@ -30,8 +30,6 @@ class Block {
     return SHA256(
       this.previousHash
       + this.previousDatabaseHash
-      + this.databaseHash
-      + this.merkleRoot
       + this.blockNumber.toString()
       + this.refSteemBlockNumber.toString()
       + this.refSteemBlockId

@@ -154,11 +154,13 @@ describe('Database', function () {
       if (configFile.chainId === 'testnet1'
         && configFile.genesisSteemBlock === 29862600
         && CONSTANTS.UTILITY_TOKEN_SYMBOL === 'SSC') {
-          assert.equal(genesisBlock.hash, '48dab740d11ceacdae78d4625730311b22224f2b7b74208221606029ca6a7c8c');
+          assert.equal(genesisBlock.hash, '51b19802489567cb2669bfb37119dbe09f36c0847fe2dca2e918176422a0bcd9');
           assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
-          assert.equal(genesisBlock.merkleRoot, '5264617bda99adc846ec4100f0f3ecaf843e3d9122d628a5d096a1230b970e9f');
+          assert.equal(genesisBlock.merkleRoot, '8b2c7d50aadcba182e4de6140d795b6e6e4e0a64b654d6b1a3ab48a234489293');
       } else {
-        assert.equal(true, false);
+        assert.equal(genesisBlock.hash, 'c1dee96a6b7a0cc9408ccb407ab641f444c26f6859ba33b9c9ba2c0a368d20b2');
+        assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
+        assert.equal(genesisBlock.merkleRoot, '7048315fc8861b98fe1b2a82b86a24f80aa6e6dd225223e39771807532f5fb21');
       }
 
       resolve();

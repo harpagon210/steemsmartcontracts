@@ -1,4 +1,3 @@
-/* eslint-disable */
 actions.createSSC = async (payload) => {
   await api.db.createTable('withdrawals');
 };

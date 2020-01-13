@@ -57,11 +57,11 @@ class SmartContracts {
             RegExp.prototype.constructor = function () { };
             RegExp.prototype.exec = function () {  };
             RegExp.prototype.test = function () {  };
-
+  
             let actions = {};
-
+  
             ###ACTIONS###
-
+  
             const execute = async function () {
               try {
                 if (api.action && typeof api.action === 'string' && typeof actions[api.action] === 'function') {
@@ -77,7 +77,7 @@ class SmartContracts {
                 done(error);
               }
             }
-
+  
             execute();
           }
 

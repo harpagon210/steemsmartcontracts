@@ -145,7 +145,7 @@ const errorHandler = async (id, error) => {
 
   if (error.code === 'ECONNREFUSED') {
     if (sockets[id]) {
-      console.log(`closed connection with peer ${sockets[id].witness.account}`);
+      console.log(`closed connection with peer ${sockets[id].witness.account}/ ${sockets[id]} / ${id}`);
       delete sockets[id];
     }
   }
@@ -153,7 +153,7 @@ const errorHandler = async (id, error) => {
 
 const disconnectHandler = async (id, reason) => {
   if (sockets[id]) {
-    console.log(`closed connection with peer ${sockets[id].witness.account}`, reason);
+    console.log(`closed connection with peer ${sockets[id].witness.account} / ${sockets[id]} / ${id}`, reason);
     delete sockets[id];
   }
 };
@@ -255,10 +255,10 @@ const proposeRoundHandler = async (id, data, cb) => {
     if (signature && typeof signature === 'string'
       && round && Number.isInteger(round)
       && roundHash && typeof roundHash === 'string' && roundHash.length === 64) {
-      // check if the witness is the one scheduled for this block
-      const schedule = await findOne('witnesses', 'schedules', { round, witness: witnessSocket.witness.account });
+      // get the current round info
+      const params = await findOne('witnesses', 'params', {});
 
-      if (schedule !== null) {
+      if (params.round === round && params.currentWitness === witnessSocket.witness.account) {
         // get witness signing key
         const witness = await findOne('witnesses', 'witnesses', { account: witnessSocket.witness.account });
 
@@ -267,9 +267,6 @@ const proposeRoundHandler = async (id, data, cb) => {
 
           // check if the signature is valid
           if (checkSignature(roundHash, signature, signingKey, true)) {
-            // get the current round info
-            const params = await findOne('witnesses', 'params', {});
-
             if (currentRound < params.round) {
               // eslint-disable-next-line prefer-destructuring
               currentRound = params.round;
@@ -467,11 +464,9 @@ const connectToWitness = (witness) => {
     signingKey,
   } = witness;
 
-  const socket = ioclient.connect(`http://${IP}:${P2PPort}`);
-
   const id = `${IP}:${P2PPort}`;
   sockets[id] = {
-    socket,
+    socket: null,
     address: IP,
     witness: {
       account,
@@ -479,6 +474,9 @@ const connectToWitness = (witness) => {
     },
     authenticated: false,
   };
+
+  const socket = ioclient.connect(`http://${IP}:${P2PPort}`);
+  sockets[id].socket = socket;
 
   socket.on('disconnect', reason => disconnectHandler(id, reason));
   socket.on('error', error => errorHandler(id, error));
