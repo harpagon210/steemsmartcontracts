@@ -164,7 +164,7 @@ class Block {
     let newCurrentDatabaseHash = currentDatabaseHash;
 
     // init the database hash for that transactions
-    await database.initDatabaseHash(newCurrentDatabaseHash);
+    database.initDatabaseHash(newCurrentDatabaseHash);
 
     if (sender && contract && action) {
       if (contract === 'contract' && (action === 'deploy' || action === 'update') && payload) {
@@ -178,9 +178,6 @@ class Block {
         } else {
           results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
         }
-      } else if (contract === 'blockProduction' && payload) {
-        // results = await bp.processTransaction(transaction); // eslint-disable-line
-        results = { logs: { errors: ['blockProduction contract not available'] } };
       } else {
         results = await SmartContracts.executeSmartContract(// eslint-disable-line
           database, transaction, this.blockNumber, this.timestamp,
@@ -192,7 +189,7 @@ class Block {
     }
 
     // get the database hash
-    newCurrentDatabaseHash = await database.getDatabaseHash();
+    newCurrentDatabaseHash = database.getDatabaseHash();
 
 
     // console.log('transac logs', results.logs);

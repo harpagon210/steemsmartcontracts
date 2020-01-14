@@ -8,7 +8,7 @@ const { EJSON } = require('bson');
 
 class Database {
   constructor() {
-    this.db = null;
+    this.database = null;
     this.chain = null;
     this.databaseHash = '';
     this.client = null;
