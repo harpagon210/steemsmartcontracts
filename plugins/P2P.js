@@ -473,7 +473,7 @@ const init = async (conf, callback) => {
 
 function stop() {
   if (manageRoundPropositionTimeoutHandler) clearTimeout(manageRoundPropositionTimeoutHandler);
-  server.close();
+  if (server) server.close();
   if (database) database.close();
 }
 
