@@ -34,6 +34,7 @@ actions.createSSC = async () => {
       round: 0,
       lastBlockRound: 0,
       currentWitness: null,
+      lastBlockWitnessChange: 0,
       lastWitnesses: [],
     };
 
@@ -377,6 +378,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', schedule);
         params.currentWitness = witness.account;
         params.lastWitnesses.push(witness.account);
+        params.lastBlockWitnessChange = api.blockNumber;
         await api.db.update('params', params);
 
         // update the current witness
@@ -430,6 +432,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', sched);
         params.currentWitness = newWitness;
         params.lastWitnesses.push(newWitness);
+        params.lastBlockWitnessChange = api.blockNumber;
         await api.db.update('params', params);
 
         // update the current witness
@@ -460,6 +463,7 @@ const manageWitnessesSchedule = async () => {
     totalApprovalWeight,
     lastVerifiedBlockNumber,
     lastBlockRound,
+    lastBlockWitnessChange,
   } = params;
 
   // check the current schedule
@@ -636,10 +640,11 @@ const manageWitnessesSchedule = async () => {
       params.currentWitness = lastWitnessRoundSchedule.witness;
       lastWitnesses.push(lastWitnessRoundSchedule.witness);
       params.lastWitnesses = lastWitnesses;
+      params.lastBlockWitnessChange = params.lastBlockRound;
       await api.db.update('params', params);
       api.emit('newSchedule', { });
     }
-  } else if (api.blockNumber - lastBlockRound >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
+  } else if (api.blockNumber - lastBlockWitnessChange >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
     // otherwise we change the current witness if it has not proposed the round in time
     await changeCurrentWitness();
   }
