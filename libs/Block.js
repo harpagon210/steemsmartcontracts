@@ -99,9 +99,9 @@ class Block {
     }
 
     // TODO: cleanup
-    //if (this.refSteemBlockNumber >= 37899120) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
-    //}
+    // if (this.refSteemBlockNumber >= 37899120) {
+    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    // }
 
     if (this.refSteemBlockNumber >= 38145385) {
       // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0

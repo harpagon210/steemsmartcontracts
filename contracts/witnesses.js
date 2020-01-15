@@ -35,7 +35,6 @@ actions.createSSC = async () => {
       lastBlockRound: 0,
       currentWitness: null,
       lastWitnesses: [],
-      roundPropositionWaitingPeriod: 0,
     };
 
     await api.db.insert('params', params);
@@ -377,7 +376,6 @@ const changeCurrentWitness = async () => {
         schedule.witness = witness.account;
         await api.db.update('schedules', schedule);
         params.currentWitness = witness.account;
-        params.roundPropositionWaitingPeriod = 0;
         params.lastWitnesses.push(witness.account);
         await api.db.update('params', params);
 
@@ -394,6 +392,7 @@ const changeCurrentWitness = async () => {
 
         await api.db.update('witnesses', scheduledWitness);
         witnessFound = true;
+        api.emit('currentWitnessChanged', { });
         break;
       }
     }
@@ -430,7 +429,6 @@ const changeCurrentWitness = async () => {
         sched.witness = currentWitness;
         await api.db.update('schedules', sched);
         params.currentWitness = newWitness;
-        params.roundPropositionWaitingPeriod = 0;
         params.lastWitnesses.push(newWitness);
         await api.db.update('params', params);
 
@@ -446,6 +444,7 @@ const changeCurrentWitness = async () => {
         }
 
         await api.db.update('witnesses', scheduledWitness);
+        api.emit('currentWitnessChanged', { });
         break;
       }
     }
@@ -460,7 +459,6 @@ const manageWitnessesSchedule = async () => {
     numberOfApprovedWitnesses,
     totalApprovalWeight,
     lastVerifiedBlockNumber,
-    roundPropositionWaitingPeriod,
     lastBlockRound,
   } = params;
 
@@ -636,19 +634,14 @@ const manageWitnessesSchedule = async () => {
       const lastWitnessRoundSchedule = schedule[schedule.length - 1];
       params.lastBlockRound = lastWitnessRoundSchedule.blockNumber;
       params.currentWitness = lastWitnessRoundSchedule.witness;
-      params.roundPropositionWaitingPeriod = 0;
       lastWitnesses.push(lastWitnessRoundSchedule.witness);
       params.lastWitnesses = lastWitnesses;
       await api.db.update('params', params);
+      api.emit('newSchedule', { });
     }
-  } else if (api.blockNumber > lastBlockRound) {
+  } else if (api.blockNumber - lastBlockRound >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
     // otherwise we change the current witness if it has not proposed the round in time
-    if (roundPropositionWaitingPeriod >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
-      await changeCurrentWitness();
-    } else {
-      params.roundPropositionWaitingPeriod += 1;
-      await api.db.update('params', params);
-    }
+    await changeCurrentWitness();
   }
 };
 

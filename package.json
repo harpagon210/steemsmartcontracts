@@ -1,11 +1,11 @@
 {
   "name": "steemsmartcontracts",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "",
   "main": "app.js",
   "scripts": {
     "start": "node --max-old-space-size=8192 app.js",
-    "lint": "eslint --ignore-path .gitignore .",
+    "lint": "eslint .gitignore .",
     "test": "./node_modules/mocha/bin/mocha  --recursive"
   },
   "keywords": [],
