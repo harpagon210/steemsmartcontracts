@@ -384,11 +384,11 @@ const init = async (conf) => {
   database = new Database();
   await database.init(databaseURL, databaseName);
   // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
-  const res = await getLatestBlockMetadata();
-  if (res && res.payload) {
-    if (finalConf.startSteemBlock < res.payload.refSteemBlockNumber) {
+  const block = await getLatestBlockMetadata();
+  if (block) {
+    if (finalConf.startSteemBlock < block.refSteemBlockNumber) {
       console.log('adjusted startSteemBlock automatically as it was lower that the refSteemBlockNumber available');
-      finalConf.startSteemBlock = res.payload.refSteemBlockNumber + 1;
+      finalConf.startSteemBlock = block.refSteemBlockNumber + 1;
     }
   }
 

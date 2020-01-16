@@ -144,6 +144,8 @@ let witnessesContractPayload = {
   code: base64ContractCode,
 };
 
+console.log(base64ContractCode)
+
 describe('witnesses', function () {
   this.timeout(60000);
 

@@ -7,7 +7,7 @@ const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 const MAX_ROUNDS_MISSED_IN_A_ROW = 3; // after that the witness is disabled
-const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 100; // 10 blocks
+const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 100; // 20 blocks
 const NB_TOKENS_TO_REWARD = '0.01902587';
 const NB_TOKENS_NEEDED_BEFORE_REWARDING = '0.09512935';
 // eslint-disable-next-line no-template-curly-in-string
@@ -34,7 +34,7 @@ actions.createSSC = async () => {
       round: 0,
       lastBlockRound: 0,
       currentWitness: null,
-      lastBlockWitnessChange: 0,
+      blockNumberWitnessChange: 0,
       lastWitnesses: [],
     };
 
@@ -48,7 +48,6 @@ actions.createSSC = async () => {
     const witness = witnesses[index];
     witness.missedRounds = 0;
     witness.missedRoundsInARow = 0;
-    witness.enabled = true;
     await api.db.update('witnesses', witness);
   }
 
@@ -61,7 +60,33 @@ actions.createSSC = async () => {
 
   const params = await api.db.findOne('params', {});
   params.currentWitness = null;
+  params.blockNumberWitnessChange = 0;
   params.lastWitnesses = [];
+  await api.db.update('params', params);
+};
+
+actions.resetSchedule = async () => {
+  if (api.sender !== api.owner) return;
+
+  const schedules = await api.db.find('schedules', { });
+
+  for (let index = 0; index < schedules.length; index += 1) {
+    const schedule = schedules[index];
+    await api.db.remove('schedules', schedule);
+  }
+
+  const params = await api.db.findOne('params', {});
+  params.currentWitness = null;
+  params.blockNumberWitnessChange = 0;
+  params.lastWitnesses = [];
+  await api.db.update('params', params);
+};
+
+actions.setTestHpg = async () => {
+  if (api.sender !== api.owner) return;
+
+  const params = await api.db.findOne('params', {});
+  params.currentWitness = 'test.hpg';
   await api.db.update('params', params);
 };
 
@@ -378,7 +403,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', schedule);
         params.currentWitness = witness.account;
         params.lastWitnesses.push(witness.account);
-        params.lastBlockWitnessChange = api.blockNumber;
+        params.blockNumberWitnessChange = api.blockNumber + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
         await api.db.update('params', params);
 
         // update the current witness
@@ -432,7 +457,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', sched);
         params.currentWitness = newWitness;
         params.lastWitnesses.push(newWitness);
-        params.lastBlockWitnessChange = api.blockNumber;
+        params.blockNumberWitnessChange = api.blockNumber + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
         await api.db.update('params', params);
 
         // update the current witness
@@ -462,8 +487,7 @@ const manageWitnessesSchedule = async () => {
     numberOfApprovedWitnesses,
     totalApprovalWeight,
     lastVerifiedBlockNumber,
-    lastBlockRound,
-    lastBlockWitnessChange,
+    blockNumberWitnessChange,
   } = params;
 
   // check the current schedule
@@ -640,11 +664,11 @@ const manageWitnessesSchedule = async () => {
       params.currentWitness = lastWitnessRoundSchedule.witness;
       lastWitnesses.push(lastWitnessRoundSchedule.witness);
       params.lastWitnesses = lastWitnesses;
-      params.lastBlockWitnessChange = params.lastBlockRound;
+      params.blockNumberWitnessChange = api.blockNumber + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
       await api.db.update('params', params);
       api.emit('newSchedule', { });
     }
-  } else if (api.blockNumber - lastBlockWitnessChange >= MAX_ROUND_PROPOSITION_WAITING_PERIOD) {
+  } else if (api.blockNumber >= blockNumberWitnessChange) {
     // otherwise we change the current witness if it has not proposed the round in time
     await changeCurrentWitness();
   }
