@@ -279,6 +279,10 @@ const manageRoundProposition = async () => {
     // eslint-disable-next-line prefer-destructuring
     currentWitness = params.currentWitness;
 
+    if (lastProposedRound && lastProposedRound.round < currentRound) {
+      lastProposedRound = null;
+    }
+
     // get the schedule for the lastBlockRound
     console.log('currentRound', currentRound);
     console.log('currentWitness', currentWitness);
