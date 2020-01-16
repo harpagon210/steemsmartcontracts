@@ -242,9 +242,9 @@ const proposeRound = async (witness, round, retry = 0) => {
     if (response.data.result) {
       verifyRoundHandler(witness, response.data.result);
     } else {
-      console.error(`Error posting to ${witness} / round ${round} / ${response.data.result.error.code} / ${response.data.result.error.message}`);
+      console.error(`Error posting to ${witness} / round ${round} / ${response.data.error.code} / ${response.data.error.message}`);
 
-      if (response.data.result.error.message === 'round hash different') {
+      if (response.data.error.message === 'round hash different') {
         if (retry < 3) {
           setTimeout(() => {
             proposeRound(witness, round, retry + 1);
