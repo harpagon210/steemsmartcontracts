@@ -14,7 +14,7 @@ const { Database } = require('../libs/Database');
 
 const PLUGIN_NAME = 'P2P';
 const PLUGIN_PATH = require.resolve(__filename);
-const POST_TIMEOUT = 20000;
+const POST_TIMEOUT = 10000;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 
 const ipc = new IPC(PLUGIN_NAME);
@@ -244,9 +244,10 @@ const proposeRound = async (witness, round, retry = 0) => {
     } else {
       console.error(`Error posting to ${witness} / round ${round} / ${response.data.error.code} / ${response.data.error.message}`);
 
-      if (response.data.error.message === 'round hash different') {
+      if (response.data.error.message === 'current round is lower') {
         if (retry < 3) {
           setTimeout(() => {
+            console.log(`propose round: retry ${retry + 1}`)
             proposeRound(witness, round, retry + 1);
           }, 4000);
         }
@@ -340,7 +341,7 @@ const proposeRoundHandler = async (args, callback) => {
     // get the current round info
     const params = await findOne('witnesses', 'params', {});
 
-    if (params && params.round && params.round === round && params.currentWitness === account) {
+    if (params.round === round && params.currentWitness === account) {
       // get witness signing key
       const witness = await findOne('witnesses', 'witnesses', { account });
 
@@ -390,20 +391,25 @@ const proposeRoundHandler = async (args, callback) => {
         }
       } else {
         callback({
-          code: 404,
-          message: 'invalid request',
+          code: 401,
+          message: 'your witness is not registered',
         }, null);
       }
-    } else {
+    } else if (params.round < round) {
       callback({
         code: 404,
-        message: 'invalid request',
+        message: 'current round is lower',
+      }, null);
+    } else if (params.currentWitness !== account) {
+      callback({
+        code: 404,
+        message: 'current witness is different',
       }, null);
     }
   } else {
     callback({
       code: 404,
-      message: 'invalid request',
+      message: 'invalid parameters',
     }, null);
   }
 };
