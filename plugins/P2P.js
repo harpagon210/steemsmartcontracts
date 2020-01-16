@@ -239,19 +239,25 @@ const proposeRound = async (witness, round, retry = 0) => {
       data,
     });
     console.log(response.data)
-    if (response.data.result) {
-      verifyRoundHandler(witness, response.data.result);
-    } else {
-      console.error(`Error posting to ${witness} / round ${round} / ${response.data.error.code} / ${response.data.error.message}`);
 
-      if (response.data.error.message === 'current round is lower') {
-        if (retry < 3) {
-          setTimeout(() => {
-            console.log(`propose round: retry ${retry + 1}`)
-            proposeRound(witness, round, retry + 1);
-          }, 4000);
+    if (currentRound === round.round) {
+      if (response.data.result) {
+        verifyRoundHandler(witness, response.data.result);
+      } else {
+        console.error(`Error posting to ${witness} / round ${round} / ${response.data.error.code} / ${response.data.error.message}`);
+  
+        if (response.data.error.message === 'current round is lower'
+          || response.data.error.message === 'current witness is different') {
+          if (retry) {
+            setTimeout(() => {
+              console.log(`propose round: retry ${retry + 1}`)
+              proposeRound(witness, round, retry + 1);
+            }, 5000);
+          }
         }
       }
+    } else {
+      console.log(`stopped proposing round ${round.round} as it is not the current round anymore`);
     }
   } catch (error) {
     console.error(`Error posting to ${witness} / round ${round} / ${error}`);
