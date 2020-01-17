@@ -313,6 +313,24 @@ actions.updateName = async (payload) => {
   }
 };
 
+actions.setOrgName = async (payload) => {
+  const { orgName, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && orgName && typeof orgName === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(orgName, ' ')) && orgName.length > 0 && orgName.length <= 50, 'invalid org name: letters, numbers, whitespaces only, max length of 50')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        nft.orgName = orgName;
+        await api.db.update('nfts', nft);
+      }
+    }
+  }
+};
+
 actions.addAuthorizedIssuingAccounts = async (payload) => {
   const { accounts, symbol, isSignedWithActiveKey } = payload;
 
@@ -1144,6 +1162,7 @@ actions.create = async (payload) => {
           issuer: api.sender,
           symbol,
           name,
+          orgName: '',
           metadata,
           maxSupply: finalMaxSupply,
           supply: 0,
