@@ -68,6 +68,7 @@ const steemClient = {
           || (json.contractPayload.round && json.contractPayload.round > lastVerifiedRoundNumber))
         && sendingToSidechain === false) {
         sendingToSidechain = true;
+        console.log('sending block proposition');
         await this.client.broadcast.json(transaction, this.signingKey);
         if (json.contractAction === 'proposeRound') {
           lastProposedRound = null;
