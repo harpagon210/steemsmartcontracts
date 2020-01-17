@@ -287,7 +287,7 @@ const manageRoundProposition = async () => {
     console.log('currentRound', currentRound);
     console.log('currentWitness', currentWitness);
     console.log('lastBlockRound', lastBlockRound);
-    console.log('lastProposedRound', currentRound);
+    console.log('lastProposedRound', lastProposedRound);
 
     // get the witness participating in this round
     const schedules = await find('witnesses', 'schedules', { round: currentRound });
