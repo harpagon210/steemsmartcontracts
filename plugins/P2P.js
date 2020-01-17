@@ -204,6 +204,7 @@ const verifyRoundHandler = async (witnessAccount, data) => {
                   signatures: lastProposedRound.signatures,
                 },
               };
+              console.log('sending json')
               await steemClient.sendCustomJSON(json);
               lastVerifiedRoundNumber = round;
             }
