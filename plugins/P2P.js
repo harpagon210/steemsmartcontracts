@@ -250,7 +250,7 @@ const proposeRound = async (witness, round, retry = 0) => {
   
         if (response.data.error.message === 'current round is lower'
           || response.data.error.message === 'current witness is different') {
-          if (retry) {
+          if (retry < 3) {
             setTimeout(() => {
               console.log(`propose round: retry ${retry + 1}`)
               proposeRound(witness, round, retry + 1);
