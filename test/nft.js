@@ -326,7 +326,7 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
       transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"10", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["marc","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
+      transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "orgName": "Mancer Inc", "productName": "My First Product", "symbol": "TEST", "authorizedIssuingAccounts": ["marc","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -350,6 +350,8 @@ describe('nft', function() {
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
       assert.equal(tokens[0].name, 'test NFT');
+      assert.equal(tokens[0].orgName, '');
+      assert.equal(tokens[0].productName, '');
       assert.equal(tokens[0].maxSupply, 1000);
       assert.equal(tokens[0].supply, 0);
       assert.equal(tokens[0].metadata, '{"url":"http://mynft.com"}');
@@ -361,14 +363,16 @@ describe('nft', function() {
       assert.equal(tokens[1].symbol, 'TEST');
       assert.equal(tokens[1].issuer, 'cryptomancer');
       assert.equal(tokens[1].name, 'test NFT 2');
+      assert.equal(tokens[1].orgName, 'Mancer Inc');
+      assert.equal(tokens[1].productName, 'My First Product');
       assert.equal(tokens[1].maxSupply, 0);
       assert.equal(tokens[1].supply, 0);
       assert.equal(tokens[1].metadata, '{"url":""}');
       assert.equal(JSON.stringify(tokens[1].authorizedIssuingAccounts), '["marc","aggroed","harpagon"]');
       assert.equal(JSON.stringify(tokens[1].authorizedIssuingContracts), '["tokens","dice"]');
       assert.equal(tokens[1].circulatingSupply, 0);
-      assert.equal(tokens[0].delegationEnabled, false);
-      assert.equal(tokens[0].undelegationCooldown, 0);
+      assert.equal(tokens[1].delegationEnabled, false);
+      assert.equal(tokens[1].undelegationCooldown, 0);
 
       res = await database1.findContract({
         name: 'nft',
@@ -412,6 +416,8 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["myaccountdup","myaccountdup"] }'));
       transactions.push(new Transaction(12345678901, 'TXID1243', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "5", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1245', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT2", "symbol":"TSTNFTTWO", "productName": "tooooooloooooooooonnnnnnnnnnnggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", "url":"http://mynft.com", "maxSupply":"1000" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT2", "symbol":"TSTNFTTWO", "orgName": "tooooooloooooooooonnnnnnnnnnnggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
         refSteemBlockNumber: 12345678901,
@@ -436,6 +442,8 @@ describe('nft', function() {
       console.log(transactionsBlock1[11].logs)
       console.log(transactionsBlock1[12].logs)
       console.log(transactionsBlock1[14].logs)
+      console.log(transactionsBlock1[15].logs)
+      console.log(transactionsBlock1[16].logs)
 
       assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'you must have enough tokens to cover the creation fees');
       assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -446,6 +454,8 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`);
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'cannot add the same account twice');
       assert.equal(JSON.parse(transactionsBlock1[14].logs).errors[0], 'symbol already exists');
+      assert.equal(JSON.parse(transactionsBlock1[15].logs).errors[0], 'invalid product name: letters, numbers, whitespaces only, max length of 50');
+      assert.equal(JSON.parse(transactionsBlock1[16].logs).errors[0], 'invalid org name: letters, numbers, whitespaces only, max length of 50');
 
       resolve();
     })

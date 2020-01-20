@@ -313,7 +313,7 @@ actions.updateName = async (payload) => {
   }
 };
 
-actions.setOrgName = async (payload) => {
+actions.updateOrgName = async (payload) => {
   const { orgName, symbol } = payload;
 
   if (api.assert(symbol && typeof symbol === 'string'
@@ -325,6 +325,24 @@ actions.setOrgName = async (payload) => {
     if (nft) {
       if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
         nft.orgName = orgName;
+        await api.db.update('nfts', nft);
+      }
+    }
+  }
+};
+
+actions.updateProductName = async (payload) => {
+  const { productName, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && productName && typeof productName === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(productName, ' ')) && productName.length > 0 && productName.length <= 50, 'invalid product name: letters, numbers, whitespaces only, max length of 50')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        nft.productName = productName;
         await api.db.update('nfts', nft);
       }
     }
@@ -1106,7 +1124,7 @@ actions.checkPendingUndelegations = async () => {
 
 actions.create = async (payload) => {
   const {
-    name, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
+    name, orgName, productName, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
   } = payload;
 
   // get contract params
@@ -1125,11 +1143,17 @@ actions.create = async (payload) => {
       && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
+      && (orgName === undefined || (orgName && typeof orgName === 'string'))
+      && (productName === undefined || (productName && typeof productName === 'string'))
       && (authorizedIssuingAccounts === undefined || (authorizedIssuingAccounts && typeof authorizedIssuingAccounts === 'object' && Array.isArray(authorizedIssuingAccounts)))
       && (authorizedIssuingContracts === undefined || (authorizedIssuingContracts && typeof authorizedIssuingContracts === 'object' && Array.isArray(authorizedIssuingContracts)))
       && (maxSupply === undefined || (maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN())), 'invalid params')) {
     if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= MAX_SYMBOL_LENGTH, `invalid symbol: uppercase letters only, max length of ${MAX_SYMBOL_LENGTH}`)
       && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+      && api.assert(orgName === undefined
+      || (api.validator.isAlphanumeric(api.validator.blacklist(orgName, ' ')) && orgName.length > 0 && orgName.length <= 50), 'invalid org name: letters, numbers, whitespaces only, max length of 50')
+      && api.assert(productName === undefined
+      || (api.validator.isAlphanumeric(api.validator.blacklist(productName, ' ')) && productName.length > 0 && productName.length <= 50), 'invalid product name: letters, numbers, whitespaces only, max length of 50')
       && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
       && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
       && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`)) {
@@ -1149,7 +1173,8 @@ actions.create = async (payload) => {
         }
 
         const finalMaxSupply = maxSupply === undefined ? 0 : api.BigNumber(maxSupply).integerValue(api.BigNumber.ROUND_DOWN).toNumber();
-
+        const finalOrgName = orgName === undefined ? '' : orgName;
+        const finalProductName = productName === undefined ? '' : productName;
         const finalUrl = url === undefined ? '' : url;
         let metadata = {
           url: finalUrl,
@@ -1162,7 +1187,8 @@ actions.create = async (payload) => {
           issuer: api.sender,
           symbol,
           name,
-          orgName: '',
+          orgName: finalOrgName,
+          productName: finalProductName,
           metadata,
           maxSupply: finalMaxSupply,
           supply: 0,
