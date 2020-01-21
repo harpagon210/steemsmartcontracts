@@ -7,7 +7,7 @@ const NB_BACKUP_WITNESSES = 1;
 const NB_WITNESSES = NB_TOP_WITNESSES + NB_BACKUP_WITNESSES;
 const NB_WITNESSES_SIGNATURES_REQUIRED = 3;
 const MAX_ROUNDS_MISSED_IN_A_ROW = 3; // after that the witness is disabled
-const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 100; // 20 blocks
+const MAX_ROUND_PROPOSITION_WAITING_PERIOD = 40; // 20 blocks
 const NB_TOKENS_TO_REWARD = '0.01902587';
 const NB_TOKENS_NEEDED_BEFORE_REWARDING = '0.09512935';
 // eslint-disable-next-line no-template-curly-in-string
@@ -490,6 +490,7 @@ const manageWitnessesSchedule = async () => {
     totalApprovalWeight,
     lastVerifiedBlockNumber,
     blockNumberWitnessChange,
+    lastBlockRound,
   } = params;
 
   // check the current schedule
@@ -672,8 +673,15 @@ const manageWitnessesSchedule = async () => {
       api.emit('newSchedule', { });
     }
   } else if (api.refSteemBlockNumber >= blockNumberWitnessChange) {
-    // otherwise we change the current witness if it has not proposed the round in time
-    await changeCurrentWitness();
+    if (api.blockNumber > lastBlockRound) {
+      // otherwise we change the current witness if it has not proposed the round in time
+      await changeCurrentWitness();
+    } else {
+      params.blockNumberWitnessChange = api.refSteemBlockNumber
+        + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
+      await api.db.update('params', params);
+      api.emit('awaitingRoundEnd', { });
+    }
   }
 };
 
