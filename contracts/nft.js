@@ -566,6 +566,48 @@ actions.enableDelegation = async (payload) => {
   return false;
 };
 
+actions.updatePropertyDefinition = async (payload) => {
+  const {
+    symbol, name, newName, type, isReadOnly, isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && name && typeof name === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid name: letters & numbers only, max length of 25')
+    && api.assert(newName === undefined
+    || (typeof newName === 'string' && api.validator.isAlphanumeric(newName) && newName.length > 0 && newName.length <= 25), 'invalid new name: letters & numbers only, max length of 25')
+    && api.assert(type === undefined
+    || (typeof type === 'string' && (type === 'number' || type === 'string' || type === 'boolean')), 'invalid type: must be number, string, or boolean')
+    && api.assert(isReadOnly === undefined || typeof isReadOnly === 'boolean', 'invalid isReadOnly: must be true or false')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.supply === 0, 'cannot change data property definition; tokens already issued')
+        && api.assert(name in nft.properties, 'property must exist')
+        && api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        // if changing name, must make sure this data property is not part of groupBy
+        if (newName && nft.groupBy !== undefined && nft.groupBy.length > 0) {
+          if (!api.assert(!nft.groupBy.includes(name), 'cannot change data property name; property is part of groupBy')) {
+            return false;
+          }
+        }
+
+        if (type !== undefined) {
+          nft.properties[name].type = type;
+        }
+        if (isReadOnly !== undefined) {
+          nft.properties[name].isReadOnly = isReadOnly;
+        }
+
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 actions.addProperty = async (payload) => {
   const {
     symbol, name, type, isReadOnly, authorizedEditingAccounts, authorizedEditingContracts, isSignedWithActiveKey,
