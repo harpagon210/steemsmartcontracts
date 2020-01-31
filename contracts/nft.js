@@ -587,18 +587,37 @@ actions.updatePropertyDefinition = async (payload) => {
       if (api.assert(nft.supply === 0, 'cannot change data property definition; tokens already issued')
         && api.assert(name in nft.properties, 'property must exist')
         && api.assert(nft.issuer === api.sender, 'must be the issuer')) {
-        // if changing name, must make sure this data property is not part of groupBy
-        if (newName && nft.groupBy !== undefined && nft.groupBy.length > 0) {
-          if (!api.assert(!nft.groupBy.includes(name), 'cannot change data property name; property is part of groupBy')) {
+        // extra validations for changing the name of a property
+        if (newName !== undefined) {
+          if (nft.groupBy !== undefined && nft.groupBy.length > 0) {
+            if (!api.assert(!nft.groupBy.includes(name), 'cannot change data property name; property is part of groupBy')) {
+              return false;
+            }
+          }
+          if (!api.assert(newName !== name, 'new name must be different from old name')
+            || !api.assert(!(newName in nft.properties), 'there is already a data property with the given new name')) {
             return false;
           }
         }
 
+        let shouldUpdate = false;
         if (type !== undefined) {
           nft.properties[name].type = type;
+          shouldUpdate = true;
         }
         if (isReadOnly !== undefined) {
           nft.properties[name].isReadOnly = isReadOnly;
+          shouldUpdate = true;
+        }
+        if (newName !== undefined) {
+          nft.properties[newName] = nft.properties[name];
+          delete  nft.properties[name];
+          // TODO: verify this delete really works
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          await api.db.update('nfts', nft);
         }
 
         return true;
