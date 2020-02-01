@@ -64,11 +64,11 @@ const steemClient = {
     }
 
     try {
-      if ((json.contractPayload.round === undefined
-          || (json.contractPayload.round && json.contractPayload.round > lastVerifiedRoundNumber))
-        && sendingToSidechain === false) {
+      if (lastProposedRound && sendingToSidechain === false) {
         sendingToSidechain = true;
+        console.log('START sending block proposition');
         await this.client.broadcast.json(transaction, this.signingKey);
+        console.log('DONE sending block proposition');
         if (json.contractAction === 'proposeRound') {
           lastProposedRound = null;
         }
@@ -202,6 +202,7 @@ const verifyRoundHandler = async (witnessAccount, data) => {
                   signatures: lastProposedRound.signatures,
                 },
               };
+              console.log('sending json')
               await steemClient.sendCustomJSON(json);
               lastVerifiedRoundNumber = round;
             }
@@ -248,7 +249,7 @@ const proposeRound = async (witness, round, retry = 0) => {
   
         if (response.data.error.message === 'current round is lower'
           || response.data.error.message === 'current witness is different') {
-          if (retry) {
+          if (retry < 3) {
             setTimeout(() => {
               console.log(`propose round: retry ${retry + 1}`)
               proposeRound(witness, round, retry + 1);
@@ -287,6 +288,7 @@ const manageRoundProposition = async () => {
     console.log('currentRound', currentRound);
     console.log('currentWitness', currentWitness);
     console.log('lastBlockRound', lastBlockRound);
+    console.log('lastProposedRound', lastProposedRound);
 
     // get the witness participating in this round
     const schedules = await find('witnesses', 'schedules', { round: currentRound });
