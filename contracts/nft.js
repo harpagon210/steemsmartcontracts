@@ -601,23 +601,28 @@ actions.updatePropertyDefinition = async (payload) => {
         }
 
         let shouldUpdate = false;
-        if (type !== undefined) {
+        const originalType = nft.properties[name].type;
+        const originalIsReadOnly = nft.properties[name].isReadOnly;
+        if (type !== undefined && type !== originalType) {
           nft.properties[name].type = type;
           shouldUpdate = true;
         }
-        if (isReadOnly !== undefined) {
+        if (isReadOnly !== undefined && isReadOnly !== originalIsReadOnly) {
           nft.properties[name].isReadOnly = isReadOnly;
           shouldUpdate = true;
         }
-        if (newName !== undefined) {
+        if (newName !== undefined && newName !== name) {
           nft.properties[newName] = nft.properties[name];
-          delete  nft.properties[name];
-          // TODO: verify this delete really works
+          delete nft.properties[name];
           shouldUpdate = true;
         }
 
         if (shouldUpdate) {
           await api.db.update('nfts', nft);
+
+          api.emit('updatePropertyDefinition', {
+            symbol, originalName: name, originalType, originalIsReadOnly, newName, newType: type, newIsReadOnly: isReadOnly,
+          });
         }
 
         return true;
