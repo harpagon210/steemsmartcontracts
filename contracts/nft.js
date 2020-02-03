@@ -313,6 +313,42 @@ actions.updateName = async (payload) => {
   }
 };
 
+actions.updateOrgName = async (payload) => {
+  const { orgName, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && orgName && typeof orgName === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(orgName, ' ')) && orgName.length > 0 && orgName.length <= 50, 'invalid org name: letters, numbers, whitespaces only, max length of 50')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        nft.orgName = orgName;
+        await api.db.update('nfts', nft);
+      }
+    }
+  }
+};
+
+actions.updateProductName = async (payload) => {
+  const { productName, symbol } = payload;
+
+  if (api.assert(symbol && typeof symbol === 'string'
+    && productName && typeof productName === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(productName, ' ')) && productName.length > 0 && productName.length <= 50, 'invalid product name: letters, numbers, whitespaces only, max length of 50')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        nft.productName = productName;
+        await api.db.update('nfts', nft);
+      }
+    }
+  }
+};
+
 actions.addAuthorizedIssuingAccounts = async (payload) => {
   const { accounts, symbol, isSignedWithActiveKey } = payload;
 
@@ -525,6 +561,72 @@ actions.enableDelegation = async (payload) => {
       nft.undelegationCooldown = undelegationCooldown;
       await api.db.update('nfts', nft);
       return true;
+    }
+  }
+  return false;
+};
+
+actions.updatePropertyDefinition = async (payload) => {
+  const {
+    symbol, name, newName, type, isReadOnly, isSignedWithActiveKey,
+  } = payload;
+
+  if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
+    && api.assert(symbol && typeof symbol === 'string'
+    && name && typeof name === 'string', 'invalid params')
+    && api.assert(api.validator.isAlphanumeric(name) && name.length > 0 && name.length <= 25, 'invalid name: letters & numbers only, max length of 25')
+    && api.assert(newName === undefined
+    || (typeof newName === 'string' && api.validator.isAlphanumeric(newName) && newName.length > 0 && newName.length <= 25), 'invalid new name: letters & numbers only, max length of 25')
+    && api.assert(type === undefined
+    || (typeof type === 'string' && (type === 'number' || type === 'string' || type === 'boolean')), 'invalid type: must be number, string, or boolean')
+    && api.assert(isReadOnly === undefined || typeof isReadOnly === 'boolean', 'invalid isReadOnly: must be true or false')) {
+    // check if the NFT exists
+    const nft = await api.db.findOne('nfts', { symbol });
+
+    if (nft) {
+      if (api.assert(nft.supply === 0, 'cannot change data property definition; tokens already issued')
+        && api.assert(name in nft.properties, 'property must exist')
+        && api.assert(nft.issuer === api.sender, 'must be the issuer')) {
+        // extra validations for changing the name of a property
+        if (newName !== undefined) {
+          if (nft.groupBy !== undefined && nft.groupBy.length > 0) {
+            if (!api.assert(!nft.groupBy.includes(name), 'cannot change data property name; property is part of groupBy')) {
+              return false;
+            }
+          }
+          if (!api.assert(newName !== name, 'new name must be different from old name')
+            || !api.assert(!(newName in nft.properties), 'there is already a data property with the given new name')) {
+            return false;
+          }
+        }
+
+        let shouldUpdate = false;
+        const originalType = nft.properties[name].type;
+        const originalIsReadOnly = nft.properties[name].isReadOnly;
+        if (type !== undefined && type !== originalType) {
+          nft.properties[name].type = type;
+          shouldUpdate = true;
+        }
+        if (isReadOnly !== undefined && isReadOnly !== originalIsReadOnly) {
+          nft.properties[name].isReadOnly = isReadOnly;
+          shouldUpdate = true;
+        }
+        if (newName !== undefined && newName !== name) {
+          nft.properties[newName] = nft.properties[name];
+          delete nft.properties[name];
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          await api.db.update('nfts', nft);
+
+          api.emit('updatePropertyDefinition', {
+            symbol, originalName: name, originalType, originalIsReadOnly, newName, newType: type, newIsReadOnly: isReadOnly,
+          });
+        }
+
+        return true;
+      }
     }
   }
   return false;
@@ -1088,7 +1190,7 @@ actions.checkPendingUndelegations = async () => {
 
 actions.create = async (payload) => {
   const {
-    name, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
+    name, orgName, productName, symbol, url, maxSupply, authorizedIssuingAccounts, authorizedIssuingContracts, isSignedWithActiveKey,
   } = payload;
 
   // get contract params
@@ -1107,11 +1209,17 @@ actions.create = async (payload) => {
       && api.assert(name && typeof name === 'string'
       && symbol && typeof symbol === 'string'
       && (url === undefined || (url && typeof url === 'string'))
+      && (orgName === undefined || (orgName && typeof orgName === 'string'))
+      && (productName === undefined || (productName && typeof productName === 'string'))
       && (authorizedIssuingAccounts === undefined || (authorizedIssuingAccounts && typeof authorizedIssuingAccounts === 'object' && Array.isArray(authorizedIssuingAccounts)))
       && (authorizedIssuingContracts === undefined || (authorizedIssuingContracts && typeof authorizedIssuingContracts === 'object' && Array.isArray(authorizedIssuingContracts)))
       && (maxSupply === undefined || (maxSupply && typeof maxSupply === 'string' && !api.BigNumber(maxSupply).isNaN())), 'invalid params')) {
     if (api.assert(api.validator.isAlpha(symbol) && api.validator.isUppercase(symbol) && symbol.length > 0 && symbol.length <= MAX_SYMBOL_LENGTH, `invalid symbol: uppercase letters only, max length of ${MAX_SYMBOL_LENGTH}`)
       && api.assert(api.validator.isAlphanumeric(api.validator.blacklist(name, ' ')) && name.length > 0 && name.length <= 50, 'invalid name: letters, numbers, whitespaces only, max length of 50')
+      && api.assert(orgName === undefined
+      || (api.validator.isAlphanumeric(api.validator.blacklist(orgName, ' ')) && orgName.length > 0 && orgName.length <= 50), 'invalid org name: letters, numbers, whitespaces only, max length of 50')
+      && api.assert(productName === undefined
+      || (api.validator.isAlphanumeric(api.validator.blacklist(productName, ' ')) && productName.length > 0 && productName.length <= 50), 'invalid product name: letters, numbers, whitespaces only, max length of 50')
       && api.assert(url === undefined || url.length <= 255, 'invalid url: max length of 255')
       && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).gt(0), 'maxSupply must be positive')
       && api.assert(maxSupply === undefined || api.BigNumber(maxSupply).lte(Number.MAX_SAFE_INTEGER), `maxSupply must be lower than ${Number.MAX_SAFE_INTEGER}`)) {
@@ -1131,7 +1239,8 @@ actions.create = async (payload) => {
         }
 
         const finalMaxSupply = maxSupply === undefined ? 0 : api.BigNumber(maxSupply).integerValue(api.BigNumber.ROUND_DOWN).toNumber();
-
+        const finalOrgName = orgName === undefined ? '' : orgName;
+        const finalProductName = productName === undefined ? '' : productName;
         const finalUrl = url === undefined ? '' : url;
         let metadata = {
           url: finalUrl,
@@ -1144,6 +1253,8 @@ actions.create = async (payload) => {
           issuer: api.sender,
           symbol,
           name,
+          orgName: finalOrgName,
+          productName: finalProductName,
           metadata,
           maxSupply: finalMaxSupply,
           supply: 0,

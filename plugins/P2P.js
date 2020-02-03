@@ -168,7 +168,7 @@ const getReqId = () => {
 };
 
 const verifyRoundHandler = async (witnessAccount, data) => {
-  console.log(witnessAccount, data)
+  console.log(witnessAccount, data);
   if (lastProposedRound !== null) {
     console.log('verification round received from', witnessAccount);
     const {
@@ -202,7 +202,7 @@ const verifyRoundHandler = async (witnessAccount, data) => {
                   signatures: lastProposedRound.signatures,
                 },
               };
-              console.log('sending json')
+              console.log('sending json');
               await steemClient.sendCustomJSON(json);
               lastVerifiedRoundNumber = round;
             }
@@ -228,7 +228,7 @@ const proposeRound = async (witness, round, retry = 0) => {
     };
     const url = `http://${witnessRec.IP}:${witnessRec.P2PPort}/p2p`;
 
-    console.log(url)
+    console.log(url);
     const response = await axios({
       url,
       method: 'POST',
@@ -239,19 +239,19 @@ const proposeRound = async (witness, round, retry = 0) => {
       },
       data,
     });
-    console.log(response.data)
+    console.log(response.data);
 
     if (currentRound === round.round) {
       if (response.data.result) {
         verifyRoundHandler(witness, response.data.result);
       } else {
         console.error(`Error posting to ${witness} / round ${round} / ${response.data.error.code} / ${response.data.error.message}`);
-  
+
         if (response.data.error.message === 'current round is lower'
           || response.data.error.message === 'current witness is different') {
           if (retry < 3) {
             setTimeout(() => {
-              console.log(`propose round: retry ${retry + 1}`)
+              console.log(`propose round: retry ${retry + 1}`);
               proposeRound(witness, round, retry + 1);
             }, 5000);
           }
