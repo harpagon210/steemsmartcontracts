@@ -112,6 +112,13 @@ class Block {
       virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
 
+    // LOAD TEST - TO BE REMOVED WHEN MOVING TO MAINNET
+    if (this.refSteemBlockNumber >= 40939919) {
+      // create a random transaction that will generate a block on every Steem block parsed
+      // basically, every 3secs
+      virtualTransactions.push(new Transaction(0, '', 'whatever', 'whatever', 'whatever', ''));
+    }
+
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
       const transaction = virtualTransactions[i];
