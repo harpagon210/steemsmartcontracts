@@ -243,6 +243,83 @@ const isValidTokenBasket = async (basket, balanceTableName, accountName, feeSymb
   return true;
 };
 
+// used by issue & burn actions to lock/unlock NFT instances within tokens
+// performs a transfer and does extended verification on the results
+const transferAndVerifyNfts = async (from, fromType, to, toType, nfts, isSignedWithActiveKey, callingContractInfo) => {
+  const results = {
+    success: [],
+    fail: [],
+  };
+
+  const finalFromType = fromType === 'user' ? 'u' : 'c';
+  const finalToType = toType === 'user' ? 'u' : 'c';
+
+  const res = await actions.transfer({
+    fromType,
+    to,
+    toType,
+    nfts,
+    isSignedWithActiveKey,
+    callingContractInfo,
+  });
+  const logs = api.logs();
+  const tokenMap = {};
+  const countedMap = {};
+
+  if (logs.events) {
+    for (let i = 0; i < logs.events.length; i += 1) {
+      const ev = logs.events[i];
+      if (ev.contract && ev.event && ev.data
+        && ev.contract === 'nft'
+        && ev.event === 'transfer'
+        && ev.data.from === from
+        && ev.data.fromType === finalFromType
+        && ev.data.to === to
+        && ev.data.toType === finalToType) {
+        // transfer is verified, save it so we can match against nfts
+        const key = ev.data.symbol + '-' + ev.data.id;
+        tokenMap[key] = 1;
+      }
+    }
+  }
+
+  // generate result data
+  for (let index = 0; index < nfts.length; index += 1) {
+    const { symbol, ids } = nfts[index];
+    const success = [];
+    const fail = [];
+    for (let j = 0; j < ids.length; j += 1) {
+      const inputKey = symbol + '-' + ids[j];
+      if (!(inputKey in countedMap)) {
+        if (inputKey in tokenMap) {
+          success.push(ids[j].toString());
+        } else {
+          fail.push(ids[j].toString());
+        }
+        countedMap[inputKey] = 1;
+      }
+    }
+
+    if (success.length > 0) {
+      results.success.push({
+        symbol,
+        ids: success
+      });
+    }
+    if (fail.length > 0) {
+      results.fail.push({
+        symbol,
+        ids: fail
+      });
+    }
+  }
+
+  // TODO: remove this debugging output
+  api.debug(results);
+
+  return results;
+};
+
 actions.updateUrl = async (payload) => {
   const { url, symbol } = payload;
 
@@ -1293,7 +1370,7 @@ actions.create = async (payload) => {
 
 actions.issue = async (payload) => {
   const {
-    symbol, fromType, to, toType, feeSymbol, lockTokens, properties, isSignedWithActiveKey, callingContractInfo,
+    symbol, fromType, to, toType, feeSymbol, lockTokens, lockNfts, properties, isSignedWithActiveKey, callingContractInfo,
   } = payload;
   const types = ['user', 'contract'];
 
@@ -1312,7 +1389,9 @@ actions.issue = async (payload) => {
     && finalToType && typeof finalToType === 'string' && types.includes(finalToType)
     && feeSymbol && typeof feeSymbol === 'string' && feeSymbol in nftIssuanceFee
     && (properties === undefined || (properties && typeof properties === 'object'))
-    && (lockTokens === undefined || (lockTokens && typeof lockTokens === 'object')), 'invalid params')) {
+    && (lockTokens === undefined || (lockTokens && typeof lockTokens === 'object'))
+    && (lockNfts === undefined || (lockNfts && typeof lockNfts === 'object' && Array.isArray(lockNfts))), 'invalid params')
+    && (lockNfts === undefined || isValidNftIdArray(lockNfts))) {
     const finalTo = finalToType === 'user' ? to.trim().toLowerCase() : to.trim();
     const toValid = finalToType === 'user' ? isValidSteemAccountLength(finalTo) : isValidContractLength(finalTo);
     const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
@@ -1399,15 +1478,33 @@ actions.issue = async (payload) => {
               }
             }
 
+            // any locked NFT instances should be sent to the nft contract for custodianship
+            let finalLockNfts = [];
+            if (lockNfts && lockNfts.length > 0) {
+              const res = await transferAndVerifyNfts(finalFrom, finalFromType, CONTRACT_NAME, 'contract', lockNfts, isSignedWithActiveKey, callingContractInfo);
+              finalLockNfts = res.success;
+            }
+
             const ownedBy = finalToType === 'user' ? 'u' : 'c';
 
             // finally, we can issue the NFT!
-            const newInstance = {
-              account: finalTo,
-              ownedBy,
-              lockedTokens: finalLockTokens,
-              properties: finalProperties,
-            };
+            let newInstance = {};
+            if (finalLockNfts.length > 0) {
+              newInstance = {
+                account: finalTo,
+                ownedBy,
+                lockedTokens: finalLockTokens,
+                lockedNfts: finalLockNfts,
+                properties: finalProperties,
+              };
+            } else {
+              newInstance = {
+                account: finalTo,
+                ownedBy,
+                lockedTokens: finalLockTokens,
+                properties: finalProperties,
+              };
+            }
 
             const result = await api.db.insert(instanceTableName, newInstance);
 
@@ -1420,7 +1517,7 @@ actions.issue = async (payload) => {
 
             api.emit('issue', {
               // eslint-disable-next-line no-underscore-dangle
-              from: finalFrom, fromType: finalFromType, to: finalTo, toType: finalToType, symbol, lockedTokens: finalLockTokens, properties: finalProperties, id: result._id,
+              from: finalFrom, fromType: finalFromType, to: finalTo, toType: finalToType, symbol, lockedTokens: finalLockTokens, lockedNfts: finalLockNfts, properties: finalProperties, id: result._id,
             });
             return true;
           }
