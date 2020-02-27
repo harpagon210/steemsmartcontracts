@@ -2140,6 +2140,32 @@ describe('nft', function() {
       console.log(res);
       console.log(res[3].lockedNfts);
 
+      assert.equal(res[0]._id, 1);
+      assert.equal(res[0].account, 'nft');
+      assert.equal(res[0].ownedBy, 'c');
+      assert.equal(JSON.stringify(res[0].lockedTokens), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"}`);
+      assert.equal(res[0].previousAccount, 'testcontract');
+      assert.equal(res[0].previousOwnedBy, 'c');
+      assert.equal(res[1]._id, 2);
+      assert.equal(res[1].account, 'nft');
+      assert.equal(res[1].ownedBy, 'c');
+      assert.equal(JSON.stringify(res[1].lockedTokens), '{}');
+      assert.equal(res[1].previousAccount, 'testcontract');
+      assert.equal(res[1].previousOwnedBy, 'c');
+      assert.equal(res[2]._id, 3);
+      assert.equal(res[2].account, 'nft');
+      assert.equal(res[2].ownedBy, 'c');
+      assert.equal(JSON.stringify(res[3].lockedTokens), '{}');
+      assert.equal(res[2].previousAccount, 'cryptomancer');
+      assert.equal(res[2].previousOwnedBy, 'u');
+      assert.equal(res[3]._id, 4);
+      assert.equal(res[3].account, 'marc');
+      assert.equal(res[3].ownedBy, 'u');
+      assert.equal(JSON.stringify(res[3].lockedTokens), '{}');
+      assert.equal(JSON.stringify(res[3].lockedNfts[0]), '{"symbol":"TSTNFT","ids":["3"]}');
+      assert.equal(JSON.stringify(res[3].lockedNfts[1]), '{"symbol":"TEST","ids":["1","2"]}');
+      assert.equal(res[3].lockedNfts.length, 2);
+
       resolve();
     })
       .then(() => {
@@ -2400,6 +2426,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1267', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": [1,2,3] }'));
       transactions.push(new Transaction(38145391, 'TXID1268', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"0.0001"} }'));
 
+      // invalid locked NFT list - can't lock more than 50 at once
+      transactions.push(new Transaction(38145391, 'TXID1269', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockNfts": [{"symbol":"TSTNFT", "ids":["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51"]} ] }'));
+
       let block = {
         refSteemBlockNumber: 38145391,
         refSteemBlockId: 'ABCD1',
@@ -2433,6 +2462,7 @@ describe('nft', function() {
       console.log(transactionsBlock1[36].logs)
       console.log(transactionsBlock1[37].logs)
       console.log(transactionsBlock1[38].logs)
+      console.log(transactionsBlock1[39].logs)
 
       assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
@@ -2453,6 +2483,7 @@ describe('nft', function() {
       assert.equal(JSON.parse(transactionsBlock1[36].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
       assert.equal(JSON.parse(transactionsBlock1[37].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
       assert.equal(JSON.parse(transactionsBlock1[38].logs).errors[0], 'invalid basket of tokens to lock (cannot lock more than 10 token types; issuing account must have enough balance)');
+      assert.equal(JSON.parse(transactionsBlock1[39].logs).errors[0], 'cannot operate on more than 50 NFT instances at once');
 
       resolve();
     })
