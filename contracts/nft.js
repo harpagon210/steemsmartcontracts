@@ -22,6 +22,12 @@ const MAX_NUM_NFTS_EDITABLE = 50;
 // this number of NFT instances in one action
 const MAX_NUM_NFTS_OPERABLE = 50;
 
+// cannot issue or burn more than this number of NFT
+// instances in one action, when the list of NFT instances
+// to act on includes a token with locked NFT instances
+// contained within it
+const MAX_NUM_CONTAINER_NFTS_OPERABLE = 1;
+
 actions.createSSC = async () => {
   const tableExists = await api.db.tableExists('nfts');
   if (tableExists === false) {
@@ -945,6 +951,8 @@ actions.burn = async (payload) => {
     && isValidNftIdArray(nfts)) {
     const finalFrom = finalFromType === 'user' ? api.sender : callingContractInfo.name;
 
+    let containerCount = 0;
+    let tokenCount = 0;
     for (let i = 0; i < nfts.length; i += 1) {
       const { symbol, ids } = nfts[i];
       // check if the NFT exists
@@ -956,12 +964,19 @@ actions.burn = async (payload) => {
           const id = ids[j];
           const nftInstance = await api.db.findOne(instanceTableName, { _id: api.BigNumber(id).toNumber() });
           if (nftInstance) {
+            let isBurnAuthorized = true;
+            // TODO: add logic to correctly set isBurnAuthorized based on MAX_NUM_CONTAINER_NFTS_OPERABLE
+            tokenCount += 1;
+            if (nftInstance.lockedNfts && nftInstance.lockedNfts.length > 0) {
+              containerCount += 1;
+            }
             // verify action is being performed by the account that owns this instance
-            // and there is no existing delegation
+            // and there is no existing delegation and container restrictions are satisfied
             if (nftInstance.account === finalFrom
               && ((nftInstance.ownedBy === 'u' && finalFromType === 'user')
               || (nftInstance.ownedBy === 'c' && finalFromType === 'contract'))
-              && nftInstance.delegatedTo === undefined) {
+              && nftInstance.delegatedTo === undefined
+              && isBurnAuthorized) {
               // release any locked tokens back to the owning account
               const finalLockTokens = {};
               let isTransferSuccess = true;
@@ -973,7 +988,17 @@ actions.burn = async (payload) => {
                   isTransferSuccess = false;
                 }
               }
-              api.assert(isTransferSuccess, `unable to release locked tokens: ${symbol}, id ${id}`);
+              api.assert(isTransferSuccess, `unable to release locked tokens in: ${symbol}, id ${id}`);
+              // release any locked NFT instances back to the owning account
+              const origLockNfts = (nftInstance.lockedNfts && nftInstance.lockedNfts.length > 0) ? nftInstance.lockedNfts : [];
+              if(isTransferSuccess && nftInstance.lockedNfts && nftInstance.lockedNfts.length > 0) {
+                const res = await transferAndVerifyNfts(CONTRACT_NAME, 'contract', finalFrom, finalFromType, nftInstance.lockedNfts, isSignedWithActiveKey, { name: CONTRACT_NAME });
+                nftInstance.lockedNfts = res.fail;
+                if(nftInstance.lockedNfts.length > 0) {
+                  isTransferSuccess = false;
+                }
+                api.assert(isTransferSuccess, `unable to release locked NFT instances in: ${symbol}, id ${id}`);
+              }
               const origOwnedBy = nftInstance.ownedBy;
               const origLockTokens = nftInstance.lockedTokens;
               nftInstance.lockedTokens = finalLockTokens;
@@ -988,7 +1013,7 @@ actions.burn = async (payload) => {
               await api.db.update(instanceTableName, nftInstance);
               if (isTransferSuccess) {
                 api.emit('burn', {
-                  account: finalFrom, ownedBy: origOwnedBy, unlockedTokens: origLockTokens, symbol, id,
+                  account: finalFrom, ownedBy: origOwnedBy, unlockedTokens: origLockTokens, unlockedNfts: origLockNfts,  symbol, id,
                 });
               }
             }
@@ -1536,13 +1561,25 @@ actions.issueMultiple = async (payload) => {
   if (api.assert(isSignedWithActiveKey === true, 'you must use a custom_json signed with your active key')
     && api.assert(instances && typeof instances === 'object' && Array.isArray(instances), 'invalid params')
     && api.assert(instances.length <= MAX_NUM_NFTS_ISSUABLE, `cannot issue more than ${MAX_NUM_NFTS_ISSUABLE} NFT instances at once`)) {
-    for (let i = 0; i < instances.length; i += 1) {
-      const {
-        symbol, fromType, to, toType, feeSymbol, lockTokens, properties,
-      } = instances[i];
-      await actions.issue({
-        symbol, fromType, to, toType, feeSymbol, lockTokens, properties, isSignedWithActiveKey, callingContractInfo,
-      });
+    // additional check for locked NFT instances
+    let containerCount = 0;
+    instances.forEach((instance) => {
+      if (instance.lockNfts) {
+        containerCount += 1;
+      }
+    });
+
+    if (api.assert(containerCount <= MAX_NUM_CONTAINER_NFTS_OPERABLE, `cannot issue more than ${MAX_NUM_CONTAINER_NFTS_OPERABLE} container NFT instances at once`)
+      && api.assert(containerCount === 0 || containerCount === instances.length, 'cannot issue a mix of container and non-container NFT instances simultaneously')) {
+      // do the issuance
+      for (let i = 0; i < instances.length; i += 1) {
+        const {
+          symbol, fromType, to, toType, feeSymbol, lockTokens, lockNfts, properties,
+        } = instances[i];
+        await actions.issue({
+          symbol, fromType, to, toType, feeSymbol, lockTokens, lockNfts, properties, isSignedWithActiveKey, callingContractInfo,
+        });
+      }
     }
   }
 };
