@@ -2180,6 +2180,298 @@ describe('nft', function() {
       });
   });
 
+  it('obeys container token burn restrictions', (done) => {
+    new Promise(async (resolve) => {
+
+      await loadPlugin(blockchain);
+      database1 = new Database();
+      await database1.init(conf.databaseURL, conf.databaseName);
+
+      let transactions = [];
+      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"30" }'));
+      transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["cryptomancer","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice","testcontract"] }'));
+      transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"cryptomancer", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      transactions.push(new Transaction(38145391, 'TXID1241', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"cryptomancer", "feeSymbol": "TKN" }'));
+      transactions.push(new Transaction(38145391, 'TXID1242', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1243', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"3.5","TKN":"0.003"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1244', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"cryptomancer", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"10"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1245', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"cryptomancer", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+      transactions.push(new Transaction(38145391, 'TXID1246', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "toType":"user", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
+
+      // now issue NFT instances, locking some of the above tokens within them
+      transactions.push(new Transaction(38145391, 'TXID1247', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15" }, "lockNfts": [{"symbol":"TSTNFT", "ids":["1"]}] }`));
+      transactions.push(new Transaction(38145391, 'TXID1248', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15" }, "lockNfts": [{"symbol":"TEST", "ids":["1"]}] }`));
+      transactions.push(new Transaction(38145391, 'TXID1249', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15" }, "lockNfts": [{"symbol":"TSTNFT", "ids":["2"]}] }`));
+      transactions.push(new Transaction(38145391, 'TXID1250', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15" }, "lockNfts": [{"symbol":"TEST", "ids":["2"]}] }`));
+
+      let block = {
+        refSteemBlockNumber: 38145391,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      // check NFT instances are OK
+      let res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log('setup tokens');
+      console.log(res);
+
+      assert.equal(res.length, 6);
+      assert.equal(res[0]._id, 3);
+      assert.equal(res[1]._id, 4);
+      assert.equal(res[2]._id, 5);
+      assert.equal(res[2].lockedNfts.length, 1);
+      assert.equal(res[3]._id, 6);
+      assert.equal(res[3].lockedNfts.length, 1);
+      assert.equal(res[4]._id, 7);
+      assert.equal(res[4].lockedNfts.length, 1);
+      assert.equal(res[5]._id, 8);
+      assert.equal(res[5].lockedNfts.length, 1);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 3);
+
+      // scenario 1: can't burn more than one container instance at a time
+      transactions = [];
+      transactions.push(new Transaction(38145392, 'TXID1300', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["5","6"]} ] }')); // token ID 6 should fail
+
+      block = {
+        refSteemBlockNumber: 38145392,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log('scenario 1');
+      console.log(res);
+
+      assert.equal(res.length, 6);
+      assert.equal(res[0]._id, 1);
+      assert.equal(res[0].previousAccount, 'nft');
+      assert.equal(res[0].previousOwnedBy, 'c');
+      assert.equal(res[1]._id, 3);
+      assert.equal(res[2]._id, 4);
+      assert.equal(res[3]._id, 6);
+      assert.equal(res[4]._id, 7);
+      assert.equal(res[5]._id, 8);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 3);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'null'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 5);
+      assert.equal(res[0].previousAccount, 'aggroed');
+      assert.equal(res[0].previousOwnedBy, 'u');
+      assert.equal(res[0].lockedNfts.length, 0);
+
+      // scenario 2: can't mix container + non-container instances (first token is non-container)
+      transactions = [];
+      // token ID 6 should fail
+      transactions.push(new Transaction(38145393, 'TXID1400', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["3"]}, {"symbol":"TSTNFT", "ids":["6","3"]} ] }'));
+
+      block = {
+        refSteemBlockNumber: 38145393,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log('scenario 2');
+      console.log(res);
+
+      assert.equal(res.length, 5);
+      assert.equal(res[0]._id, 1);
+      assert.equal(res[0].previousAccount, 'nft');
+      assert.equal(res[0].previousOwnedBy, 'c');
+      assert.equal(res[1]._id, 4);
+      assert.equal(res[2]._id, 6);
+      assert.equal(res[3]._id, 7);
+      assert.equal(res[4]._id, 8);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log(res);
+      assert.equal(res.length, 0);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'null'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 2);
+      assert.equal(res[0]._id, 3);
+      assert.equal(res[0].previousAccount, 'aggroed');
+      assert.equal(res[0].previousOwnedBy, 'u');
+      assert.equal(res[1]._id, 5);
+      assert.equal(res[1].previousAccount, 'aggroed');
+      assert.equal(res[1].previousOwnedBy, 'u');
+      assert.equal(res[1].lockedNfts.length, 0);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'null'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 3);
+      assert.equal(res[0].previousAccount, 'aggroed');
+      assert.equal(res[0].previousOwnedBy, 'u');
+
+      // scenario 3: can't mix container + non-container instances (first token is container)
+      transactions = [];
+      // token ID 4 should fail
+      transactions.push(new Transaction(38145394, 'TXID1500', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["6","4"]} ] }'));
+
+      block = {
+        refSteemBlockNumber: 38145394,
+        refSteemBlockId: 'ABCD1',
+        prevRefSteemBlockId: 'ABCD2',
+        timestamp: '2018-06-01T00:00:00',
+        transactions,
+      };
+
+      await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log('scenario 3');
+      console.log(res);
+
+      assert.equal(res.length, 4);
+      assert.equal(res[0]._id, 1);
+      assert.equal(res[0].previousAccount, 'nft');
+      assert.equal(res[0].previousOwnedBy, 'c');
+      assert.equal(res[1]._id, 4);
+      assert.equal(res[2]._id, 7);
+      assert.equal(res[3]._id, 8);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'aggroed'}
+      });
+
+      console.log(res);
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 1);
+      assert.equal(res[0].previousAccount, 'nft');
+      assert.equal(res[0].previousOwnedBy, 'c');
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TSTNFTinstances',
+        query: {'account': 'null'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 3);
+      assert.equal(res[0]._id, 3);
+      assert.equal(res[0].previousAccount, 'aggroed');
+      assert.equal(res[0].previousOwnedBy, 'u');
+      assert.equal(res[1]._id, 5);
+      assert.equal(res[1].previousAccount, 'aggroed');
+      assert.equal(res[1].previousOwnedBy, 'u');
+      assert.equal(res[1].lockedNfts.length, 0);
+      assert.equal(res[2]._id, 6);
+      assert.equal(res[2].previousAccount, 'aggroed');
+      assert.equal(res[2].previousOwnedBy, 'u');
+      assert.equal(res[2].lockedNfts.length, 0);
+
+      res = await database1.find({
+        contract: 'nft',
+        table: 'TESTinstances',
+        query: {'account': 'null'}
+      });
+
+      console.log(res);
+
+      assert.equal(res.length, 1);
+      assert.equal(res[0]._id, 3);
+      assert.equal(res[0].previousAccount, 'aggroed');
+      assert.equal(res[0].previousOwnedBy, 'u');
+
+      resolve();
+    })
+      .then(() => {
+        unloadPlugin(blockchain);
+        database1.close();
+        done();
+      });
+  });
+
   it('locks nft instances within other nft instances', (done) => {
     new Promise(async (resolve) => {
 
