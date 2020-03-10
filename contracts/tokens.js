@@ -1159,7 +1159,7 @@ actions.undelegate = async (payload) => {
     && from && typeof from === 'string'
     && quantity && typeof quantity === 'string' && !api.BigNumber(quantity).isNaN(), 'invalid params')) {
     const finalFrom = from.trim();
-    if (api.assert(api.isValidAccountName(finalFrom), 'invalid from')) {
+    if (api.assert(finalFrom.length >= 3 && finalFrom.length <= 16, 'invalid from')) {
       const token = await api.db.findOne('tokens', { symbol });
 
       // the symbol must exist
