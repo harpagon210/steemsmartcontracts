@@ -8,7 +8,7 @@ from decimal import *
 
 apiUrl = 'https://api.steem-engine.com/rpc2/contracts/'
 
-excludedAccounts = { 'steem-peg': 1 }
+excludedAccounts = { 'steem-peg': 1, 'deepcrypto8': 1 }
 
 def fetchData(contract, table, offset, limit, query):
     data = []
