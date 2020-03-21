@@ -1605,7 +1605,7 @@ describe('Smart Contracts', function ()  {
         }
 
         actions.addUser = async (payload) => {
-          let test = test.crash
+          let test = test1.crash
         }
       `;
 
@@ -1636,8 +1636,8 @@ describe('Smart Contracts', function ()  {
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
       const logs = JSON.parse(txs[0].logs);
-
-      assert.equal(logs.errors[0], "ReferenceError: test is not defined");
+      console.log(logs)
+      assert.equal(logs.errors[0], "ReferenceError: test1 is not defined");
 
       resolve();
     })
@@ -1671,7 +1671,7 @@ describe('Smart Contracts', function ()  {
       }
       
       actions.addBook = async (payload) => {
-        let test = test.crash
+        let test = test1.crash
       }
     `;
 
@@ -1712,7 +1712,7 @@ describe('Smart Contracts', function ()  {
 
       const logs = JSON.parse(txs[0].logs);
 
-      assert.equal(logs.errors[0], "ReferenceError: test is not defined");
+      assert.equal(logs.errors[0], "ReferenceError: test1 is not defined");
 
       resolve();
     })

@@ -8,6 +8,10 @@
     "lint": "eslint .gitignore .",
     "test": "./node_modules/mocha/bin/mocha  --recursive"
   },
+  "engines": {
+    "node": ">=13.7.0",
+    "npm": ">=6.13.6"
+  },
   "keywords": [],
   "author": "Harpagon210 <harpagon210@gmail.com>",
   "license": "MIT",
@@ -41,6 +45,6 @@
     "eslint-plugin-import": "^2.14.0",
     "eslint-plugin-jsx-a11y": "^6.1.2",
     "eslint-plugin-react": "^7.12.4",
-    "mocha": "^5.2.0"
+    "mocha": "^7.1.1"
   }
 }
