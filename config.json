@@ -14,7 +14,7 @@
     ],
     "hiveAddressPrefix": "STM",
     "hiveChainId": "0000000000000000000000000000000000000000000000000000000000000000",
-    "startHiveBlock": 41945328,
-    "genesisHiveBlock": 41945328,
+    "startHiveBlock": 41967000,
+    "genesisHiveBlock": 41967000,
     "witnessEnabled": false
 }
