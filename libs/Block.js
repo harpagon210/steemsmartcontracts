@@ -104,17 +104,9 @@ class Block {
     // .push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
     // }
 
-    /*
-    if (this.refHiveBlockNumber >= 38145385) {
-      // issue new utility tokens every time the refHiveBlockNumber % 1200 equals 0
-      if (this.refHiveBlockNumber % 1200 === 0) {
-        virtualTransactions
-        .push(new Transaction(
-          0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
-      }
-
+    if (this.refHiveBlockNumber % 1200 === 0) {
+      virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
     }
-    */
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
