@@ -54,7 +54,7 @@ const route = (message) => {
     } else if (plugins[to]) {
       plugins[to].cp.send(message);
     } else {
-      console.error('ROUTING ERROR: ', message);
+      console.error('ROUTING ERROR: ', message); // eslint-disable-line no-console
     }
   }
 };
@@ -72,8 +72,8 @@ const loadPlugin = (newPlugin) => {
   plugin.name = newPlugin.PLUGIN_NAME;
   plugin.cp = fork(newPlugin.PLUGIN_PATH, [], { silent: true, detached: true });
   plugin.cp.on('message', msg => route(msg));
-  plugin.cp.stdout.on('data', data => console.log(`[${newPlugin.PLUGIN_NAME}]`, data.toString()));
-  plugin.cp.stderr.on('data', data => console.error(`[${newPlugin.PLUGIN_NAME}]`, data.toString()));
+  plugin.cp.stdout.on('data', data => console.log(`[${newPlugin.PLUGIN_NAME}]`, data.toString())); // eslint-disable-line no-console
+  plugin.cp.stderr.on('data', data => console.error(`[${newPlugin.PLUGIN_NAME}]`, data.toString())); // eslint-disable-line no-console
 
   plugins[newPlugin.PLUGIN_NAME] = plugin;
 
@@ -92,7 +92,7 @@ const unloadPlugin = async (plugin) => {
   return res;
 };
 
-// start streaming the Steem blockchain and produce the sidechain blocks accordingly
+// start streaming the Hive blockchain and produce the sidechain blocks accordingly
 async function start() {
   let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
@@ -112,7 +112,7 @@ async function stop(callback) {
 
 function saveConfig(lastBlockParsed) {
   const config = fs.readJSONSync('./config.json');
-  config.startSteemBlock = lastBlockParsed;
+  config.startHiveBlock = lastBlockParsed;
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
 }
 

@@ -1,6 +1,6 @@
 {
   "apps": [{
-    "name": "Steem Smart Contracts",
+    "name": "Hive Smart Contracts",
     "script": "app.js",
     "kill_timeout": 120000,
     "treekill": false

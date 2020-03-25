@@ -35,15 +35,15 @@ let sendingToSidechain = false;
 
 let requestId = 1;
 
-const steemClient = {
+const hiveClient = {
   account: null,
   signingKey: null,
   sidechainId: null,
-  steemAddressPrefix: null,
-  steemChainId: null,
+  hiveAddressPrefix: null,
+  hiveChainId: null,
   client: null,
   nodes: new Queue(),
-  getSteemNode() {
+  getHiveNode() {
     const node = this.nodes.pop();
     this.nodes.push(node);
     return node;
@@ -57,9 +57,9 @@ const steemClient = {
     };
 
     if (this.client === null) {
-      this.client = new dsteem.Client(this.getSteemNode(), {
-        addressPrefix: this.steemAddressPrefix,
-        chainId: this.steemChainId,
+      this.client = new dsteem.Client(this.getHiveNode(), {
+        addressPrefix: this.hiveAddressPrefix,
+        chainId: this.hiveChainId,
       });
     }
 
@@ -141,7 +141,7 @@ const checkSignature = (payload, signature, publicKey, isPayloadSHA256 = false) 
 
     return dsteem.PublicKey.fromString(publicKey).verify(buffer, sig);
   } catch (error) {
-    console.log(error);
+    console.log(error); // eslint-disable-line no-console
     return false;
   }
 };
@@ -203,7 +203,7 @@ const verifyRoundHandler = async (witnessAccount, data) => {
                 },
               };
               console.log('sending json');
-              await steemClient.sendCustomJSON(json);
+              await hiveClient.sendCustomJSON(json);
               lastVerifiedRoundNumber = round;
             }
           } else {
@@ -438,8 +438,8 @@ const init = async (conf, callback) => {
     streamNodes,
     chainId,
     witnessEnabled,
-    steemAddressPrefix,
-    steemChainId,
+    hiveAddressPrefix,
+    hiveChainId,
     databaseURL,
     databaseName,
   } = conf;
@@ -452,18 +452,18 @@ const init = async (conf, callback) => {
   } else {
     database = new Database();
     await database.init(databaseURL, databaseName);
-    streamNodes.forEach(node => steemClient.nodes.push(node));
-    steemClient.account = process.env.ACCOUNT;
-    steemClient.sidechainId = chainId;
-    steemClient.steemAddressPrefix = steemAddressPrefix;
-    steemClient.steemChainId = steemChainId;
+    streamNodes.forEach(node => hiveClient.nodes.push(node));
+    hiveClient.account = process.env.ACCOUNT;
+    hiveClient.sidechainId = chainId;
+    hiveClient.hiveAddressPrefix = hiveAddressPrefix;
+    hiveClient.hiveChainId = hiveChainId;
 
     WITNESS_ACCOUNT = process.env.ACCOUNT || null;
-    steemClient.witnessAccount = WITNESS_ACCOUNT;
+    hiveClient.witnessAccount = WITNESS_ACCOUNT;
     SIGNING_KEY = process.env.ACTIVE_SIGNING_KEY
       ? dsteem.PrivateKey.fromString(process.env.ACTIVE_SIGNING_KEY)
       : null;
-    steemClient.signingKey = SIGNING_KEY;
+    hiveClient.signingKey = SIGNING_KEY;
 
     // enable the server
     if (SIGNING_KEY && WITNESS_ACCOUNT) {

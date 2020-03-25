@@ -128,7 +128,7 @@ const unloadPlugin = async (plugin) => {
   return res;
 };
 
-// start streaming the Steem blockchain and produce the sidechain blocks accordingly
+// start streaming the Hive blockchain and produce the sidechain blocks accordingly
 const start = async () => {
   let res = await loadPlugin(blockchain);
   if (res && res.payload === null) {
@@ -145,7 +145,7 @@ const start = async () => {
 const stop = async () => {
   await unloadPlugin(jsonRPCServer);
   await unloadPlugin(p2p);
-  // get the last Steem block parsed
+  // get the last Hive block parsed
   let res = null;
   const streamerPlugin = getPlugin(streamer);
   if (streamerPlugin) {
@@ -162,7 +162,7 @@ const stop = async () => {
 const saveConfig = (lastBlockParsed) => {
   logger.info('Saving config');
   const config = fs.readJSONSync('./config.json');
-  config.startSteemBlock = lastBlockParsed;
+  config.startHiveBlock = lastBlockParsed;
   fs.writeJSONSync('./config.json', config, { spaces: 4 });
 };
 

@@ -1,18 +1,20 @@
 {
-    "chainId": "testnet1",
+    "chainId": "mainnet-hive",
     "rpcNodePort": 5000,
     "p2pPort": 5001,
     "databaseURL": "mongodb://localhost:27017",
-    "databaseName": "ssctestnet1",
+    "databaseName": "hsc",
     "blocksLogFilePath": "./blocks.log",
     "javascriptVMTimeout": 10000,
     "streamNodes": [
-        "https://api.steemit.com",
-        "https://anyx.io"
+        "https://api.openhive.network",
+        "https://api.hive.blog",
+        "https://anyx.io",
+        "https://api.hivekings.com"
     ],
-    "steemAddressPrefix": "STM",
-    "steemChainId": "0000000000000000000000000000000000000000000000000000000000000000",
-    "startSteemBlock": 38287457,
-    "genesisSteemBlock": 29862600,
-    "witnessEnabled": true
+    "hiveAddressPrefix": "STM",
+    "hiveChainId": "0000000000000000000000000000000000000000000000000000000000000000",
+    "startHiveBlock": 41945328,
+    "genesisHiveBlock": 41945328,
+    "witnessEnabled": false
 }

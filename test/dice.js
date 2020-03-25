@@ -11,14 +11,14 @@ const { MongoClient } = require('mongodb');
 
 const conf = {
   chainId: "test-chain-id",
-  genesisSteemBlock: 2000000,
+  genesisHiveBlock: 2000000,
   dataDirectory: "./test/data/",
   databaseFileName: "database.db",
   autosaveInterval: 0,
   javascriptVMTimeout: 10000,
   databaseURL: "mongodb://localhost:27017",
   databaseName: "testssc",
-  streamNodes: ["https://api.steemit.com"],
+  streamNodes: ["https://api.hive.com"],
 };
 
 let plugins = {};
@@ -98,6 +98,8 @@ let contractCode = fs.readFileSync('./contracts/tokens.js');
 contractCode = contractCode.toString();
 contractCode = contractCode.replace(/'\$\{CONSTANTS.UTILITY_TOKEN_PRECISION\}\$'/g, CONSTANTS.UTILITY_TOKEN_PRECISION);
 contractCode = contractCode.replace(/'\$\{CONSTANTS.UTILITY_TOKEN_SYMBOL\}\$'/g, CONSTANTS.UTILITY_TOKEN_SYMBOL);
+contractCode = contractCode.replace(/'\$\{CONSTANTS.HIVE_PEGGED_SYMBOL\}\$'/g, CONSTANTS.HIVE_PEGGED_SYMBOL);
+
 let base64ContractCode = Base64.encode(contractCode);
 
 let tknContractPayload = {
@@ -106,20 +108,20 @@ let tknContractPayload = {
   code: base64ContractCode,
 };
 
-// prepare steempegged contract for deployment
-contractCode = fs.readFileSync('./contracts/steempegged.js');
+// prepare hivepegged contract for deployment
+contractCode = fs.readFileSync('./contracts/hivepegged.js');
 contractCode = contractCode.toString();
-contractCode = contractCode.replace(/'\$\{ACCOUNT_RECEIVING_FEES\}\$'/g, CONSTANTS.ACCOUNT_RECEIVING_FEES);
+contractCode = contractCode.replace(/'\$\{CONSTANTS.ACCOUNT_RECEIVING_FEES\}\$'/g, CONSTANTS.ACCOUNT_RECEIVING_FEES);
 base64ContractCode = Base64.encode(contractCode);
 
 let spContractPayload = {
-  name: 'steempegged',
+  name: 'hivepegged',
   params: '',
   code: base64ContractCode,
 };
 
 // prepare dice contract for deployment
-contractCode = fs.readFileSync('./contracts/bootstrap/dice.js');
+contractCode = fs.readFileSync('./contracts/dice.js');
 contractCode = contractCode.toString();
 base64ContractCode = Base64.encode(contractCode);
 
@@ -130,7 +132,7 @@ let diceContractPayload = {
 };
 
 // dice
-describe('dice', function() {
+describe.skip('dice', function() {
   this.timeout(10000);
 
   before((done) => {
@@ -183,13 +185,16 @@ describe('dice', function() {
       database = new Database();
       await database.init(conf.databaseURL, conf.databaseName);
 
+      const gen = await database.getBlockInfo(0);
+      //console.log(gen);
+
       let transactions = [];
-      transactions.push(new Transaction(30983000, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(diceContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "STEEMP", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1231', CONSTANTS.HIVE_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(diceContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'hivepegged', 'buy', `{ "recipient": "${CONSTANTS.HIVE_PEGGED_ACCOUNT}", "amountHIVEHBD": "1100.00 HIVE", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "SWAP.HIVE", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'hivepegged', 'buy', `{ "recipient": "${CONSTANTS.HIVE_PEGGED_ACCOUNT}", "amountHIVEHBD": "100.00 HIVE", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1237', 'satoshi', 'dice', 'roll', `{ "roll": 95, "amount": "33" , "isSignedWithActiveKey": true }`));
 
       let block = new Block(30983000, 'ABCD2', 'ABCD1', '2018-06-01T00:00:00', transactions);
@@ -222,12 +227,12 @@ describe('dice', function() {
 
       let transactions = [];
    
-      transactions.push(new Transaction(30983000, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1231', CONSTANTS.STEEM_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1232', 'steemsc', 'contract', 'update', JSON.stringify(diceContractPayload)));
-      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "1100.00 STEEM", "isSignedWithActiveKey": true }`));
-      transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "STEEMP", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'steempegged', 'buy', `{ "recipient": "${CONSTANTS.STEEM_PEGGED_ACCOUNT}", "amountSTEEMSBD": "100.00 STEEM", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1231', CONSTANTS.HIVE_PEGGED_ACCOUNT, 'contract', 'update', JSON.stringify(spContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(diceContractPayload)));
+      transactions.push(new Transaction(30983000, 'TXID1233', 'harpagon', 'hivepegged', 'buy', `{ "recipient": "${CONSTANTS.HIVE_PEGGED_ACCOUNT}", "amountHIVEHBD": "1100.00 HIVE", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(30983000, 'TXID1234', 'harpagon', 'tokens', 'transferToContract', '{ "symbol": "SWAP.HIVE", "to": "dice", "quantity": "1000", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(30983000, 'TXID1236', 'satoshi', 'hivepegged', 'buy', `{ "recipient": "${CONSTANTS.HIVE_PEGGED_ACCOUNT}", "amountHIVEHBD": "100.00 HIVE", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(30983000, 'TXID1237', 'satoshi', 'dice', 'roll', `{ "roll": 2, "amount": "33" , "isSignedWithActiveKey": true }`));
 
       let block = new Block(30983000, 'ABCD2', 'ABCD1', '2018-06-01T00:00:00', transactions);

@@ -12,7 +12,7 @@ const CONTRACT_NAME = 'crittermanager';
 // to recognize the Critter app owner
 const CRITTER_CREATOR = 'cryptomancer';
 
-// this placeholder represents ENG tokens on the mainnet and SSC on the testnet
+// this placeholder represents BEE tokens on the mainnet and SSC on the testnet
 // eslint-disable-next-line no-template-curly-in-string
 const UTILITY_TOKEN_SYMBOL = "'${CONSTANTS.UTILITY_TOKEN_SYMBOL}$'";
 
@@ -72,7 +72,7 @@ actions.updateParams = async (payload) => {
 // do this through the Steem Engine web site, but we include it
 // here to illustrate programmatic NFT creation, and to make it
 // clear what data properties we need. Note: the contract owner
-// must have enough ENG/SSC to pay the creation fees. For simplicity
+// must have enough BEE/SSC to pay the creation fees. For simplicity
 // we don't do checks on the owner's balance here, but in a
 // production ready smart contract we definitely should do so
 // before taking any action that spends tokens as a side effect.

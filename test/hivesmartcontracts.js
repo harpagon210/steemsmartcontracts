@@ -157,10 +157,16 @@ describe('Database', function () {
           assert.equal(genesisBlock.hash, '51b19802489567cb2669bfb37119dbe09f36c0847fe2dca2e918176422a0bcd9');
           assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
           assert.equal(genesisBlock.merkleRoot, '8b2c7d50aadcba182e4de6140d795b6e6e4e0a64b654d6b1a3ab48a234489293');
-      } else {
+      } else if (configFile.chainId === 'mainnet1'
+        && CONSTANTS.UTILITY_TOKEN_SYMBOL === 'ENG') {
         assert.equal(genesisBlock.hash, 'c1dee96a6b7a0cc9408ccb407ab641f444c26f6859ba33b9c9ba2c0a368d20b2');
         assert.equal(genesisBlock.databaseHash, 'a3daa72622eb02abd0b1614943f45500633dc10789477e8ee538a8398e61f976');
         assert.equal(genesisBlock.merkleRoot, '7048315fc8861b98fe1b2a82b86a24f80aa6e6dd225223e39771807532f5fb21');
+      } else if (configFile.chainId === 'mainnet-hive'
+      && CONSTANTS.UTILITY_TOKEN_SYMBOL === 'BEE') {
+        assert.equal(genesisBlock.hash, 'd6310e1f360fe0061dd4527649981f70fba6d9dc65c36fd246fc4e32d834e0ce');
+        assert.equal(genesisBlock.databaseHash, '43bdc779c64ec6d1c4a682c711371ecc4e40c7f51edb46993d83a5760edbf37f');
+        assert.equal(genesisBlock.merkleRoot, 'e8cdd4cbfe150a73146bafa6d3116b036ac23ecbaebc5939324ff504dc028063');
       }
 
       resolve();
@@ -180,7 +186,7 @@ describe('Database', function () {
       await database.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', ''));
 
       let block = new Block(
         '2018-06-01T00:00:00',
@@ -195,7 +201,7 @@ describe('Database', function () {
       await database.addBlock(block);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'contract', 'deploy', ''));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', ''));
 
       block = new Block(
         '2018-06-01T00:00:00',
@@ -284,28 +290,28 @@ describe('Smart Contracts', function ()  {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const contract = await database.findContract({ name: 'testContract' });
+      const contract = await database.findContract({ name: 'testcontract' });
 
-      assert.equal(contract._id, 'testContract');
-      assert.equal(contract.owner, 'steemsc');
+      assert.equal(contract._id, 'testcontract');
+      assert.equal(contract.owner, CONSTANTS.HIVE_ENGINE_ACCOUNT);
       resolve()
     })
       .then(() => {
@@ -331,30 +337,30 @@ describe('Smart Contracts', function ()  {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const contract = await database.findContract({ name: 'testContract' });
+      const contract = await database.findContract({ name: 'testcontract' });
 
-      assert.notEqual(contract.tables['testContract_testTable'], undefined);
+      assert.notEqual(contract.tables['testcontract_testTable'], undefined);
 
-      res = await database.getTableDetails({ contract: 'testContract', table: 'testTable' });
+      res = await database.getTableDetails({ contract: 'testcontract', table: 'testTable' });
 
       assert.notEqual(res, null);
       resolve();
@@ -382,26 +388,26 @@ describe('Smart Contracts', function ()  {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const table = await database.getTableDetails({ contract: 'testContract', table: 'testTable' });
+      const table = await database.getTableDetails({ contract: 'testcontract', table: 'testTable' });
       const { indexes } = table;
 
       assert.equal(indexes._id_[0][0], '_id');
@@ -454,22 +460,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } });
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": CONSTANTS.HIVE_ENGINE_ACCOUNT } });
 
-      assert.equal(user.id, 'steemsc');
+      assert.equal(user.id, CONSTANTS.HIVE_ENGINE_ACCOUNT);
 
       resolve();
     })
@@ -523,23 +529,23 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'usersContract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'updateUser', '{ "username": "MyUsernameUpdated" }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } })
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": CONSTANTS.HIVE_ENGINE_ACCOUNT } })
 
-      assert.equal(user.id, 'steemsc');
+      assert.equal(user.id, CONSTANTS.HIVE_ENGINE_ACCOUNT);
       assert.equal(user.username, 'MyUsernameUpdated');
 
       resolve();
@@ -590,21 +596,21 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'usersContract', 'removeUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'removeUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": "steemsc" } });
+      const user = await database.findOne({ contract: 'usersContract', table: 'users', query: { "id": CONSTANTS.HIVE_ENGINE_ACCOUNT } });
 
       assert.equal(user, null);
 
@@ -650,22 +656,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'CONSTANTS.HIVE_ENGINE_ACCOUNT1', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'CONSTANTS.HIVE_ENGINE_ACCOUNT2', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'CONSTANTS.HIVE_ENGINE_ACCOUNT3', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'CONSTANTS.HIVE_ENGINE_ACCOUNT4', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'CONSTANTS.HIVE_ENGINE_ACCOUNT5', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'CONSTANTS.HIVE_ENGINE_ACCOUNT6', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'CONSTANTS.HIVE_ENGINE_ACCOUNT7', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'CONSTANTS.HIVE_ENGINE_ACCOUNT8', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'CONSTANTS.HIVE_ENGINE_ACCOUNT9', 'usersContract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -753,22 +759,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'CONSTANTS.HIVE_ENGINE_ACCOUNT1', 'usersContract', 'addUser', '{ "age": 10 }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'CONSTANTS.HIVE_ENGINE_ACCOUNT2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'CONSTANTS.HIVE_ENGINE_ACCOUNT3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'CONSTANTS.HIVE_ENGINE_ACCOUNT4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'CONSTANTS.HIVE_ENGINE_ACCOUNT5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'CONSTANTS.HIVE_ENGINE_ACCOUNT6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'CONSTANTS.HIVE_ENGINE_ACCOUNT7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'CONSTANTS.HIVE_ENGINE_ACCOUNT8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'CONSTANTS.HIVE_ENGINE_ACCOUNT9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -860,22 +866,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": "2" }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": "10" }'));
-      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": "3" }'));
-      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": "199" }'));
-      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": "200" }'));
-      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": "1" }'));
-      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": "89" }'));
-      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": "2" }'));
-      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": "34" }'));
-      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": "20" }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'CONSTANTS.HIVE_ENGINE_ACCOUNT1', 'usersContract', 'addUser', '{ "age": "10" }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'CONSTANTS.HIVE_ENGINE_ACCOUNT2', 'usersContract', 'addUser', '{ "age": "3" }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'CONSTANTS.HIVE_ENGINE_ACCOUNT3', 'usersContract', 'addUser', '{ "age": "199" }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'CONSTANTS.HIVE_ENGINE_ACCOUNT4', 'usersContract', 'addUser', '{ "age": "200" }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'CONSTANTS.HIVE_ENGINE_ACCOUNT5', 'usersContract', 'addUser', '{ "age": "1" }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'CONSTANTS.HIVE_ENGINE_ACCOUNT6', 'usersContract', 'addUser', '{ "age": "89" }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'CONSTANTS.HIVE_ENGINE_ACCOUNT7', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'CONSTANTS.HIVE_ENGINE_ACCOUNT8', 'usersContract', 'addUser', '{ "age": "34" }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'CONSTANTS.HIVE_ENGINE_ACCOUNT9', 'usersContract', 'addUser', '{ "age": "20" }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -967,22 +973,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": 10 }'));
-      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": 3 }'));
-      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": 199 }'));
-      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": 200 }'));
-      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": 1 }'));
-      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": 89 }'));
-      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": 2 }'));
-      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": 34 }'));
-      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": 20 }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'CONSTANTS.HIVE_ENGINE_ACCOUNT1', 'usersContract', 'addUser', '{ "age": 10 }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'CONSTANTS.HIVE_ENGINE_ACCOUNT2', 'usersContract', 'addUser', '{ "age": 3 }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'CONSTANTS.HIVE_ENGINE_ACCOUNT3', 'usersContract', 'addUser', '{ "age": 199 }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'CONSTANTS.HIVE_ENGINE_ACCOUNT4', 'usersContract', 'addUser', '{ "age": 200 }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'CONSTANTS.HIVE_ENGINE_ACCOUNT5', 'usersContract', 'addUser', '{ "age": 1 }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'CONSTANTS.HIVE_ENGINE_ACCOUNT6', 'usersContract', 'addUser', '{ "age": 89 }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'CONSTANTS.HIVE_ENGINE_ACCOUNT7', 'usersContract', 'addUser', '{ "age": 2 }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'CONSTANTS.HIVE_ENGINE_ACCOUNT8', 'usersContract', 'addUser', '{ "age": 34 }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'CONSTANTS.HIVE_ENGINE_ACCOUNT9', 'usersContract', 'addUser', '{ "age": 20 }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1073,22 +1079,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', '{ "age": "2" }'));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc1', 'usersContract', 'addUser', '{ "age": "10" }'));
-      transactions.push(new Transaction(123456789, 'TXID1237', 'steemsc2', 'usersContract', 'addUser', '{ "age": "3" }'));
-      transactions.push(new Transaction(123456789, 'TXID1238', 'steemsc3', 'usersContract', 'addUser', '{ "age": "199" }'));
-      transactions.push(new Transaction(123456789, 'TXID1239', 'steemsc4', 'usersContract', 'addUser', '{ "age": "200" }'));
-      transactions.push(new Transaction(123456789, 'TXID12310', 'steemsc5', 'usersContract', 'addUser', '{ "age": "1" }'));
-      transactions.push(new Transaction(123456789, 'TXID12311', 'steemsc6', 'usersContract', 'addUser', '{ "age": "89" }'));
-      transactions.push(new Transaction(123456789, 'TXID12312', 'steemsc7', 'usersContract', 'addUser', '{ "age": "2" }'));
-      transactions.push(new Transaction(123456789, 'TXID12313', 'steemsc8', 'usersContract', 'addUser', '{ "age": "34" }'));
-      transactions.push(new Transaction(123456789, 'TXID12314', 'steemsc9', 'usersContract', 'addUser', '{ "age": "20" }'));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', 'CONSTANTS.HIVE_ENGINE_ACCOUNT1', 'usersContract', 'addUser', '{ "age": "10" }'));
+      transactions.push(new Transaction(123456789, 'TXID1237', 'CONSTANTS.HIVE_ENGINE_ACCOUNT2', 'usersContract', 'addUser', '{ "age": "3" }'));
+      transactions.push(new Transaction(123456789, 'TXID1238', 'CONSTANTS.HIVE_ENGINE_ACCOUNT3', 'usersContract', 'addUser', '{ "age": "199" }'));
+      transactions.push(new Transaction(123456789, 'TXID1239', 'CONSTANTS.HIVE_ENGINE_ACCOUNT4', 'usersContract', 'addUser', '{ "age": "200" }'));
+      transactions.push(new Transaction(123456789, 'TXID12310', 'CONSTANTS.HIVE_ENGINE_ACCOUNT5', 'usersContract', 'addUser', '{ "age": "1" }'));
+      transactions.push(new Transaction(123456789, 'TXID12311', 'CONSTANTS.HIVE_ENGINE_ACCOUNT6', 'usersContract', 'addUser', '{ "age": "89" }'));
+      transactions.push(new Transaction(123456789, 'TXID12312', 'CONSTANTS.HIVE_ENGINE_ACCOUNT7', 'usersContract', 'addUser', '{ "age": "2" }'));
+      transactions.push(new Transaction(123456789, 'TXID12313', 'CONSTANTS.HIVE_ENGINE_ACCOUNT8', 'usersContract', 'addUser', '{ "age": "34" }'));
+      transactions.push(new Transaction(123456789, 'TXID12314', 'CONSTANTS.HIVE_ENGINE_ACCOUNT9', 'usersContract', 'addUser', '{ "age": "20" }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1180,13 +1186,13 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
       transactions.push(new Transaction(123456789, 'TXID1235', 'Dan', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1198,12 +1204,12 @@ describe('Smart Contracts', function ()  {
       assert.equal(user, null);
 
       transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'usersContract', 'addUser', '{ "userId": "Dan" }'));
+      transactions.push(new Transaction(123456789, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', '{ "userId": "Dan" }'));
 
       block = {
-        refSteemBlockNumber: 123456789,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 123456789,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:03',
         transactions,
       };
@@ -1286,22 +1292,22 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
-      transactions.push(new Transaction(123456789, 'TXID1236', 'steemsc', 'booksContract', 'addBook', '{ "title": "The Awesome Book" }'));
+      transactions.push(new Transaction(123456789, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'booksContract', 'addBook', '{ "title": "The Awesome Book" }'));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } });
+      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": CONSTANTS.HIVE_ENGINE_ACCOUNT } });
 
       assert.equal(book.title, "The Awesome Book");
 
@@ -1381,21 +1387,21 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": "steemsc" } });
+      const book = await database.findOne({ contract: 'booksContract', table: 'books', query: { "userId": CONSTANTS.HIVE_ENGINE_ACCOUNT } });
 
       assert.equal(book.title, "The Awesome Book");
 
@@ -1418,26 +1424,26 @@ describe('Smart Contracts', function ()  {
       const smartContractCode = `
         actions.createSSC = function (payload) {
           // Initialize the smart contract via the create action
-          api.emit('contract_create', { "contractName": "testContract" })
+          api.emit('contract_create', { "contractName": "testcontract" })
         }
       `;
 
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1451,7 +1457,7 @@ describe('Smart Contracts', function ()  {
       const logs = JSON.parse(txs[0].logs);
 
       assert.equal(logs.events[0].event, 'contract_create');
-      assert.equal(logs.events[0].data.contractName, 'testContract');
+      assert.equal(logs.events[0].data.contractName, 'testcontract');
 
       resolve();
     })
@@ -1485,7 +1491,7 @@ describe('Smart Contracts', function ()  {
       }
       
       actions.addBook = async (payload) => {
-        api.emit('contract_create', { "contractName": "testContract" });
+        api.emit('contract_create', { "contractName": "testcontract" });
       }
     `;
 
@@ -1506,14 +1512,14 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1527,7 +1533,7 @@ describe('Smart Contracts', function ()  {
       const logs = JSON.parse(txs[0].logs);
 
       assert.equal(logs.events[0].event, 'contract_create');
-      assert.equal(logs.events[0].data.contractName, 'testContract');
+      assert.equal(logs.events[0].data.contractName, 'testcontract');
 
       resolve();
     })
@@ -1557,18 +1563,18 @@ describe('Smart Contracts', function ()  {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1612,19 +1618,19 @@ describe('Smart Contracts', function ()  {
       const base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'testContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'testcontract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1636,7 +1642,7 @@ describe('Smart Contracts', function ()  {
       const txs = latestBlock.transactions.filter(transaction => transaction.transactionId === 'TXID1235');
 
       const logs = JSON.parse(txs[0].logs);
-      console.log(logs)
+
       assert.equal(logs.errors[0], "ReferenceError: test1 is not defined");
 
       resolve();
@@ -1692,14 +1698,14 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1233', 'steemsc', 'contract', 'deploy', JSON.stringify(usersContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(booksContractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'usersContract', 'addUser', ''));
+      transactions.push(new Transaction(123456789, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(usersContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(booksContractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'usersContract', 'addUser', ''));
 
       let block = {
-        refSteemBlockNumber: 1,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1756,13 +1762,13 @@ describe('Smart Contracts', function ()  {
 
 
       let transactions = [];
-      transactions.push(new Transaction(123456789, 'TXID1234', 'steemsc', 'contract', 'deploy', JSON.stringify(contractPayload)));
-      transactions.push(new Transaction(123456789, 'TXID1235', 'steemsc', 'random', 'generateRandomNumbers', ''));
+      transactions.push(new Transaction(123456789, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456789, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'random', 'generateRandomNumbers', ''));
 
       let block = {
-        refSteemBlockNumber: 123456789,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 123456789,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1781,12 +1787,12 @@ describe('Smart Contracts', function ()  {
       assert.equal(logs.events[1].data.generatedRandom, 0.8219068960473853);
 
       transactions = [];
-      transactions.push(new Transaction(1234567891, 'TXID1236', 'steemsc', 'random', 'generateRandomNumbers', ''));
+      transactions.push(new Transaction(1234567891, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'random', 'generateRandomNumbers', ''));
 
       block = {
-        refSteemBlockNumber: 1234567891,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 1234567891,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1829,7 +1835,7 @@ describe('Smart Contracts', function ()  {
       let base64SmartContractCode = Base64.encode(smartContractCode);
 
       const contractPayload = {
-        name: 'testContract',
+        name: 'testcontract',
         params: '',
         code: base64SmartContractCode,
       };
@@ -1839,9 +1845,9 @@ describe('Smart Contracts', function ()  {
       transactions.push(new Transaction(123456789, 'TXID1234', 'null', 'contract', 'deploy', JSON.stringify(contractPayload)));
 
       let block = {
-        refSteemBlockNumber: 123456789,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 123456789,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1859,29 +1865,29 @@ describe('Smart Contracts', function ()  {
       contractPayload.code = base64SmartContractCode;
 
       transactions = [];
-      transactions.push(new Transaction(123456790, 'TXID1235', 'steemsc', 'contract', 'update', JSON.stringify(contractPayload)));
+      transactions.push(new Transaction(123456790, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(contractPayload)));
 
       block = {
-        refSteemBlockNumber: 123456790,
-        refSteemBlockId: 'ABCD3',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 123456790,
+        refHiveBlockId: 'ABCD3',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:01:00',
         transactions,
       };
 
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
-      const contract = await database.findContract({ name: 'testContract' });
+      const contract = await database.findContract({ name: 'testcontract' });
 
       assert.equal(contract.version, 2);
-      assert.notEqual(contract.tables['testContract_testTable'], undefined);
-      assert.notEqual(contract.tables['testContract_testUpdateTable'], undefined);
+      assert.notEqual(contract.tables['testcontract_testTable'], undefined);
+      assert.notEqual(contract.tables['testcontract_testUpdateTable'], undefined);
 
-      res = await database.getTableDetails({ contract: 'testContract', table: 'testTable' })
+      res = await database.getTableDetails({ contract: 'testcontract', table: 'testTable' })
 
       assert.notEqual(res, null);
 
-      res = await database.getTableDetails({ contract: 'testContract', table: 'testUpdateTable' })
+      res = await database.getTableDetails({ contract: 'testcontract', table: 'testUpdateTable' })
 
       assert.notEqual(res, null);
 

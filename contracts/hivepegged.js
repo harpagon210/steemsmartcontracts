@@ -5,7 +5,7 @@ const initiateWithdrawal = async (id, recipient, quantity, memo) => {
   const withdrawal = {};
 
   withdrawal.id = id;
-  withdrawal.type = 'STEEM';
+  withdrawal.type = 'HIVE';
   withdrawal.recipient = recipient;
   withdrawal.memo = memo;
   withdrawal.quantity = quantity;
@@ -22,20 +22,20 @@ actions.createSSC = async () => {
 };
 
 actions.buy = async (payload) => {
-  const { recipient, amountSTEEMSBD, isSignedWithActiveKey } = payload;
+  const { recipient, amountHIVEHBD, isSignedWithActiveKey } = payload;
 
   if (recipient !== api.owner) return;
 
-  if (recipient && amountSTEEMSBD && isSignedWithActiveKey) {
-    const res = amountSTEEMSBD.split(' ');
+  if (recipient && amountHIVEHBD && isSignedWithActiveKey) {
+    const res = amountHIVEHBD.split(' ');
 
     const unit = res[1];
 
-    // STEEM
-    if (api.assert(unit === 'STEEM', 'only STEEM can be used')) {
+    // HIVE
+    if (api.assert(unit === 'HIVE', 'only HIVE can be used')) {
       let quantityToSend = res[0];
 
-      // calculate the 1% fee (with a min of 0.001 STEEM)
+      // calculate the 1% fee (with a min of 0.001 HIVE)
       let fee = api.BigNumber(quantityToSend).multipliedBy(0.01).toFixed(3);
 
       if (api.BigNumber(fee).lt('0.001')) {
@@ -45,7 +45,7 @@ actions.buy = async (payload) => {
       quantityToSend = api.BigNumber(quantityToSend).minus(fee).toFixed(3);
 
       if (api.BigNumber(quantityToSend).gt(0)) {
-        await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: 'STEEMP', quantity: quantityToSend, to: api.sender });
+        await api.executeSmartContractAsOwner('tokens', 'transfer', { symbol: 'SWAP.HIVE', quantity: quantityToSend, to: api.sender });
       }
 
       if (api.BigNumber(fee).gt(0)) {
@@ -67,7 +67,7 @@ actions.withdraw = async (payload) => {
     && api.BigNumber(quantity).dp() <= 3, 'invalid params')
     && api.assert(api.BigNumber(quantity).gte(0.002), 'minimum withdrawal is 0.002')
   ) {
-    // calculate the 1% fee (with a min of 0.001 STEEM)
+    // calculate the 1% fee (with a min of 0.001 HIVE)
     let fee = api.BigNumber(quantity).multipliedBy(0.01).toFixed(3);
 
     if (api.BigNumber(fee).lt('0.001')) {
@@ -77,10 +77,10 @@ actions.withdraw = async (payload) => {
     const quantityToSend = api.BigNumber(quantity).minus(fee).toFixed(3);
 
     if (api.BigNumber(quantityToSend).gt(0)) {
-      const res = await api.executeSmartContract('tokens', 'transfer', { symbol: 'STEEMP', quantity, to: api.owner });
+      const res = await api.executeSmartContract('tokens', 'transfer', { symbol: 'SWAP.HIVE', quantity, to: api.owner });
 
       if (res.errors === undefined
-        && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === api.sender && el.data.to === api.owner && el.data.quantity === quantity && el.data.symbol === 'STEEMP') !== undefined) {
+        && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transfer' && el.data.from === api.sender && el.data.to === api.owner && el.data.quantity === quantity && el.data.symbol === 'SWAP.HIVE') !== undefined) {
         // withdrawal
         let memo = `withdrawal tx ${api.transactionId}`;
 
@@ -102,12 +102,7 @@ actions.removeWithdrawal = async (payload) => {
   if (api.sender !== api.owner) return;
 
   if (id && isSignedWithActiveKey) {
-    let finalId = id;
-    if (api.refSteemBlockNumber >= 31248438 && api.refSteemBlockNumber <= 31262296) {
-      finalId = finalId.replace('-0', '');
-    }
-
-    const withdrawal = await api.db.findOne('withdrawals', { id: finalId });
+    const withdrawal = await api.db.findOne('withdrawals', { id });
 
     if (withdrawal) {
       await api.db.remove('withdrawals', withdrawal);

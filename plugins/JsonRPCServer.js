@@ -62,16 +62,16 @@ function blockchainRPC() {
 
         if (block) {
           result.lastBlockNumber = block.blockNumber;
-          result.lastBlockRefSteemBlockNumber = block.refSteemBlockNumber;
+          result.lastBlockRefHiveBlockNumber = block.refHiveBlockNumber;
         }
 
-        // get the Steem block number that the streamer is currently parsing
+        // get the Hive block number that the streamer is currently parsing
         const res = await ipc.send(
           { to: STREAMER_PLUGIN_NAME, action: STREAMER_PLUGIN_ACTION.GET_CURRENT_BLOCK },
         );
 
         if (res && res.payload) {
-          result.lastParsedSteemBlockNumber = res.payload;
+          result.lastParsedHiveBlockNumber = res.payload;
         }
 
         // get the version of the SSC node

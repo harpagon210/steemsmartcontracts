@@ -8,6 +8,7 @@ const { VM, VMScript } = require('vm2');
 const BigNumber = require('bignumber.js');
 const validator = require('validator');
 const seedrandom = require('seedrandom');
+const { CONSTANTS } = require('../libs/Constants');
 
 const RESERVED_CONTRACT_NAMES = ['contract', 'blockProduction', 'null'];
 const RESERVED_ACTIONS = ['createSSC'];
@@ -18,10 +19,10 @@ const MAXJSVMs = 5;
 class SmartContracts {
   // deploy the smart contract to the blockchain and initialize the database if needed
   static async deploySmartContract(
-    database, transaction, blockNumber, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+    database, transaction, blockNumber, timestamp, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
   ) {
     try {
-      const { transactionId, refSteemBlockNumber, sender } = transaction;
+      const { transactionId, refHiveBlockNumber, sender } = transaction;
       const payload = JSON.parse(transaction.payload);
       const { name, params, code } = payload;
 
@@ -41,8 +42,8 @@ class SmartContracts {
 
         let finalSender = sender;
 
-        // allow "steemsc" to update contracts owned by "null"
-        if (existingContract && finalSender === 'steemsc' && existingContract.owner === 'null') {
+        // allow "HIVE_ENGINE_ACCOUNT" to update contracts owned by "null"
+        if (existingContract && finalSender === CONSTANTS.HIVE_ENGINE_ACCOUNT && existingContract.owner === 'null') {
           finalSender = 'null';
         }
 
@@ -130,14 +131,10 @@ class SmartContracts {
           events: [],
         };
 
-        const rng = seedrandom(`${prevRefSteemBlockId}${refSteemBlockId}${transactionId}`);
+        const rng = seedrandom(`${prevRefHiveBlockId}${refHiveBlockId}${transactionId}`);
 
         // init bignumber decimal places
-        if (refSteemBlockNumber > 33719500) {
-          BigNumber.set({ DECIMAL_PLACES: 20 });
-        } else {
-          BigNumber.set({ DECIMAL_PLACES: 3 });
-        }
+        BigNumber.set({ DECIMAL_PLACES: 20 });
 
         const contractVersion = existingContract && existingContract.version
           ? existingContract.version
@@ -150,8 +147,8 @@ class SmartContracts {
             payload: params ? JSON.parse(JSON.stringify(params)) : null,
             transactionId,
             blockNumber,
-            refSteemBlockNumber,
-            steemBlockTimestamp: timestamp,
+            refHiveBlockNumber,
+            hiveBlockTimestamp: timestamp,
             contractVersion,
             db,
             BigNumber,
@@ -189,7 +186,7 @@ class SmartContracts {
               database, logs, finalSender, params, contractName, actionName,
               JSON.stringify(parameters),
               blockNumber, timestamp,
-              refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+              refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
               name, 'createSSC', contractVersion,
             ),
             // emit an event that will be stored in the logs
@@ -238,14 +235,14 @@ class SmartContracts {
       }
       return { logs: { errors: ['parameters name and code are mandatory and they must be strings'] } };
     } catch (e) {
-      // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', e);
+      // console.error('ERROR DURING CONTRACT DEPLOYMENT: ', name, e);
       return { logs: { errors: [`${e.name}: ${e.message}`] } };
     }
   }
 
   // execute the smart contract and perform actions on the database if needed
   static async executeSmartContract(
-    database, transaction, blockNumber, timestamp, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+    database, transaction, blockNumber, timestamp, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
   ) {
     try {
       const {
@@ -254,7 +251,7 @@ class SmartContracts {
         contract,
         action,
         payload,
-        refSteemBlockNumber,
+        refHiveBlockNumber,
       } = transaction;
 
       if (RESERVED_ACTIONS.includes(action)) return { logs: { errors: ['you cannot trigger this action'] } };
@@ -315,10 +312,10 @@ class SmartContracts {
         },
       };
 
-      const rng = seedrandom(`${prevRefSteemBlockId}${refSteemBlockId}${transactionId}`);
+      const rng = seedrandom(`${prevRefHiveBlockId}${refHiveBlockId}${transactionId}`);
 
       // init bignumber decimal places
-      if (refSteemBlockNumber > 33719500) {
+      if (refHiveBlockNumber > 33719500) {
         BigNumber.set({ DECIMAL_PLACES: 20 });
       } else {
         BigNumber.set({ DECIMAL_PLACES: 3 });
@@ -329,8 +326,8 @@ class SmartContracts {
         api: {
           sender,
           owner: contractOwner,
-          refSteemBlockNumber,
-          steemBlockTimestamp: timestamp,
+          refHiveBlockNumber,
+          hiveBlockTimestamp: timestamp,
           contractVersion,
           transactionId,
           blockNumber,
@@ -372,7 +369,7 @@ class SmartContracts {
             database, results, sender, payloadObj, contractName, actionName,
             JSON.stringify(parameters),
             blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
             contract, action, contractVersion,
           ),
           // execute a smart contract from the current smart contract
@@ -383,7 +380,7 @@ class SmartContracts {
             database, results, contractOwner, payloadObj, contractName, actionName,
             JSON.stringify(parameters),
             blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
             contract, action, contractVersion,
           ),
           // execute a token transfer from the contract balance
@@ -399,7 +396,7 @@ class SmartContracts {
               type,
             }),
             blockNumber, timestamp,
-            refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+            refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
             contract, action, contractVersion,
           ),
           verifyBlock: async (block) => {
@@ -434,7 +431,7 @@ class SmartContracts {
             type,
           }),
           blockNumber, timestamp,
-          refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, jsVMTimeout,
+          refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, jsVMTimeout,
           contract, contractVersion,
         );
       }
@@ -535,17 +532,17 @@ class SmartContracts {
     contract, action, parameters,
     blockNumber,
     timestamp,
-    refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId,
+    refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId,
     jsVMTimeout,
     callingContractName, callingContractAction, callingContractVersion,
   ) {
     if (typeof contract !== 'string' || typeof action !== 'string' || (parameters && typeof parameters !== 'string')) return null;
     const sanitizedParams = parameters ? JSON.parse(parameters) : null;
 
-    // check if a recipient or amountSTEEMSBD
+    // check if a recipient or amountHIVEHBD
     //  or isSignedWithActiveKey  were passed initially
-    if (originalParameters && originalParameters.amountSTEEMSBD) {
-      sanitizedParams.amountSTEEMSBD = originalParameters.amountSTEEMSBD;
+    if (originalParameters && originalParameters.amountHIVEHBD) {
+      sanitizedParams.amountHIVEHBD = originalParameters.amountHIVEHBD;
     }
 
     if (originalParameters && originalParameters.recipient) {
@@ -572,12 +569,12 @@ class SmartContracts {
           contract,
           action,
           payload: JSON.stringify(sanitizedParams),
-          refSteemBlockNumber,
+          refHiveBlockNumber,
         },
         blockNumber,
         timestamp,
-        refSteemBlockId,
-        prevRefSteemBlockId,
+        refHiveBlockId,
+        prevRefHiveBlockId,
         jsVMTimeout,
       );
 

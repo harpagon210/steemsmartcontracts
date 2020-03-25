@@ -27,15 +27,15 @@ function sendBlock(block) {
   );
 }
 
-// get a block from the Steem blockchain
-async function generateBlock(startSteemBlock) {
+// get a block from the Hive blockchain
+async function generateBlock(startHiveBlock) {
   if (stopGeneration) return;
 
-  if (startSteemBlock) blockNumber = startSteemBlock;
+  if (startHiveBlock) blockNumber = startHiveBlock;
 
   blockNumber += 1;
   const block = {
-    // we timestamp the block with the Steem block timestamp
+    // we timestamp the block with the Hive block timestamp
     timestamp: new Date().toISOString(),
     transactions: [],
   };
@@ -58,13 +58,13 @@ async function generateBlock(startSteemBlock) {
   setTimeout(() => generateBlock(), 3000);
 }
 
-// stream the Steem blockchain to find transactions related to the sidechain
+// stream the Hive blockchain to find transactions related to the sidechain
 function init(conf) {
   const {
-    startSteemBlock,
+    startHiveBlock,
   } = conf;
 
-  generateBlock(startSteemBlock);
+  generateBlock(startHiveBlock);
 }
 
 ipc.onReceiveMessage((message) => {

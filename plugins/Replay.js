@@ -10,20 +10,20 @@ const { PLUGIN_NAME, PLUGIN_ACTIONS } = require('./Replay.constants');
 const PLUGIN_PATH = require.resolve(__filename);
 
 const ipc = new IPC(PLUGIN_NAME);
-let steemClient = null;
+let hiveClient = null;
 
 
-let currentSteemBlock = 0;
+let currentHiveBlock = 0;
 let currentBlock = 0;
 let filePath = '';
-let steemNode = '';
+let hiveNode = '';
 
 function getCurrentBlock() {
   return currentBlock;
 }
 
-function getCurrentSteemBlock() {
-  return currentSteemBlock;
+function getcurrentHiveBlock() {
+  return currentHiveBlock;
 }
 
 function sendBlock(block) {
@@ -54,32 +54,32 @@ function replayFile(callback) {
             blockNumber,
             timestamp,
             transactions,
-            refSteemBlockNumber,
-            refSteemBlockId,
-            prevRefSteemBlockId,
+            refHiveBlockNumber,
+            refHiveBlockId,
+            prevRefHiveBlockId,
             virtualTransactions,
           } = block;
 
-          let finalRefSteemBlockId = refSteemBlockId;
-          let finalPrevRefSteemBlockId = prevRefSteemBlockId;
+          let finalRefHiveBlockId = refHiveBlockId;
+          let finalPrevRefHiveBlockId = prevRefHiveBlockId;
 
           if (blockNumber !== 0) {
-            currentSteemBlock = refSteemBlockNumber;
+            currentHiveBlock = refHiveBlockNumber;
             currentBlock = blockNumber;
             console.log(`replaying block ${currentBlock} / ${lastBockNumber}`); // eslint-disable-line no-console
 
-            if (steemClient !== null && finalRefSteemBlockId === undefined) {
-              const steemBlock = await steemClient.database.getBlock(refSteemBlockNumber);
-              finalRefSteemBlockId = steemBlock.block_id;
-              finalPrevRefSteemBlockId = steemBlock.previous;
+            if (hiveClient !== null && finalRefHiveBlockId === undefined) {
+              const hiveBlock = await hiveClient.database.getBlock(refHiveBlockNumber);
+              finalRefHiveBlockId = hiveBlock.block_id;
+              finalPrevRefHiveBlockId = hiveBlock.previous;
             }
 
             await sendBlock({
               blockNumber,
               timestamp,
-              refSteemBlockNumber,
-              refSteemBlockId: finalRefSteemBlockId,
-              prevRefSteemBlockId: finalPrevRefSteemBlockId,
+              refHiveBlockNumber,
+              refHiveBlockId: finalRefHiveBlockId,
+              prevRefHiveBlockId: finalPrevRefHiveBlockId,
               transactions,
               virtualTransactions,
             });
@@ -93,7 +93,7 @@ function replayFile(callback) {
       });
 
       lr.on('end', () => {
-        console.log('Replay done');
+        console.log('Replay done'); // eslint-disable-line no-console
         callback(null);
       });
     } else {
@@ -106,8 +106,8 @@ function replayFile(callback) {
 function init(payload) {
   const { blocksLogFilePath, streamNodes } = payload;
   filePath = blocksLogFilePath;
-  steemNode = streamNodes[0]; // eslint-disable-line
-  steemClient = new dsteem.Client(steemNode);
+  hiveNode = streamNodes[0]; // eslint-disable-line
+  hiveClient = new dsteem.Client(hiveNode);
 }
 
 ipc.onReceiveMessage((message) => {
@@ -124,7 +124,7 @@ ipc.onReceiveMessage((message) => {
       console.log('successfully initialized'); // eslint-disable-line no-console
       break;
     case 'stop':
-      ipc.reply(message, getCurrentSteemBlock() + 1);
+      ipc.reply(message, getcurrentHiveBlock() + 1);
       console.log('successfully stopped'); // eslint-disable-line no-console
       break;
     case PLUGIN_ACTIONS.REPLAY_FILE:

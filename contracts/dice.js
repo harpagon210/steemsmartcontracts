@@ -1,7 +1,10 @@
-const STEEM_PEGGED_SYMBOL = 'STEEMP';
+/* eslint-disable no-await-in-loop */
+/* global actions, api */
+
+const HIVE_PEGGED_SYMBOL = 'SWAP.HIVE';
 const CONTRACT_NAME = 'dice';
 
-actions.createSSC = async (payload) => {
+actions.createSSC = async () => {
   await api.db.createTable('params');
 
   const params = {};
@@ -23,13 +26,12 @@ actions.roll = async (payload) => {
 
     // check that the amount bet is in thr allowed range
     if (api.assert(api.BigNumber(amount).gte(params.minBet) && api.BigNumber(amount).lte(params.maxBet), 'amount must be between minBet and maxBet')) {
-      // request lock of amount STEEMP tokens
-      const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol: STEEM_PEGGED_SYMBOL, quantity: amount, to: CONTRACT_NAME });
+      // request lock of amount HONEY tokens
+      const res = await api.executeSmartContract('tokens', 'transferToContract', { symbol: HIVE_PEGGED_SYMBOL, quantity: amount, to: CONTRACT_NAME });
 
       // check if the tokens were locked
       if (res.errors === undefined
-        && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === amount && el.data.symbol === STEEM_PEGGED_SYMBOL) !== undefined) {
-
+        && res.events && res.events.find(el => el.contract === 'tokens' && el.event === 'transferToContract' && el.data.from === api.sender && el.data.to === CONTRACT_NAME && el.data.quantity === amount && el.data.symbol === HIVE_PEGGED_SYMBOL) !== undefined) {
         // get a deterministic random number
         const random = api.random();
 
@@ -49,7 +51,7 @@ actions.roll = async (payload) => {
             .toFixed(3, api.BigNumber.ROUND_DOWN);
 
           // send the tokens out
-          await api.transferTokens(api.sender, STEEM_PEGGED_SYMBOL, tokensWon, 'user');
+          await api.transferTokens(api.sender, HIVE_PEGGED_SYMBOL, tokensWon, 'user');
 
           // emit an event
           api.emit('results', { memo: `you won. roll: ${randomRoll}, your bet: ${roll}` });

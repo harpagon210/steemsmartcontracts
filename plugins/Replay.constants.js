@@ -2,7 +2,7 @@ const PLUGIN_NAME = 'Replay';
 
 const PLUGIN_ACTIONS = {
   GET_CURRENT_BLOCK: 'getCurrentBlock',
-  GET_CURRENT_STEEM_BLOCK: 'getCurrentSteemBlock',
+  GET_CURRENT_HIVE_BLOCK: 'getCurrentHiveBlock',
   REPLAY_FILE: 'replayFile',
 };
 

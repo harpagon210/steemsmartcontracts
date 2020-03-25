@@ -1,15 +1,16 @@
 const SHA256 = require('crypto-js/sha256');
 const enchex = require('crypto-js/enc-hex');
+const { CONSTANTS } = require('../libs/Constants');
 
 const { SmartContracts } = require('./SmartContracts');
 const { Transaction } = require('../libs/Transaction');
 
 class Block {
-  constructor(timestamp, refSteemBlockNumber, refSteemBlockId, prevRefSteemBlockId, transactions, previousBlockNumber, previousHash = '', previousDatabaseHash = '') {
+  constructor(timestamp, refHiveBlockNumber, refHiveBlockId, prevRefHiveBlockId, transactions, previousBlockNumber, previousHash = '', previousDatabaseHash = '') {
     this.blockNumber = previousBlockNumber + 1;
-    this.refSteemBlockNumber = refSteemBlockNumber;
-    this.refSteemBlockId = refSteemBlockId;
-    this.prevRefSteemBlockId = prevRefSteemBlockId;
+    this.refHiveBlockNumber = refHiveBlockNumber;
+    this.refHiveBlockId = refHiveBlockId;
+    this.prevRefHiveBlockId = prevRefHiveBlockId;
     this.previousHash = previousHash;
     this.previousDatabaseHash = previousDatabaseHash;
     this.timestamp = timestamp;
@@ -31,10 +32,11 @@ class Block {
       this.previousHash
       + this.previousDatabaseHash
       + this.blockNumber.toString()
-      + this.refSteemBlockNumber.toString()
-      + this.refSteemBlockId
-      + this.prevRefSteemBlockId
+      + this.refHiveBlockNumber.toString()
+      + this.refHiveBlockId
+      + this.prevRefHiveBlockId
       + this.timestamp
+      + this.merkleRoot
       + JSON.stringify(this.transactions) // eslint-disable-line
     )
       .toString(enchex);
@@ -92,38 +94,33 @@ class Block {
     // handle virtual transactions
     const virtualTransactions = [];
 
-    // check the pending unstakings and undelegation
-    if (this.refSteemBlockNumber >= 32713424) {
-      virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
-      virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
-    }
+    virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUnstakes', ''));
+    virtualTransactions.push(new Transaction(0, '', 'null', 'tokens', 'checkPendingUndelegations', ''));
+    virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
 
     // TODO: cleanup
-    // if (this.refSteemBlockNumber >= 37899120) {
-    virtualTransactions.push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
+    // if (this.refHiveBlockNumber >= 37899120) {
+    // virtualTransactions
+    // .push(new Transaction(0, '', 'null', 'witnesses', 'scheduleWitnesses', ''));
     // }
 
-    if (this.refSteemBlockNumber >= 38145385) {
-      // issue new utility tokens every time the refSteemBlockNumber % 1200 equals 0
-      if (this.refSteemBlockNumber % 1200 === 0) {
-        virtualTransactions.push(new Transaction(0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
+    /*
+    if (this.refHiveBlockNumber >= 38145385) {
+      // issue new utility tokens every time the refHiveBlockNumber % 1200 equals 0
+      if (this.refHiveBlockNumber % 1200 === 0) {
+        virtualTransactions
+        .push(new Transaction(
+          0, '', 'null', 'inflation', 'issueNewTokens', '{ "isSignedWithActiveKey": true }'));
       }
 
-      virtualTransactions.push(new Transaction(0, '', 'null', 'nft', 'checkPendingUndelegations', ''));
     }
-
-    // LOAD TEST - TO BE REMOVED WHEN MOVING TO MAINNET
-    if (this.refSteemBlockNumber >= 40939919) {
-      // create a random transaction that will generate a block on every Steem block parsed
-      // basically, every 3secs
-      virtualTransactions.push(new Transaction(0, '', 'whatever', 'whatever', 'whatever', ''));
-    }
+    */
 
     const nbVirtualTransactions = virtualTransactions.length;
     for (let i = 0; i < nbVirtualTransactions; i += 1) {
       const transaction = virtualTransactions[i];
-      transaction.refSteemBlockNumber = this.refSteemBlockNumber;
-      transaction.transactionId = `${this.refSteemBlockNumber}-${i}`;
+      transaction.refHiveBlockNumber = this.refHiveBlockNumber;
+      transaction.transactionId = `${this.refHiveBlockNumber}-${i}`;
       await this.processTransaction(database, jsVMTimeout, transaction, currentDatabaseHash); // eslint-disable-line
       currentDatabaseHash = transaction.databaseHash;
       // if there are outputs in the virtual transaction we save the transaction into the block
@@ -175,12 +172,12 @@ class Block {
 
     if (sender && contract && action) {
       if (contract === 'contract' && (action === 'deploy' || action === 'update') && payload) {
-        const authorizedAccountContractDeployment = ['null', 'steemsc', 'steem-peg'];
+        const authorizedAccountContractDeployment = ['null', CONSTANTS.HIVE_ENGINE_ACCOUNT, CONSTANTS.HIVE_PEGGED_ACCOUNT];
 
         if (authorizedAccountContractDeployment.includes(sender)) {
           results = await SmartContracts.deploySmartContract( // eslint-disable-line
             database, transaction, this.blockNumber, this.timestamp,
-            this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
+            this.refHiveBlockId, this.prevRefHiveBlockId, jsVMTimeout,
           );
         } else {
           results = { logs: { errors: ['the contract deployment is currently unavailable'] } };
@@ -188,7 +185,7 @@ class Block {
       } else {
         results = await SmartContracts.executeSmartContract(// eslint-disable-line
           database, transaction, this.blockNumber, this.timestamp,
-          this.refSteemBlockId, this.prevRefSteemBlockId, jsVMTimeout,
+          this.refHiveBlockId, this.prevRefHiveBlockId, jsVMTimeout,
         );
       }
     } else {

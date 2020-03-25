@@ -102,6 +102,8 @@ let contractCode = fs.readFileSync('./contracts/tokens.js');
 contractCode = contractCode.toString();
 contractCode = contractCode.replace(/'\$\{CONSTANTS.UTILITY_TOKEN_PRECISION\}\$'/g, CONSTANTS.UTILITY_TOKEN_PRECISION);
 contractCode = contractCode.replace(/'\$\{CONSTANTS.UTILITY_TOKEN_SYMBOL\}\$'/g, CONSTANTS.UTILITY_TOKEN_SYMBOL);
+contractCode = contractCode.replace(/'\$\{CONSTANTS.HIVE_PEGGED_SYMBOL\}\$'/g, CONSTANTS.HIVE_PEGGED_SYMBOL);
+
 let base64ContractCode = Base64.encode(contractCode);
 
 let tknContractPayload = {
@@ -110,7 +112,7 @@ let tknContractPayload = {
   code: base64ContractCode,
 };
 
-//console.log(tknContractPayload)
+//
 
 // prepare nft contract for deployment
 contractCode = fs.readFileSync('./contracts/nft.js');
@@ -124,7 +126,7 @@ let nftContractPayload = {
   code: base64ContractCode,
 };
 
-//console.log(nftContractPayload)
+//
 
 // prepare test contract for issuing & transferring NFT instances
 const testSmartContractCode = `
@@ -168,8 +170,6 @@ let testcontractPayload = {
   params: '',
   code: base64ContractCode,
 };
-
-console.log(testcontractPayload)
 
 // nft
 describe('nft', function() {
@@ -226,14 +226,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "nftIssuanceFee": {"DEC":"500","SCT":"0.75"}, "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "22.222" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "nftIssuanceFee": {"DEC":"500","SCT":"0.75"}, "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "22.222" }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -248,7 +248,6 @@ describe('nft', function() {
         });
 
       const params = res;
-      console.log(params)
 
       assert.equal(params.nftCreationFee, '22.222');
       assert.equal(JSON.stringify(params.nftIssuanceFee), '{"DEC":"500","SCT":"0.75"}');
@@ -272,17 +271,17 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
       transactions.push(new Transaction(12345678901, 'TXID1231', 'cryptomancer', 'nft', 'updateParams', '{ "nftCreationFee": "0.5" , "dataPropertyCreationFee": "2", "enableDelegationFee": "3" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": 0.5 , "nftIssuanceFee": 1, "dataPropertyCreationFee": 2, "enableDelegationFee": 3 }'));
-      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "hi" , "nftIssuanceFee": "bob", "dataPropertyCreationFee": "u", "enableDelegationFee": "rock" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "-0.5" , "nftIssuanceFee": "-1", "dataPropertyCreationFee": "-2", "enableDelegationFee": "-3" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1235', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": 0.5 , "nftIssuanceFee": 1, "dataPropertyCreationFee": 2, "enableDelegationFee": 3 }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "hi" , "nftIssuanceFee": "bob", "dataPropertyCreationFee": "u", "enableDelegationFee": "rock" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "-0.5" , "nftIssuanceFee": "-1", "dataPropertyCreationFee": "-2", "enableDelegationFee": "-3" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "" }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -297,7 +296,6 @@ describe('nft', function() {
         });
 
       const params = res;
-      console.log(params)
 
       assert.equal(params.nftCreationFee, '100');
       assert.equal(JSON.stringify(params.nftIssuanceFee), `{"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.001","PAL":"0.001"}`);
@@ -321,17 +319,17 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"10", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"10", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "orgName": "Mancer Inc", "productName": "My First Product", "symbol": "TEST", "authorizedIssuingAccounts": ["marc","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -345,7 +343,6 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -379,7 +376,7 @@ describe('nft', function() {
       });
 
       let tables = res.tables;
-      console.log(tables);
+      
       
       assert.equal('nft_TSTNFTinstances' in tables, true);
       assert.equal('nft_TESTinstances' in tables, true);
@@ -401,12 +398,12 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "1", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "1", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "4", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "4", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(12345678901, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":false, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1237', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"dsfds" }'));
       transactions.push(new Transaction(12345678901, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"tSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
@@ -414,15 +411,15 @@ describe('nft', function() {
       transactions.push(new Transaction(12345678901, 'TXID1240', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"-1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1241', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"99999999999999999999999999999999" }'));
       transactions.push(new Transaction(12345678901, 'TXID1242', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["myaccountdup","myaccountdup"] }'));
-      transactions.push(new Transaction(12345678901, 'TXID1243', 'steemsc', 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "5", "isSignedWithActiveKey": true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1243', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to": "cryptomancer", "quantity": "5", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(12345678901, 'TXID1244', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1245', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT2", "symbol":"TSTNFTTWO", "productName": "tooooooloooooooooonnnnnnnnnnnggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1246', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT2", "symbol":"TSTNFTTWO", "orgName": "tooooooloooooooooonnnnnnnnnnnggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -433,17 +430,17 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[4].logs)
-      console.log(transactionsBlock1[6].logs)
-      console.log(transactionsBlock1[7].logs)
-      console.log(transactionsBlock1[8].logs)
-      console.log(transactionsBlock1[9].logs)
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[4].logs).errors[0], 'you must have enough tokens to cover the creation fees');
       assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -474,17 +471,17 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(12345678901, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(12345678901, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "enableDelegationFee": "55" }'));
-      transactions.push(new Transaction(12345678901, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"60", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(12345678901, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(12345678901, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "enableDelegationFee": "55" }'));
+      transactions.push(new Transaction(12345678901, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"60", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(12345678901, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(12345678901, 'TXID1235', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -498,7 +495,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -518,7 +515,7 @@ describe('nft', function() {
         });
 
       let balances = res;
-      console.log(balances)
+      
 
       // check fees were subtracted from account balance
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -546,14 +543,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145385, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145385, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145385, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "enableDelegationFee": "56" }'));
-      transactions.push(new Transaction(38145385, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"56", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145385, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"60", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145385, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145385, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145385, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "enableDelegationFee": "56" }'));
+      transactions.push(new Transaction(38145385, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"aggroed", "quantity":"56", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145385, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"60", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145385, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145385, 'TXID1236', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
-      transactions.push(new Transaction(38145385, 'TXID1237', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145385, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"1", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145385, 'TXID1238', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":false, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
       transactions.push(new Transaction(38145385, 'TXID1239', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "undelegationCooldown": 5 }'));
       transactions.push(new Transaction(38145385, 'TXID1240', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": "dsads" }'));
@@ -561,9 +558,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145385, 'TXID1242', 'aggroed', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
 
       let block = {
-        refSteemBlockNumber: 38145385,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145385,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -574,12 +571,12 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[6].logs)
-      console.log(transactionsBlock1[8].logs)
-      console.log(transactionsBlock1[9].logs)
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[6].logs).errors[0], 'you must have enough tokens to cover fees');
       assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -595,7 +592,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -615,7 +612,7 @@ describe('nft', function() {
         });
 
       let balances = res;
-      console.log(balances)
+      
 
       // check fees were subtracted from account balance
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -629,13 +626,13 @@ describe('nft', function() {
       // test that delegation cannot be enabled twice
       transactions = [];
       transactions.push(new Transaction(38145386, 'TXID1243', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
-      transactions.push(new Transaction(38145386, 'TXID1244', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"56", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1244', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"56", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145386, 'TXID1245', 'cryptomancer', 'nft', 'enableDelegation', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "undelegationCooldown": 5 }'));
 
       block = {
-        refSteemBlockNumber: 38145386,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145386,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -646,9 +643,9 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs)
-      console.log(transactionsBlock2[1].logs)
-      console.log(transactionsBlock2[2].logs)
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[2].logs).errors[0], 'delegation already enabled');
 
@@ -669,15 +666,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145386, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145386, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145386, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145386, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145386, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
-      transactions.push(new Transaction(38145386, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145386, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145386, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145386, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145386, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145386, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
+      transactions.push(new Transaction(38145386, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145386, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145386, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145386, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145386, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145386, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -710,9 +707,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145386, 'TXID1257', 'marc', 'testcontract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "fromType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["300","301"]}, {"symbol":"TEST", "ids":["2","3","4"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145386,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145386,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -723,13 +720,13 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[21].logs);
-      console.log(transactionsBlock1[22].logs);
-      console.log(transactionsBlock1[23].logs);
-      console.log(transactionsBlock1[24].logs);
-      console.log(transactionsBlock1[25].logs);
-      console.log(transactionsBlock1[26].logs);
-      console.log(transactionsBlock1[27].logs);
+      
+      
+      
+      
+      
+      
+      
 
       res = await database1.find({
           contract: 'nft',
@@ -738,7 +735,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -763,7 +760,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -798,7 +795,7 @@ describe('nft', function() {
         });
 
       let undelegations = res;
-      console.log(undelegations);
+      
 
       assert.equal(undelegations.length, 3);
       assert.equal(undelegations[0].symbol, 'TSTNFT');
@@ -817,9 +814,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145387, 'TXID123810', 'satoshi', 'whatever', 'whatever', ''));
 
       block = {
-        refSteemBlockNumber: 38145387,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145387,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-04T00:00:00',
         transactions,
       };
@@ -842,9 +839,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145388, 'TXID123811', 'harpagon', 'whatever2', 'whatever2', ''));
 
       block = {
-        refSteemBlockNumber: 38145388,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145388,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-06T00:00:00',
         transactions,
       };
@@ -859,17 +856,17 @@ describe('nft', function() {
 
       // undelegations should be finished now
       undelegations = res;
-      console.log(undelegations);
+      
       assert.equal(undelegations.length, 0);
 
       res = await database1.getBlockInfo(3);
 
       let vtxs = res.virtualTransactions;
       const logs = JSON.parse(vtxs[0].logs);
-      console.log(logs);
-      console.log(logs.events[0].data);
-      console.log(logs.events[1].data);
-      console.log(logs.events[2].data);
+      
+      
+      
+      
 
       assert.equal(logs.events[0].contract, 'nft');
       assert.equal(logs.events[0].event, 'undelegateDone');
@@ -891,7 +888,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -914,7 +911,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -951,15 +948,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145388, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145388, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145388, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145388, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145388, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
-      transactions.push(new Transaction(38145388, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145388, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145388, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145388, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145388, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145388, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145388, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145388, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
+      transactions.push(new Transaction(38145388, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145388, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145388, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145388, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145388, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145388, 'TXID1240', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 3", "symbol": "TESTER" }'));
@@ -1006,9 +1003,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145388, 'TXID1265', 'marc', 'testcontract', 'doUndelegation', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["1"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145388,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145388,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1019,16 +1016,16 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[26].logs);
-      console.log(transactionsBlock1[27].logs);
-      console.log(transactionsBlock1[28].logs);
-      console.log(transactionsBlock1[29].logs);
-      console.log(transactionsBlock1[30].logs);
-      console.log(transactionsBlock1[31].logs);
-      console.log(transactionsBlock1[32].logs);
-      console.log(transactionsBlock1[33].logs);
-      console.log(transactionsBlock1[34].logs);
-      console.log(transactionsBlock1[35].logs);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[26].logs).errors[0], 'delegation not enabled for TESTER');
       assert.equal(JSON.parse(transactionsBlock1[27].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -1099,9 +1096,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145389, 'TXID1267', 'aggroed', 'nft', 'undelegate', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["1"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145389,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145389,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1112,8 +1109,8 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
+      
+      
 
       res = await database1.find({
           contract: 'nft',
@@ -1122,7 +1119,7 @@ describe('nft', function() {
         });
 
       undelegations = res;
-      console.log(undelegations);
+      
 
       assert.equal(undelegations[0].symbol, 'TEST');
       assert.equal(JSON.stringify(undelegations[0].ids), '[1]');
@@ -1146,15 +1143,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145389, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145389, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145389, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145389, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1", "enableDelegationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145389, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145389, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145389, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145389, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145389, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -1189,9 +1186,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145389, 'TXID1261', 'aggroed', 'nft', 'delegate', '{ "isSignedWithActiveKey": true, "to":"cryptomancer", "nfts": [ {"symbol":"TSTNFT", "ids":["200","201","202"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145389,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145389,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1202,17 +1199,17 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[20].logs);
-      console.log(transactionsBlock1[22].logs);
-      console.log(transactionsBlock1[23].logs);
-      console.log(transactionsBlock1[24].logs);
-      console.log(transactionsBlock1[25].logs);
-      console.log(transactionsBlock1[26].logs);
-      console.log(transactionsBlock1[27].logs);
-      console.log(transactionsBlock1[28].logs);
-      console.log(transactionsBlock1[29].logs);
-      console.log(transactionsBlock1[30].logs);
-      console.log(transactionsBlock1[31].logs);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[20].logs).errors[0], 'delegation not enabled for TEST');
       assert.equal(JSON.parse(transactionsBlock1[22].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -1229,7 +1226,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1252,7 +1249,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1289,15 +1286,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145389, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145389, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145389, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145389, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145389, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145389, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145389, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145389, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145389, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -1321,9 +1318,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145389, 'TXID1252', 'aggroed', 'nft', 'transfer', '{ "isSignedWithActiveKey": true, "to":"testcontract", "toType":"contract", "nfts": [ {"symbol":"TSTNFT", "ids":["3"]}, {"symbol":"INVALID", "ids":["1","1","1"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145389,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145389,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1334,10 +1331,10 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[19].logs);
-      console.log(transactionsBlock1[20].logs);
-      console.log(transactionsBlock1[21].logs);
-      console.log(transactionsBlock1[22].logs);
+      
+      
+      
+      
 
       res = await database1.find({
           contract: 'nft',
@@ -1365,7 +1362,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1385,7 +1382,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1418,15 +1415,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145389, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145389, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145389, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145389, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145389, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145389, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145389, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145389, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145389, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -1456,9 +1453,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145389, 'TXID1258', 'aggroed', 'nft', 'transfer', '{ "isSignedWithActiveKey": true, "to":"cryptomancer", "nfts": [ {"symbol":"TSTNFT", "ids":["200","201","202"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 12345678901,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 12345678901,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1469,16 +1466,16 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[19].logs);
-      console.log(transactionsBlock1[20].logs);
-      console.log(transactionsBlock1[21].logs);
-      console.log(transactionsBlock1[22].logs);
-      console.log(transactionsBlock1[23].logs);
-      console.log(transactionsBlock1[24].logs);
-      console.log(transactionsBlock1[25].logs);
-      console.log(transactionsBlock1[26].logs);
-      console.log(transactionsBlock1[27].logs);
-      console.log(transactionsBlock1[28].logs);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[19].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock1[20].logs).errors[0], 'invalid params');
@@ -1564,15 +1561,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145389, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145389, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
-      transactions.push(new Transaction(38145389, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145389, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145389, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145389, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145389, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
+      transactions.push(new Transaction(38145389, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145389, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145389, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145389, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145389, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145389, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -1586,9 +1583,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145389, 'TXID1248', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testcontract", "toType":"contract", "feeSymbol": "TKN", "properties": {"color":"purple"} }`));
 
       let block = {
-        refSteemBlockNumber: 38145389,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145389,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1701,9 +1698,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145390, 'TXID1250', 'marc', 'testcontract', 'doBurn', '{ "callingContractInfo": {"name":"otherContract", "version":1}, "fromType":"contract", "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":[]},{"symbol":"TSTNFT", "ids":["1","1","1","1"]},{"symbol":"TEST", "ids":["2","3","4","5","6","7","8","9","10"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145390,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145390,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1714,8 +1711,8 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
+      
+      
 
       res = await database1.find({
           contract: 'nft',
@@ -1724,7 +1721,7 @@ describe('nft', function() {
         });
 
       tokens = res;
-      console.log(tokens);
+      
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -1744,7 +1741,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1767,7 +1764,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -1794,7 +1791,7 @@ describe('nft', function() {
         });
 
       balances = res;
-      console.log(balances);
+      
 
       // check issuance fees & locked tokens were subtracted from account balance
       assert.equal(balances[0].account, 'aggroed');
@@ -1818,7 +1815,7 @@ describe('nft', function() {
         });
 
       balances = res;
-      console.log(balances);
+      
 
       // check nft contract has the proper amount of locked tokens
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -1853,15 +1850,15 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      // fees: 2 ENG for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
-      transactions.push(new Transaction(38145390, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145390, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145390, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145390, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145390, 'TXID1234', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
-      transactions.push(new Transaction(38145390, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145390, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145390, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      // fees: 2 BEE for NFT creation, 14 TKN (2 per token issued, total of 7 tokens)
+      transactions.push(new Transaction(38145390, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145390, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145390, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145390, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145390, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "1", "nftIssuanceFee": {"TKN":"1"}, "dataPropertyCreationFee": "1" }'));
+      transactions.push(new Transaction(38145390, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145390, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145390, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "200", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145390, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145390, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST" }'));
       transactions.push(new Transaction(38145390, 'TXID1240', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TEST", "name":"color", "type":"string" }'));
@@ -1875,9 +1872,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145390, 'TXID1248', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"testcontract", "toType":"contract", "feeSymbol": "TKN", "properties": {"color":"purple"} }`));
 
       let block = {
-        refSteemBlockNumber: 38145390,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145390,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1900,9 +1897,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1259', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["100"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -1913,17 +1910,17 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
-      console.log(transactionsBlock2[3].logs);
-      console.log(transactionsBlock2[4].logs);
-      console.log(transactionsBlock2[5].logs);
-      console.log(transactionsBlock2[6].logs);
-      console.log(transactionsBlock2[7].logs);
-      console.log(transactionsBlock2[8].logs);
-      console.log(transactionsBlock2[9].logs);
-      console.log(transactionsBlock2[10].logs);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid params');
@@ -2048,12 +2045,12 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
-      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"2000", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"2000", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"300" }'));
       for (let i = 37; i < 37+50; i += 1) {
         const txId = 'TXID12' + i.toString();
@@ -2061,9 +2058,9 @@ describe('nft', function() {
       }
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2086,9 +2083,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID12140', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "lockNfts": [ {"symbol":"TSTNFT", "ids":["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50"]} ], "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2096,11 +2093,11 @@ describe('nft', function() {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       let t1 = performance.now();
-      console.log('Issuing token took: ' + (t1 - t0) + ' ms');
+      
 
       const block2 = await database1.getBlockInfo(2);
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
+      
 
       // verify tokens are locked
       instances = await database1.find({
@@ -2120,8 +2117,8 @@ describe('nft', function() {
         table: 'TSTNFTinstances',
         query: { account: 'aggroed' }
       });
-      console.log(instances);
-      console.log(instances[0].lockedNfts);
+      
+      
       assert.equal(instances.length, 1);
       assert.equal(instances[0].lockedNfts[0].ids.length, 50);
 
@@ -2132,9 +2129,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145393, 'TXID12240', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["51"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145393,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145393,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2142,11 +2139,11 @@ describe('nft', function() {
       await send(blockchain.PLUGIN_NAME, 'MASTER', { action: blockchain.PLUGIN_ACTIONS.PRODUCE_NEW_BLOCK_SYNC, payload: block });
 
       t1 = performance.now();
-      console.log('Burning token took: ' + (t1 - t0) + ' ms');
+      
 
       const block3 = await database1.getBlockInfo(3);
       const transactionsBlock3 = block3.transactions;
-      console.log(transactionsBlock3[0].logs);
+      
 
       // verify tokens are unlocked
       instances = await database1.find({
@@ -2166,8 +2163,8 @@ describe('nft', function() {
         table: 'TSTNFTinstances',
         query: { account: 'null' }
       });
-      console.log(instances);
-      console.log(instances[0].lockedNfts);
+      
+      
       assert.equal(instances.length, 1);
       assert.equal(instances[0].lockedNfts.length, 0);
 
@@ -2188,14 +2185,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
-      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145391, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145391, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"30" }'));
       transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["cryptomancer","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice","testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"cryptomancer", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
@@ -2213,9 +2210,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1250', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"15" }, "lockNfts": [{"symbol":"TEST", "ids":["2"]}] }`));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2229,8 +2226,8 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log('setup tokens');
-      console.log(res);
+      
+      
 
       assert.equal(res.length, 6);
       assert.equal(res[0]._id, 3);
@@ -2250,7 +2247,7 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 3);
@@ -2260,9 +2257,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1300', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["5","6"]} ] }')); // token ID 6 should fail
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2275,8 +2272,8 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log('scenario 1');
-      console.log(res);
+      
+      
 
       assert.equal(res.length, 6);
       assert.equal(res[0]._id, 1);
@@ -2294,7 +2291,7 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 3);
@@ -2305,7 +2302,7 @@ describe('nft', function() {
         query: {'account': 'null'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 5);
@@ -2319,9 +2316,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145393, 'TXID1400', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TEST", "ids":["3"]}, {"symbol":"TSTNFT", "ids":["6","3"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145393,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145393,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2334,8 +2331,8 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log('scenario 2');
-      console.log(res);
+      
+      
 
       assert.equal(res.length, 5);
       assert.equal(res[0]._id, 1);
@@ -2352,7 +2349,7 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log(res);
+      
       assert.equal(res.length, 0);
 
       res = await database1.find({
@@ -2361,7 +2358,7 @@ describe('nft', function() {
         query: {'account': 'null'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 2);
       assert.equal(res[0]._id, 3);
@@ -2378,7 +2375,7 @@ describe('nft', function() {
         query: {'account': 'null'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 3);
@@ -2391,9 +2388,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145394, 'TXID1500', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["6","4"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145394,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145394,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2406,8 +2403,8 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log('scenario 3');
-      console.log(res);
+      
+      
 
       assert.equal(res.length, 4);
       assert.equal(res[0]._id, 1);
@@ -2423,7 +2420,7 @@ describe('nft', function() {
         query: {'account': 'aggroed'}
       });
 
-      console.log(res);
+      
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 1);
       assert.equal(res[0].previousAccount, 'nft');
@@ -2435,7 +2432,7 @@ describe('nft', function() {
         query: {'account': 'null'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 3);
       assert.equal(res[0]._id, 3);
@@ -2456,7 +2453,7 @@ describe('nft', function() {
         query: {'account': 'null'}
       });
 
-      console.log(res);
+      
 
       assert.equal(res.length, 1);
       assert.equal(res[0]._id, 3);
@@ -2480,14 +2477,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
-      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145391, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145391, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "100", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"30" }'));
       transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["cryptomancer","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice","testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"cryptomancer", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
@@ -2505,9 +2502,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1248', 'thecryptodrive', 'testcontract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"marc", "toType":"user", "feeSymbol": "TKN", "lockNfts": [{"symbol":"TSTNFT", "ids":["2","3","4"]}, {"symbol":"TEST", "ids":["1","2"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2518,14 +2515,14 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
-      console.log(transactionsBlock1[18].logs)
+      
+      
+      
+      
+      
+      
+      
+      
 
       res = await database1.find({
         contract: 'nft',
@@ -2533,8 +2530,8 @@ describe('nft', function() {
         query: {}
       });
 
-      console.log(res);
-      console.log(res[3].lockedNfts);
+      
+      
 
       // check NFT instances are OK
       assert.equal(res[0]._id, 1);
@@ -2569,8 +2566,8 @@ describe('nft', function() {
         query: {}
       });
 
-      console.log(res);
-      console.log(res[3].lockedNfts);
+      
+      
 
       assert.equal(res[0]._id, 1);
       assert.equal(res[0].account, 'nft');
@@ -2603,9 +2600,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1249', 'aggroed', 'nft', 'burn', '{ "isSignedWithActiveKey": true, "nfts": [ {"symbol":"TSTNFT", "ids":["4"]} ] }'));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2616,7 +2613,7 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
+      
 
       res = await database1.find({
         contract: 'nft',
@@ -2624,7 +2621,7 @@ describe('nft', function() {
         query: {}
       });
 
-      console.log(res);
+      
 
       // make sure locked tokens have all been released
       assert.equal(res[0]._id, 1);
@@ -2654,7 +2651,7 @@ describe('nft', function() {
         query: {}
       });
 
-      console.log(res);
+      
 
       assert.equal(res[2]._id, 3);
       assert.equal(res[2].account, 'aggroed');
@@ -2680,14 +2677,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
-      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145391, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145391, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.903", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.903", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["cryptomancer","aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice","testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
@@ -2703,20 +2700,20 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1248', 'cryptomancer', 'testcontract', 'doIssuance', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"contract3", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"4","TKN":"0.5"} }`));
 
       // issue from contract to contract
-      transactions.push(new Transaction(38145391, 'TXID1249', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.5", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1249', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.5", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1250', 'cryptomancer', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "0.5", "to": "testcontract", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1251', 'cryptomancer', 'tokens', 'transferToContract', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "4.4", "to": "testcontract", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(38145391, 'TXID1252', 'cryptomancer', 'testcontract', 'doIssuance', `{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"contract4", "toType":"contract", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "lockTokens": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"4","TKN":"0.5"} }`));
 
       // issue from contract to user
-      transactions.push(new Transaction(38145391, 'TXID1253', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.8", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1253', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.8", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1254', 'cryptomancer', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "0.8", "to": "testcontract", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1255', 'thecryptodrive', 'testcontract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"null", "toType":"user", "feeSymbol": "TKN" }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2727,14 +2724,14 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[17].logs)
-      console.log(transactionsBlock1[18].logs)
-      console.log(transactionsBlock1[22].logs)
-      console.log(transactionsBlock1[25].logs)
+      
+      
+      
+      
+      
+      
+      
+      
 
       res = await database1.find({
           contract: 'nft',
@@ -2743,7 +2740,7 @@ describe('nft', function() {
         });
 
       const tokens = res;
-      console.log(tokens);
+      
 
       // check NFT supply updates OK
       assert.equal(tokens[0].symbol, 'TSTNFT');
@@ -2767,7 +2764,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -2790,7 +2787,7 @@ describe('nft', function() {
         });
 
       instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -2821,7 +2818,7 @@ describe('nft', function() {
         });
 
       let balances = res;
-      console.log(balances);
+      
 
       // check issuance fees & locked tokens were subtracted from account balance
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -2836,7 +2833,7 @@ describe('nft', function() {
         });
 
       balances = res;
-      console.log(balances);
+      
 
       // check nft contract has the proper amount of locked tokens
       assert.equal(balances[0].symbol, `${CONSTANTS.UTILITY_TOKEN_SYMBOL}`);
@@ -2869,14 +2866,14 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
-      transactions.push(new Transaction(38145391, 'TXID1235', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
-      transactions.push(new Transaction(38145391, 'TXID1236', 'harpagon', 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
-      transactions.push(new Transaction(38145391, 'TXID1237', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.403", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'updateParams', '{ "tokenCreationFee": "1" }'));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1","TKN":"0.2"}, "dataPropertyCreationFee": "2" }`));
+      transactions.push(new Transaction(38145391, 'TXID1235', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1236', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'create', '{ "isSignedWithActiveKey": true,  "name": "token", "url": "https://token.com", "symbol": "TKN", "precision": 3, "maxSupply": "1000", "isSignedWithActiveKey": true  }'));
+      transactions.push(new Transaction(38145391, 'TXID1237', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.403", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"3" }'));
       transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey": true, "name": "test NFT 2", "symbol": "TEST", "authorizedIssuingAccounts": ["aggroed","harpagon"], "authorizedIssuingContracts": ["tokens","dice"] }'));
       transactions.push(new Transaction(38145391, 'TXID1240', 'cryptomancer', 'nft', 'issue', `{ "isSignedWithActiveKey": false, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}" }`));
@@ -2906,17 +2903,17 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1254', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "to":"aggroed", "feeSymbol": "TKN" }'));
 
       // not enough balance for issuance fees
-      transactions.push(new Transaction(38145391, 'TXID1255', 'harpagon', 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.3", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
+      transactions.push(new Transaction(38145391, 'TXID1255', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'issue', '{ "symbol": "TKN", "quantity": "0.3", "to": "cryptomancer", "isSignedWithActiveKey": true }'));
       transactions.push(new Transaction(38145391, 'TXID1256', 'cryptomancer', 'tokens', 'transferToContract', '{ "symbol": "TKN", "quantity": "0.1", "to": "testcontract", "isSignedWithActiveKey": true }'));
-      transactions.push(new Transaction(38145391, 'TXID1257', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.3"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(38145391, 'TXID1257', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.3"}, "dataPropertyCreationFee": "2" }'));
       transactions.push(new Transaction(38145391, 'TXID1258', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "contracts": ["testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1259', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "accounts": ["cryptomancer"] }'));
       transactions.push(new Transaction(38145391, 'TXID1260', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN" }'));
-      transactions.push(new Transaction(38145391, 'TXID1261', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.2"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(38145391, 'TXID1261', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.2"}, "dataPropertyCreationFee": "2" }'));
       transactions.push(new Transaction(38145391, 'TXID1262', 'aggroed', 'testcontract', 'doIssuance', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "fromType":"contract", "to":"contract4", "toType":"contract", "feeSymbol": "TKN" }'));
 
       // invalid locked token basket
-      transactions.push(new Transaction(38145391, 'TXID1263', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.001"}, "dataPropertyCreationFee": "2" }'));
+      transactions.push(new Transaction(38145391, 'TXID1263', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "nftIssuanceFee": {"TKN":"0.001"}, "dataPropertyCreationFee": "2" }'));
       transactions.push(new Transaction(38145391, 'TXID1264', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"100"} }'));
       transactions.push(new Transaction(38145391, 'TXID1265', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"AAA":"100"} }'));
       transactions.push(new Transaction(38145391, 'TXID1266', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockTokens": {"TKN":"0.1","BBB":"10"} }'));
@@ -2927,9 +2924,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1269', 'cryptomancer', 'nft', 'issue', '{ "isSignedWithActiveKey": true, "symbol": "TEST", "to":"aggroed", "feeSymbol": "TKN", "lockNfts": [{"symbol":"TSTNFT", "ids":["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51"]} ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -2940,26 +2937,26 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
-      console.log(transactionsBlock1[17].logs)
-      console.log(transactionsBlock1[18].logs)
-      console.log(transactionsBlock1[19].logs)
-      console.log(transactionsBlock1[20].logs)
-      console.log(transactionsBlock1[24].logs)
-      console.log(transactionsBlock1[30].logs)
-      console.log(transactionsBlock1[32].logs)
-      console.log(transactionsBlock1[34].logs)
-      console.log(transactionsBlock1[35].logs)
-      console.log(transactionsBlock1[36].logs)
-      console.log(transactionsBlock1[37].logs)
-      console.log(transactionsBlock1[38].logs)
-      console.log(transactionsBlock1[39].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'invalid params');
@@ -3022,14 +3019,14 @@ describe('nft', function() {
         { symbol: "TSTNFT", to:"aggroed", feeSymbol: CONSTANTS.UTILITY_TOKEN_SYMBOL, lockNfts: [ {symbol:"TSTNFT", ids:["3","2"]} ] },    // won't lock token ID 2 because owner is harpagon
       ];
 
-      console.log(instances2)
+      
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'tokens', 'transferToContract', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "to": "testcontract", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingContracts": ["testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true, "authorizedEditingContracts": ["testcontract"] }'));
@@ -3041,9 +3038,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1243', 'cryptomancer', 'nft', 'issueMultiple', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances3)} }`));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3057,8 +3054,8 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
-      console.log(instances[7].lockedNfts);
+      
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -3164,11 +3161,11 @@ describe('nft', function() {
       ];
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"1"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"200", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'tokens', 'transferToContract', `{ "symbol": "${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "quantity": "100", "to": "testcontract", "isSignedWithActiveKey": true }`));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingContracts": ["testcontract"] }'));
       transactions.push(new Transaction(38145391, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true, "authorizedEditingContracts": ["testcontract"] }'));
@@ -3184,9 +3181,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1247', 'cryptomancer', 'nft', 'issueMultiple', `{ "isSignedWithActiveKey": true, "instances": ${JSON.stringify(instances4)} }`));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3198,13 +3195,13 @@ describe('nft', function() {
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
 
-      console.log(transactionsBlock1[11].logs);
-      console.log(transactionsBlock1[12].logs);
-      console.log(transactionsBlock1[13].logs);
-      console.log(transactionsBlock1[14].logs);
-      console.log(transactionsBlock1[15].logs);
-      console.log(transactionsBlock1[16].logs);
-      console.log(transactionsBlock1[17].logs);
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock1[12].logs).errors[0], 'invalid params');
@@ -3228,7 +3225,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
       assert.equal(instances.length, 0);
 
       resolve();
@@ -3248,10 +3245,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
@@ -3260,9 +3257,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1239', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","isFood"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3276,7 +3273,7 @@ describe('nft', function() {
       });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -3299,10 +3296,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
@@ -3320,9 +3317,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1246', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["level","Level"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3333,14 +3330,14 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[9].logs)
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
@@ -3357,7 +3354,7 @@ describe('nft', function() {
       });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -3369,9 +3366,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1248', 'cryptomancer', 'nft', 'setGroupBy', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "properties": ["color","frozen"] }'));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3382,8 +3379,8 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs)
-      console.log(transactionsBlock2[1].logs)
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'list is already set');
 
@@ -3417,10 +3414,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
@@ -3428,9 +3425,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3444,7 +3441,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -3456,7 +3453,7 @@ describe('nft', function() {
       assert.equal(tokens[0].circulatingSupply, 0);
 
       let properties = tokens[0].properties;
-      console.log(properties);
+      
 
       assert.equal(properties.color.type, "string");
       assert.equal(properties.color.isReadOnly, false);
@@ -3476,7 +3473,7 @@ describe('nft', function() {
           }
         });
 
-      console.log(res);
+      
       assert.equal(res.balance, "10.00000000");
 
       resolve();
@@ -3496,10 +3493,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "1000" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "1000" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
@@ -3517,9 +3514,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1248', 'aggroed', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3530,17 +3527,17 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[8].logs)
-      console.log(transactionsBlock1[9].logs)
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
-      console.log(transactionsBlock1[17].logs)
-      console.log(transactionsBlock1[18].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[8].logs).errors[0], 'you must have enough tokens to cover the creation fees');
       assert.equal(JSON.parse(transactionsBlock1[9].logs).errors[0], 'you must use a custom_json signed with your active key');
@@ -3581,11 +3578,11 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
-      transactions.push(new Transaction(38145391, 'TXID1234', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"7.5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "dataPropertyCreationFee": "1", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1234', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"7.5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["aggroed","cryptomancer"] }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"id", "type":"string", "isReadOnly":true }'));
       transactions.push(new Transaction(38145391, 'TXID1237', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
@@ -3606,9 +3603,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1252', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [{"id":"3", "properties": {"id":"NFT-ABC-666"}}] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3622,7 +3619,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -3665,11 +3662,11 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1229', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(testcontractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5.4", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1229', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(testcontractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', `{ "nftCreationFee": "5", "nftIssuanceFee": {"${CONSTANTS.UTILITY_TOKEN_SYMBOL}":"0.1"} }`));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5.4", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000", "authorizedIssuingAccounts": ["aggroed","cryptomancer"] }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string" }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number" }'));
@@ -3691,9 +3688,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1252', 'cryptomancer', 'nft', 'setProperties', '{ "symbol":"TSTNFT", "nfts": [ { "badkey": "badvalue" } ] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3704,21 +3701,21 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock1 = block1.transactions;
-      console.log(transactionsBlock1[9].logs)
-      console.log(transactionsBlock1[10].logs)
-      console.log(transactionsBlock1[11].logs)
-      console.log(transactionsBlock1[12].logs)
-      console.log(transactionsBlock1[13].logs)
-      console.log(transactionsBlock1[14].logs)
-      console.log(transactionsBlock1[15].logs)
-      console.log(transactionsBlock1[16].logs)
-      console.log(transactionsBlock1[17].logs)
-      console.log(transactionsBlock1[18].logs)
-      console.log(transactionsBlock1[19].logs)
-      console.log(transactionsBlock1[20].logs)
-      console.log(transactionsBlock1[21].logs)
-      console.log(transactionsBlock1[22].logs)
-      console.log(transactionsBlock1[23].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock1[10].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock1[11].logs).errors[0], 'cannot set properties on more than 50 NFT instances at once');
@@ -3742,7 +3739,7 @@ describe('nft', function() {
         });
 
       let instances = res;
-      console.log(instances);
+      
 
       // check NFT instances are OK
       assert.equal(instances[0]._id, 1);
@@ -3768,10 +3765,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"] }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingAccounts":["bobbie"] }'));
@@ -3779,9 +3776,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false, "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"], "authorizedEditingAccounts":["bobbie"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3798,9 +3795,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1245', 'cryptomancer', 'nft', 'updatePropertyDefinition', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood" }'));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3811,13 +3808,13 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs)
-      console.log(transactionsBlock2[1].logs)
-      console.log(transactionsBlock2[2].logs)
-      console.log(transactionsBlock2[3].logs)
-      console.log(transactionsBlock2[4].logs)
-      console.log(transactionsBlock2[5].logs)
-      console.log(transactionsBlock2[6].logs)
+      
+      
+      
+      
+      
+      
+      
 
       res = await database1.find({
         contract: 'nft',
@@ -3826,8 +3823,8 @@ describe('nft', function() {
       });
 
       let properties = res[0].properties;
-      console.log(res[0]);
-      console.log(properties);
+      
+      
 
       assert.equal(Object.keys(properties).length, 4);
       assert.equal(properties.Color.type, "string");
@@ -3864,10 +3861,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"] }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingAccounts":["bobbie"] }'));
@@ -3875,9 +3872,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false, "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"], "authorizedEditingAccounts":["bobbie"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3906,9 +3903,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1253', 'cryptomancer', 'nft', 'updatePropertyDefinition', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "newName":"Color" }'));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -3919,21 +3916,21 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs)
-      console.log(transactionsBlock2[1].logs)
-      console.log(transactionsBlock2[2].logs)
-      console.log(transactionsBlock2[3].logs)
-      console.log(transactionsBlock2[4].logs)
-      console.log(transactionsBlock2[5].logs)
-      console.log(transactionsBlock2[6].logs)
-      console.log(transactionsBlock2[7].logs)
-      console.log(transactionsBlock2[8].logs)
-      console.log(transactionsBlock2[9].logs)
-      console.log(transactionsBlock2[10].logs)
-      console.log(transactionsBlock2[11].logs)
-      console.log(transactionsBlock2[12].logs)
-      console.log(transactionsBlock2[13].logs)
-      console.log(transactionsBlock2[14].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid name: letters & numbers only, max length of 25');
@@ -3955,7 +3952,7 @@ describe('nft', function() {
       });
 
       let properties = res[0].properties;
-      console.log(properties);
+      
 
       assert.equal(Object.keys(properties).length, 4);
       assert.equal(properties.color.type, "string");
@@ -3992,10 +3989,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145391, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145391, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145391, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145391, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145391, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145391, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145391, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145391, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"] }'));
       transactions.push(new Transaction(38145391, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingAccounts":["bobbie"] }'));
@@ -4003,9 +4000,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145391, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false, "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"], "authorizedEditingAccounts":["bobbie"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145391,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145391,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4019,9 +4016,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1242', 'cryptomancer', 'nft', 'setPropertyPermissions', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "contracts":[], "accounts":[] }'));
 
       block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4035,7 +4032,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -4047,7 +4044,7 @@ describe('nft', function() {
       assert.equal(tokens[0].circulatingSupply, 0);
 
       let properties = tokens[0].properties;
-      console.log(properties);
+      
 
       assert.equal(properties.color.type, "string");
       assert.equal(properties.color.isReadOnly, false);
@@ -4075,7 +4072,7 @@ describe('nft', function() {
           }
         });
 
-      console.log(res);
+      
       assert.equal(res.balance, "10.00000000");
 
       resolve();
@@ -4095,10 +4092,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5", "dataPropertyCreationFee": "10" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"25", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "type":"string", "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"level", "type":"number", "authorizedEditingAccounts":["bobbie"] }'));
@@ -4106,9 +4103,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1238', 'cryptomancer', 'nft', 'addProperty', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"isFood", "type":"boolean", "isReadOnly":false, "authorizedEditingContracts":["mycontract1","mycontract2","mycontract3","mycontract4"], "authorizedEditingAccounts":["bobbie"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4130,9 +4127,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145393, 'TXID1250', 'cryptomancer', 'nft', 'setPropertyPermissions', '{ "isSignedWithActiveKey":true, "symbol":"TSTNFT", "name":"color", "contracts":["contract1","tokens","market","tokens"] }'));
 
       block = {
-        refSteemBlockNumber: 38145393,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145393,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4146,7 +4143,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(tokens[0].symbol, 'TSTNFT');
       assert.equal(tokens[0].issuer, 'cryptomancer');
@@ -4158,7 +4155,7 @@ describe('nft', function() {
       assert.equal(tokens[0].circulatingSupply, 0);
 
       let properties = tokens[0].properties;
-      console.log(properties);
+      
 
       assert.equal(properties.color.type, "string");
       assert.equal(properties.color.isReadOnly, false);
@@ -4181,18 +4178,18 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs)
-      console.log(transactionsBlock2[1].logs)
-      console.log(transactionsBlock2[2].logs)
-      console.log(transactionsBlock2[3].logs)
-      console.log(transactionsBlock2[4].logs)
-      console.log(transactionsBlock2[5].logs)
-      console.log(transactionsBlock2[6].logs)
-      console.log(transactionsBlock2[7].logs)
-      console.log(transactionsBlock2[8].logs)
-      console.log(transactionsBlock2[9].logs)
-      console.log(transactionsBlock2[10].logs)
-      console.log(transactionsBlock2[11].logs)
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid params');
@@ -4224,10 +4221,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["tokens"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["market"] }'));
@@ -4236,9 +4233,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1239', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4252,7 +4249,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["tokens","market","contract1","contract2","dice"]');
 
@@ -4273,10 +4270,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["cryptomancer"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["harpagon"] }'));
@@ -4285,9 +4282,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1239', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4301,7 +4298,7 @@ describe('nft', function() {
         });
 
       let tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","harpagon","satoshi","aggroed","marc"]');
 
@@ -4322,10 +4319,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["acc1","acc2","acc3","acc4","acc5","acc6","acc7"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": false, "symbol": "TSTNFT", "accounts": ["harpagon"] }'));
@@ -4338,9 +4335,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1243', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["tooooooooolooooooooong","aggroed"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4351,14 +4348,14 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock = block1.transactions;
-      console.log(transactionsBlock[6].logs);
-      console.log(transactionsBlock[7].logs);
-      console.log(transactionsBlock[8].logs);
-      console.log(transactionsBlock[9].logs);
-      console.log(transactionsBlock[10].logs);
-      console.log(transactionsBlock[11].logs);
-      console.log(transactionsBlock[12].logs);
-      console.log(transactionsBlock[13].logs);
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock[6].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock[7].logs).errors[0], 'must be the issuer');
@@ -4386,10 +4383,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["acc1","acc2","acc3","acc4","acc5","acc6","acc7"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": false, "symbol": "TSTNFT", "contracts": ["tokens"] }'));
@@ -4402,9 +4399,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1243', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["tooooooooolooooooooooooooooooooooooooooooooooooooooooong","tokens"] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4415,14 +4412,14 @@ describe('nft', function() {
 
       const block1 = res;
       const transactionsBlock = block1.transactions;
-      console.log(transactionsBlock[6].logs);
-      console.log(transactionsBlock[7].logs);
-      console.log(transactionsBlock[8].logs);
-      console.log(transactionsBlock[9].logs);
-      console.log(transactionsBlock[10].logs);
-      console.log(transactionsBlock[11].logs);
-      console.log(transactionsBlock[12].logs);
-      console.log(transactionsBlock[13].logs);
+      
+      
+      
+      
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock[6].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock[7].logs).errors[0], 'must be the issuer');
@@ -4450,10 +4447,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145392, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145392, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145392, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145392, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145392, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145392, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145392, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145392, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["cryptomancer"] }'));
       transactions.push(new Transaction(38145392, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["harpagon"] }'));
@@ -4462,9 +4459,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145392, 'TXID1239', 'cryptomancer', 'nft', 'removeAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145392,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145392,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4486,9 +4483,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145393, 'TXID1241', 'cryptomancer', 'nft', 'removeAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["missingaccount","satoshi","satoshi"," Harpagon "] }'));
 
       block = {
-        refSteemBlockNumber: 38145393,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145393,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4502,7 +4499,7 @@ describe('nft', function() {
         });
 
       tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '["cryptomancer","marc"]');
 
@@ -4511,9 +4508,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145394, 'TXID1243', 'cryptomancer', 'nft', 'removeAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["marc","nothere","cryptomancer"] }'));
 
       block = {
-        refSteemBlockNumber: 38145394,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145394,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4527,7 +4524,7 @@ describe('nft', function() {
         });
 
       tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingAccounts), '[]');
 
@@ -4548,10 +4545,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145394, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145394, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145394, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145394, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145394, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145394, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145394, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145394, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145394, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145394, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["tokens"] }'));
       transactions.push(new Transaction(38145394, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["market"] }'));
@@ -4560,9 +4557,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145394, 'TXID1239', 'cryptomancer', 'nft', 'removeAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145394,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145394,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4584,9 +4581,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145395, 'TXID1241', 'cryptomancer', 'nft', 'removeAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["missingcontract","contract1","contract1"," tokens "] }'));
 
       block = {
-        refSteemBlockNumber: 38145395,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145395,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4600,7 +4597,7 @@ describe('nft', function() {
         });
 
       tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '["market","contract2"]');
 
@@ -4609,9 +4606,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145396, 'TXID1243', 'cryptomancer', 'nft', 'removeAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["contract2","nothere","market"] }'));
 
       block = {
-        refSteemBlockNumber: 38145396,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145396,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4625,7 +4622,7 @@ describe('nft', function() {
         });
 
       tokens = res;
-      console.log(tokens)
+      
 
       assert.equal(JSON.stringify(tokens[0].authorizedIssuingContracts), '[]');
 
@@ -4646,10 +4643,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145397, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145397, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145397, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145397, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145397, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145397, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145397, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145397, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145397, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145397, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["cryptomancer"] }'));
       transactions.push(new Transaction(38145397, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["harpagon"] }'));
@@ -4658,9 +4655,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145397, 'TXID1239', 'cryptomancer', 'nft', 'removeAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145397,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145397,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4684,9 +4681,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145398, 'TXID1243', 'harpagon', 'nft', 'removeAuthorizedIssuingAccounts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "accounts": ["aggroed"] }'));
 
       block = {
-        refSteemBlockNumber: 38145398,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145398,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4707,10 +4704,10 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
-      console.log(transactionsBlock2[3].logs);
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid params');
@@ -4734,10 +4731,10 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145398, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145398, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145398, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145398, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145398, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145398, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145398, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145398, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145398, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
       transactions.push(new Transaction(38145398, 'TXID1235', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["tokens"] }'));
       transactions.push(new Transaction(38145398, 'TXID1236', 'cryptomancer', 'nft', 'addAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["market"] }'));
@@ -4746,9 +4743,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145398, 'TXID1239', 'cryptomancer', 'nft', 'removeAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": [] }'));
 
       let block = {
-        refSteemBlockNumber: 38145398,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145398,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4772,9 +4769,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145399, 'TXID1243', 'harpagon', 'nft', 'removeAuthorizedIssuingContracts', '{ "isSignedWithActiveKey": true, "symbol": "TSTNFT", "contracts": ["tokens"] }'));
 
       block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4795,10 +4792,10 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
-      console.log(transactionsBlock2[3].logs);
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'you must use a custom_json signed with your active key');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid params');
@@ -4822,16 +4819,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "productName":"Pet Rocks", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4842,9 +4839,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1235', 'cryptomancer', 'nft', 'updateProductName', '{ "symbol": "TSTNFT", "productName": "Crypto Rocks" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4860,7 +4857,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'test NFT');
       assert.equal(token.orgName, '');
@@ -4883,16 +4880,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "productName":"Pet Rocks", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4906,9 +4903,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1238', 'cryptomancer', 'nft', 'updateProductName', '{ "symbol": "TSTNFT", "productName": "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4924,7 +4921,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'test NFT');
       assert.equal(token.orgName, '');
@@ -4934,10 +4931,10 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
-      console.log(transactionsBlock2[3].logs);
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'must be the issuer');
@@ -4961,16 +4958,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "orgName":"Evil Inc", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4981,9 +4978,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1235', 'cryptomancer', 'nft', 'updateOrgName', '{ "symbol": "TSTNFT", "orgName": "Angels R Us" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -4999,7 +4996,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'test NFT');
       assert.equal(token.orgName, 'Angels R Us');
@@ -5021,16 +5018,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "orgName":"Evil Inc", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5044,9 +5041,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1238', 'cryptomancer', 'nft', 'updateOrgName', '{ "symbol": "TSTNFT", "orgName": "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5062,7 +5059,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'test NFT');
       assert.equal(token.orgName, 'Evil Inc');
@@ -5071,10 +5068,10 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
-      console.log(transactionsBlock2[3].logs);
+      
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'invalid params');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'must be the issuer');
@@ -5098,16 +5095,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5118,9 +5115,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1235', 'cryptomancer', 'nft', 'updateName', '{ "symbol": "TSTNFT", "name": "Cool Test NFT" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5136,7 +5133,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'Cool Test NFT');
 
@@ -5157,16 +5154,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145399, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145399, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145399, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145399, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145399, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145399, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145399, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145399,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145399,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5179,9 +5176,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145400, 'TXID1237', 'cryptomancer', 'nft', 'updateName', '{ "symbol": "TSTNFT", "name": "toolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolongtoolong" }'));
 
       block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5197,7 +5194,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(token.name, 'test NFT');
 
@@ -5205,9 +5202,9 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
+      
+      
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'invalid name: letters, numbers, whitespaces only, max length of 50');
@@ -5230,16 +5227,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145400, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145400, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145400, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145400, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145400, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145400, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145400, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145400, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145400, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145400,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145400,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5251,9 +5248,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145401, 'TXID1236', 'cryptomancer', 'nft', 'updateUrl', '{ "symbol": "TSTNFT", "url": "https://new.token.com" }'));
 
       block = {
-        refSteemBlockNumber: 38145401,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145401,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5269,7 +5266,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(JSON.parse(token.metadata).url, 'https://new.token.com');
 
@@ -5290,16 +5287,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145401, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145401, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145401, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145401, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145401, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145401, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145401, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145401, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145401, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145401,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145401,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5310,9 +5307,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145402, 'TXID1235', 'harpagon', 'nft', 'updateUrl', '{ "symbol": "TSTNFT", "url": "https://new.token.com" }'));
 
       block = {
-        refSteemBlockNumber: 38145402,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145402,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5328,7 +5325,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       assert.equal(JSON.parse(token.metadata).url, 'http://mynft.com');
 
@@ -5336,7 +5333,7 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
 
@@ -5357,16 +5354,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145402, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145402, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145402, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145402, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145402, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145402, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145402, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145402, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145402, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145402,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145402,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5377,9 +5374,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145403, 'TXID1235', 'cryptomancer', 'nft', 'updateMetadata', '{"symbol":"TSTNFT", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
 
       block = {
-        refSteemBlockNumber: 38145403,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145403,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5395,7 +5392,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       const metadata = JSON.parse(token.metadata);
       assert.equal(metadata.url, 'https://url.token.com');
@@ -5418,16 +5415,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145403, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145403, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145403, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145403, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145403, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145403, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145403, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145403, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145403, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145403,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145403,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5438,9 +5435,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145404, 'TXID1235', 'harpagon', 'nft', 'updateMetadata', '{"symbol":"TSTNFT", "metadata": { "url": "https://url.token.com", "image":"https://image.token.com"}}'));
 
       block = {
-        refSteemBlockNumber: 38145404,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145404,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5456,7 +5453,7 @@ describe('nft', function() {
         });
 
       const token = res;
-      console.log(token);
+      
 
       const metadata = JSON.parse(token.metadata);
       assert.equal(metadata.url, 'http://mynft.com');
@@ -5465,7 +5462,7 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
+      
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
 
@@ -5486,16 +5483,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145403, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145403, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145403, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145403, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145403, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145403, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145403, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145403, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145403, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145403,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145403,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5519,9 +5516,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145404, 'TXID1235', 'cryptomancer', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "satoshi", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 38145404,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145404,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5537,7 +5534,7 @@ describe('nft', function() {
         });
 
       token = res;
-      console.log(token)
+      
 
       assert.equal(token.issuer, 'satoshi');
       assert.equal(token.symbol, 'TSTNFT');
@@ -5559,16 +5556,16 @@ describe('nft', function() {
       await database1.init(conf.databaseURL, conf.databaseName);
 
       let transactions = [];
-      transactions.push(new Transaction(38145404, 'TXID1230', 'steemsc', 'contract', 'update', JSON.stringify(tknContractPayload)));
-      transactions.push(new Transaction(38145404, 'TXID1231', 'steemsc', 'contract', 'deploy', JSON.stringify(nftContractPayload)));
-      transactions.push(new Transaction(38145404, 'TXID1232', 'steemsc', 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
-      transactions.push(new Transaction(38145404, 'TXID1233', 'steemsc', 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
+      transactions.push(new Transaction(38145404, 'TXID1230', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'update', JSON.stringify(tknContractPayload)));
+      transactions.push(new Transaction(38145404, 'TXID1231', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'contract', 'deploy', JSON.stringify(nftContractPayload)));
+      transactions.push(new Transaction(38145404, 'TXID1232', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'nft', 'updateParams', '{ "nftCreationFee": "5" }'));
+      transactions.push(new Transaction(38145404, 'TXID1233', CONSTANTS.HIVE_ENGINE_ACCOUNT, 'tokens', 'transfer', `{ "symbol":"${CONSTANTS.UTILITY_TOKEN_SYMBOL}", "to":"cryptomancer", "quantity":"5", "isSignedWithActiveKey":true }`));
       transactions.push(new Transaction(38145404, 'TXID1234', 'cryptomancer', 'nft', 'create', '{ "isSignedWithActiveKey":true, "name":"test NFT", "symbol":"TSTNFT", "url":"http://mynft.com", "maxSupply":"1000" }'));
 
       let block = {
-        refSteemBlockNumber: 38145404,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145404,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5594,9 +5591,9 @@ describe('nft', function() {
       transactions.push(new Transaction(38145405, 'TXID1237', 'cryptomancer', 'nft', 'transferOwnership', '{ "symbol":"TSTNFT", "to": "s", "isSignedWithActiveKey": true }'));
 
       block = {
-        refSteemBlockNumber: 38145405,
-        refSteemBlockId: 'ABCD1',
-        prevRefSteemBlockId: 'ABCD2',
+        refHiveBlockNumber: 38145405,
+        refHiveBlockId: 'ABCD1',
+        prevRefHiveBlockId: 'ABCD2',
         timestamp: '2018-06-01T00:00:00',
         transactions,
       };
@@ -5612,7 +5609,6 @@ describe('nft', function() {
         });
 
       token = res;
-      console.log(token)
 
       assert.equal(token.issuer, 'cryptomancer');
       assert.equal(token.symbol, 'TSTNFT');
@@ -5621,9 +5617,6 @@ describe('nft', function() {
 
       const block2 = res;
       const transactionsBlock2 = block2.transactions;
-      console.log(transactionsBlock2[0].logs);
-      console.log(transactionsBlock2[1].logs);
-      console.log(transactionsBlock2[2].logs);
 
       assert.equal(JSON.parse(transactionsBlock2[0].logs).errors[0], 'must be the issuer');
       assert.equal(JSON.parse(transactionsBlock2[1].logs).errors[0], 'you must use a custom_json signed with your active key');

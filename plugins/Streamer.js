@@ -19,8 +19,8 @@ class ForkException {
   }
 }
 
-let currentSteemBlock = 0;
-let steemHeadBlockNumber = 0;
+let currentHiveBlock = 0;
+let hiveHeadBlockNumber = 0;
 let stopStream = false;
 const antiForkBufferMaxSize = 2;
 const buffer = new Queue(antiForkBufferMaxSize);
@@ -29,7 +29,7 @@ let blockStreamerHandler = null;
 let updaterGlobalPropsHandler = null;
 let lastBlockSentToBlockchain = 0;
 
-const getCurrentBlock = () => currentSteemBlock;
+const getCurrentBlock = () => currentHiveBlock;
 
 const stop = () => {
   stopStream = true;
@@ -39,7 +39,7 @@ const stop = () => {
   return lastBlockSentToBlockchain;
 };
 
-// parse the transactions found in a Steem block
+// parse the transactions found in a Hive block
 const parseTransactions = (refBlockNumber, block) => {
   const newTransactions = [];
   const transactionsLength = block.transactions.length;
@@ -83,7 +83,7 @@ const parseTransactions = (refBlockNumber, block) => {
             amount = operation[1].amount; // eslint-disable-line prefer-destructuring
             const transferParams = JSON.parse(operation[1].memo);
             id = transferParams.id; // eslint-disable-line prefer-destructuring
-            // multi transactions is not supported for the Steem transfers
+            // multi transactions is not supported for the Hive transfers
             if (Array.isArray(transferParams.json) && transferParams.json.length === 1) {
               sscTransactions = transferParams.json;
             } else if (!Array.isArray(transferParams.json)) {
@@ -157,7 +157,7 @@ const parseTransactions = (refBlockNumber, block) => {
                 && contractAction && typeof contractAction === 'string'
                 && contractPayload && typeof contractPayload === 'object') {
                 contractPayload.recipient = recipient;
-                contractPayload.amountSTEEMSBD = amount;
+                contractPayload.amountHIVEHBD = amount;
                 contractPayload.isSignedWithActiveKey = isSignedWithActiveKey;
                 contractPayload.permlink = permlink;
 
@@ -166,7 +166,7 @@ const parseTransactions = (refBlockNumber, block) => {
                 }
 
                 if (amount === null) {
-                  delete contractPayload.amountSTEEMSBD;
+                  delete contractPayload.amountHIVEHBD;
                 }
 
                 if (isSignedWithActiveKey === null) {
@@ -192,7 +192,7 @@ const parseTransactions = (refBlockNumber, block) => {
                 }
 
                 // if multi transactions
-                // append the index of the transaction to the Steem transaction id
+                // append the index of the transaction to the Hive transaction id
                 let SSCtransactionId = block.transaction_ids[i];
 
                 if (nbOperations > 1) {
@@ -247,17 +247,17 @@ const sendBlock = block => ipc.send(
 
 const getLatestBlockMetadata = () => database.getLatestBlockMetadata();
 
-// process Steem block
+// process Hive block
 const processBlock = async (block) => {
   if (stopStream) return;
 
   await sendBlock(
     {
-      // we timestamp the block with the Steem block timestamp
+      // we timestamp the block with the Hive block timestamp
       timestamp: block.timestamp,
-      refSteemBlockNumber: block.blockNumber,
-      refSteemBlockId: block.block_id,
-      prevRefSteemBlockId: block.previous,
+      refHiveBlockNumber: block.blockNumber,
+      refHiveBlockId: block.block_id,
+      prevRefHiveBlockId: block.previous,
       transactions: parseTransactions(
         block.blockNumber,
         block,
@@ -272,20 +272,20 @@ const updateGlobalProps = async () => {
   try {
     if (client !== null) {
       const globProps = await client.database.getDynamicGlobalProperties();
-      steemHeadBlockNumber = globProps.head_block_number;
-      const delta = steemHeadBlockNumber - currentSteemBlock;
+      hiveHeadBlockNumber = globProps.head_block_number;
+      const delta = hiveHeadBlockNumber - currentHiveBlock;
       // eslint-disable-next-line
-      console.log(`head_block_number ${steemHeadBlockNumber}`, `currentBlock ${currentSteemBlock}`, `Steem blockchain is ${delta > 0 ? delta : 0} blocks ahead`);
+      console.log(`head_block_number ${hiveHeadBlockNumber}`, `currentBlock ${currentHiveBlock}`, `Hive blockchain is ${delta > 0 ? delta : 0} blocks ahead`);
     }
     updaterGlobalPropsHandler = setTimeout(() => updateGlobalProps(), 10000);
   } catch (ex) {
-    console.error('An error occured while trying to fetch the Steem blockchain global properties'); // eslint-disable-line no-console
+    console.error('An error occured while trying to fetch the Hive blockchain global properties'); // eslint-disable-line no-console
   }
 };
 
 const addBlockToBuffer = async (block) => {
   const finalBlock = block;
-  finalBlock.blockNumber = currentSteemBlock;
+  finalBlock.blockNumber = currentHiveBlock;
 
   // if the buffer is full
   if (buffer.size() + 1 > antiForkBufferMaxSize) {
@@ -302,7 +302,7 @@ const addBlockToBuffer = async (block) => {
 const streamBlocks = async (reject) => {
   if (stopStream) return;
   try {
-    const block = await client.database.getBlock(currentSteemBlock);
+    const block = await client.database.getBlock(currentHiveBlock);
     let addBlockToBuf = false;
 
     if (block) {
@@ -313,16 +313,16 @@ const streamBlocks = async (reject) => {
           addBlockToBuf = true;
         } else {
           buffer.clear();
-          throw new ForkException(`a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`);
+          throw new ForkException(`a fork happened between block ${currentHiveBlock - 1} and block ${currentHiveBlock}`);
         }
       } else {
         // get the previous block
-        const prevBlock = await client.database.getBlock(currentSteemBlock - 1);
+        const prevBlock = await client.database.getBlock(currentHiveBlock - 1);
 
         if (prevBlock && prevBlock.block_id === block.previous) {
           addBlockToBuf = true;
         } else {
-          throw new ForkException(`a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`);
+          throw new ForkException(`a fork happened between block ${currentHiveBlock - 1} and block ${currentHiveBlock}`);
         }
       }
 
@@ -330,7 +330,7 @@ const streamBlocks = async (reject) => {
       if (addBlockToBuf === true) {
         await addBlockToBuffer(block);
       }
-      currentSteemBlock += 1;
+      currentHiveBlock += 1;
       streamBlocks(reject);
     } else {
       blockStreamerHandler = setTimeout(() => {
@@ -342,10 +342,10 @@ const streamBlocks = async (reject) => {
   }
 };
 
-const initSteemClient = (node, steemAddressPrefix, steemChainId) => {
+const initHiveClient = (node, hiveAddressPrefix, hiveChainId) => {
   client = new dsteem.Client(node, {
-    addressPrefix: steemAddressPrefix,
-    chainId: steemChainId,
+    addressPrefix: hiveAddressPrefix,
+    chainId: hiveChainId,
   });
 };
 
@@ -353,27 +353,27 @@ const startStreaming = (conf) => {
   const {
     streamNodes,
     chainId,
-    startSteemBlock,
-    steemAddressPrefix,
-    steemChainId,
+    startHiveBlock,
+    hiveAddressPrefix,
+    hiveChainId,
   } = conf;
-  currentSteemBlock = startSteemBlock;
+  currentHiveBlock = startHiveBlock;
   chainIdentifier = chainId;
   const node = streamNodes[0];
-  initSteemClient(node, steemAddressPrefix, steemChainId);
+  initHiveClient(node, hiveAddressPrefix, hiveChainId);
 
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
-    console.log('Starting Steem streaming at ', node); // eslint-disable-line no-console
+    console.log('Starting Hive streaming at ', node); // eslint-disable-line no-console
 
     streamBlocks(reject);
   }).catch((err) => {
     console.error('Stream error:', err.message, 'with', node); // eslint-disable-line no-console
     streamNodes.push(streamNodes.shift());
-    startStreaming(Object.assign({}, conf, { startSteemBlock: getCurrentBlock() }));
+    startStreaming(Object.assign({}, conf, { startHiveBlock: getCurrentBlock() }));
   });
 };
 
-// stream the Steem blockchain to find transactions related to the sidechain
+// stream the Hive blockchain to find transactions related to the sidechain
 const init = async (conf) => {
   const {
     databaseURL,
@@ -383,12 +383,12 @@ const init = async (conf) => {
 
   database = new Database();
   await database.init(databaseURL, databaseName);
-  // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
+  // get latest block metadata to ensure that startHiveBlock saved in the config.json is not lower
   const block = await getLatestBlockMetadata();
   if (block) {
-    if (finalConf.startSteemBlock < block.refSteemBlockNumber) {
-      console.log('adjusted startSteemBlock automatically as it was lower that the refSteemBlockNumber available');
-      finalConf.startSteemBlock = block.refSteemBlockNumber + 1;
+    if (finalConf.startHiveBlock < block.refHiveBlockNumber) {
+      console.log('adjusted startHiveBlock automatically as it was lower that the refHiveBlockNumber available'); // eslint-disable-line no-console
+      finalConf.startHiveBlock = block.refHiveBlockNumber + 1;
     }
   }
 

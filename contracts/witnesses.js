@@ -403,7 +403,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', schedule);
         params.currentWitness = witness.account;
         params.lastWitnesses.push(witness.account);
-        params.blockNumberWitnessChange = api.refSteemBlockNumber
+        params.blockNumberWitnessChange = api.refHiveBlockNumber
           + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
         await api.db.update('params', params);
 
@@ -458,7 +458,7 @@ const changeCurrentWitness = async () => {
         await api.db.update('schedules', sched);
         params.currentWitness = newWitness;
         params.lastWitnesses.push(newWitness);
-        params.blockNumberWitnessChange = api.refSteemBlockNumber
+        params.blockNumberWitnessChange = api.refHiveBlockNumber
           + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
         await api.db.update('params', params);
 
@@ -667,17 +667,17 @@ const manageWitnessesSchedule = async () => {
       params.currentWitness = lastWitnessRoundSchedule.witness;
       lastWitnesses.push(lastWitnessRoundSchedule.witness);
       params.lastWitnesses = lastWitnesses;
-      params.blockNumberWitnessChange = api.refSteemBlockNumber
+      params.blockNumberWitnessChange = api.refHiveBlockNumber
         + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
       await api.db.update('params', params);
       api.emit('newSchedule', { });
     }
-  } else if (api.refSteemBlockNumber >= blockNumberWitnessChange) {
+  } else if (api.refHiveBlockNumber >= blockNumberWitnessChange) {
     if (api.blockNumber > lastBlockRound) {
       // otherwise we change the current witness if it has not proposed the round in time
       await changeCurrentWitness();
     } else {
-      params.blockNumberWitnessChange = api.refSteemBlockNumber
+      params.blockNumberWitnessChange = api.refHiveBlockNumber
         + MAX_ROUND_PROPOSITION_WAITING_PERIOD;
       await api.db.update('params', params);
       api.emit('awaitingRoundEnd', { });
