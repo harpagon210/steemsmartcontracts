@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import operator
 import argparse
 import requests
 import json
@@ -14,6 +15,7 @@ excludedAccounts = { 'null': 1, 'steemsc': 1, 'steem-tokens': 1, 'steem-peg': 1,
 # start parsing command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--symbol', help='Steem Engine token symbol to snapshot', default='', nargs=1)
+parser.add_argument('-o', '--order',  help='Order accounts by balance (largest first), instead of alphabetically', default=False, action='store_true')
 args = parser.parse_args()
 
 def fetchData(contract, table, offset, limit, query):
@@ -119,12 +121,25 @@ if __name__ == '__main__':
     # output final results
     count = 0
     balanceTotal = Decimal('0')
-    for account in sorted(accountData):
-        if accountData[account] > Decimal(0) and account not in excludedAccounts:
-            finalBalance = accountData[account].quantize(unitAmount, rounding=ROUND_HALF_DOWN)
-            print(account, '{0:f}'.format(finalBalance))
-            balanceTotal = balanceTotal + finalBalance
-            count += 1
+    if args.order:
+        # sort in descending order of account balances
+        sortedAccountData = sorted(accountData.items(), key=operator.itemgetter(1), reverse=True)
+        for data in sortedAccountData:
+            account = data[0]
+            balance = data[1]
+            if balance > Decimal(0) and account not in excludedAccounts:
+                finalBalance = balance.quantize(unitAmount, rounding=ROUND_HALF_DOWN)
+                print(account, '{0:f}'.format(finalBalance))
+                balanceTotal = balanceTotal + finalBalance
+                count += 1
+    else:
+        # sort alphabetically (default option)
+        for account in sorted(accountData):
+            if accountData[account] > Decimal(0) and account not in excludedAccounts:
+                finalBalance = accountData[account].quantize(unitAmount, rounding=ROUND_HALF_DOWN)
+                print(account, '{0:f}'.format(finalBalance))
+                balanceTotal = balanceTotal + finalBalance
+                count += 1
 
     print('')
     print(count, 'accounts total')
