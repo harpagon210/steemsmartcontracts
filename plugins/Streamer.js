@@ -313,7 +313,9 @@ const streamBlocks = async (reject) => {
           addBlockToBuf = true;
         } else {
           buffer.clear();
-          throw new ForkException(`a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`);
+          const msg = `a fork happened between block ${currentSteemBlock - 1} and block ${currentSteemBlock}`;
+          currentSteemBlock = lastBlockSentToBlockchain + 1;
+          throw new ForkException(msg);
         }
       } else {
         // get the previous block
