@@ -339,6 +339,7 @@ class SmartContracts {
           db,
           BigNumber,
           validator,
+          logs: () => JSON.parse(JSON.stringify(results.logs)),
           random: () => rng(),
           SHA256: (payloadToHash) => {
             if (typeof payloadToHash === 'string') {
