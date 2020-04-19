@@ -385,12 +385,13 @@ const init = async (conf) => {
 
   database = new Database();
   await database.init(databaseURL, databaseName);
-  // get latest block metadata to ensure that startSteemBlock saved in the config.json is not lower
-  const res = await getLatestBlockMetadata();
-  if (res && res.payload) {
-    if (finalConf.startSteemBlock < res.payload.refSteemBlockNumber) {
-      console.log('adjusted startSteemBlock automatically as it was lower that the refSteemBlockNumber available');
-      finalConf.startSteemBlock = res.payload.refSteemBlockNumber + 1;
+
+  // get latest block metadata to ensure that startHiveBlock saved in the config.json is not lower
+  const block = await getLatestBlockMetadata();
+  if (block) {
+    if (finalConf.startSteemBlock < block.refSteemBlockNumber) {
+      console.log('adjusted startHiveBlock automatically as it was lower that the refHiveBlockNumber available'); // eslint-disable-line no-console
+      finalConf.startSteemBlock = block.refSteemBlockNumber + 1;
     }
   }
 
